@@ -60,7 +60,11 @@ export default function ContextBubble({
     setHoveredNode,
     hoveredNodeId,
     opinionSources,
-    markNodeSource
+    markNodeSource,
+    validation,
+    validateNode,
+    rejectNode,
+    markNodePending
   } = useVisualization();
   
   // Determine if this node is selected (either as primary or in multi-select)
