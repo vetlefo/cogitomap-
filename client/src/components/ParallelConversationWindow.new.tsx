@@ -51,8 +51,7 @@ export default function ParallelConversationWindow({
   // Visualization integration
   const { addNode, addEdge, nodes: windowNodes } = useVisualization();
   
-  // Audio
-  const { playHit, playSuccess } = useAudio();
+  // Audio functionality removed
   
   // Check if an API key is needed
   const needsApiKey = !apiKeys[selectedProvider];
@@ -145,8 +144,7 @@ export default function ParallelConversationWindow({
         }
       );
       
-      // Play success sound
-      playSuccess();
+      // Audio functionality removed
       
       // Once we have the response, update the message
       setMessages([initialMessages[0], {
@@ -192,8 +190,7 @@ export default function ParallelConversationWindow({
       return;
     }
     
-    // Play sound effect
-    playHit();
+    // Audio functionality removed
     
     // Add user message
     const userMessage: Message = { role: 'user', content: inputValue };
@@ -300,8 +297,7 @@ export default function ParallelConversationWindow({
         }
       );
       
-      // Play success sound
-      playSuccess();
+      // Audio functionality removed
       
       // Handle different response formats (structured vs. standard)
       let assistantMessage: Message;
