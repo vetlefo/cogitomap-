@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendMessage, useLLM, LLMProvider } from '../lib/stores/useOpenAI';
+import { sendMessage as sendLLMMessage, useLLM, LLMProvider } from '../lib/stores/useOpenAI';
 import ApiKeyModal from './ApiKeyModal';
 import ModelSelector from './ModelSelector';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
-import { BubbleNode, Message } from '../types';
+import { BubbleNode, Message, Edge } from '../types';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { useAudio } from '../lib/stores/useAudio';
 
@@ -44,7 +44,7 @@ export default function ParallelConversationWindow({
   } = useLLM();
   
   // For visualization integration
-  const { addNode } = useVisualization();
+  const { addNode, addEdge, nodes: windowNodes } = useVisualization();
   
   // Audio feedback
   const { playHit, playSuccess } = useAudio();
@@ -89,29 +89,37 @@ export default function ParallelConversationWindow({
       // Add the node to visualization state
       addNode(userNode);
       
-      // Send to API
-      const response = await sendMessage(updatedMessages);
+      // Send to API using the LLM store
+      const response = await sendLLMMessage(
+        updatedMessages,
+        {
+          apiKey: apiKeys[selectedProvider],
+          model: selectedModel,
+          provider: selectedProvider,
+          structured: true
+        }
+      );
       
       // Play success sound
       playSuccess();
       
       // Handle structured response
-      let assistantMessage: Message;
-      let assistantNode: BubbleNode;
+      let assistantMessage: Message = response;
+      const aiNodeId = `assistant-${windowId}-${Date.now()}`;
       
-      if (response && typeof response === 'object' && 'main_response' in response) {
-        // This is a structured response
-        assistantMessage = {
-          role: 'assistant',
-          content: response.main_response
-        };
-        
+      if (response && typeof response === 'object' && response.content) {
         // Create node with enhanced information from structured output
-        assistantNode = analyzeMessage(
+        const assistantAnalysis = analyzeMessage(
           assistantMessage,
           [...updatedMessages], // Include user message
-          windowId
+          windowNodes
         );
+        
+        // Create assistant node with proper ID
+        const assistantNode: BubbleNode = {
+          ...assistantAnalysis.node,
+          id: aiNodeId
+        };
         
         // Enhance node with structured data
         if (response.identified_topics) {
@@ -124,6 +132,26 @@ export default function ParallelConversationWindow({
                                  response.sentiment === 'negative' ? 0.2 : 0;
           assistantNode.importance = Math.min(1, assistantNode.importance + sentimentBoost);
         }
+        // Add all the semantic connections for this node
+        assistantAnalysis.connections.forEach(edge => {
+          // Update the target to use our actual node ID
+          const updatedEdge = {
+            ...edge,
+            target: aiNodeId
+          };
+          addEdge(updatedEdge);
+        });
+        
+        // Always add a direct connection between the latest user message and this response
+        addEdge({
+          id: `edge-convo-${windowId}-${Date.now()}`,
+          source: userNodeId,
+          target: aiNodeId,
+          strength: 0.8 // Strong connection for direct conversation flow
+        });
+        
+        // Add the assistant node to the visualization
+        addNode(assistantNode);
       } else {
         // Regular response
         assistantMessage = {
@@ -133,16 +161,43 @@ export default function ParallelConversationWindow({
             : String(response)
         };
         
-        assistantNode = analyzeMessage(
+        // Create node with enhanced information
+        const assistantAnalysis = analyzeMessage(
           assistantMessage,
           [...updatedMessages],
-          windowId
+          windowNodes
         );
+        
+        // Create assistant node with proper ID
+        const assistantNode: BubbleNode = {
+          ...assistantAnalysis.node,
+          id: aiNodeId
+        };
+        
+        // Add all the semantic connections for this node
+        assistantAnalysis.connections.forEach(edge => {
+          // Update the target to use our actual node ID
+          const updatedEdge = {
+            ...edge,
+            target: aiNodeId
+          };
+          addEdge(updatedEdge);
+        });
+        
+        // Always add a direct connection between the latest user message and this response
+        addEdge({
+          id: `edge-convo-${windowId}-${Date.now()}`,
+          source: userNodeId,
+          target: aiNodeId,
+          strength: 0.8 // Strong connection for direct conversation flow
+        });
+        
+        // Add the assistant node to the visualization
+        addNode(assistantNode);
       }
       
-      // Add assistant message and node
+      // Add assistant message to the chat
       setMessages([...updatedMessages, assistantMessage]);
-      addNode(assistantNode);
       
     } catch (error) {
       console.error('Error sending message:', error);
