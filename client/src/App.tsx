@@ -8,6 +8,7 @@ import ParallelWindowsManager from "./components/ParallelWindowsManager";
 import ModelSelector from "./components/ModelSelector";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
+import { useAudio } from "./lib/stores/useAudio";
 import "../src/styles/cyberpunk.css";
 
 function App() {
