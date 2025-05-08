@@ -12,7 +12,13 @@ interface ContextVisualizerProps {
 }
 
 export default function ContextVisualizer({ showDrones }: ContextVisualizerProps) {
-  const { nodes, edges, selectedNodes } = useVisualization();
+  const { 
+    nodes, 
+    edges, 
+    selectedNodes,
+    opinionSources 
+  } = useVisualization();
+  
   const edgeLinesRef = useRef<THREE.Group | null>(null);
   const keyboardState = useKeyboardState();
   
@@ -50,14 +56,17 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       // 1. Conversation flow (direct Q&A pairs)
       // 2. Semantic similarity (concept relationships)
       // 3. Topic similarity (thematic connections)
+      // 4. Second opinion connections (added feature)
       const conversationPoints: number[] = [];
       const semanticPoints: number[] = [];
       const topicPoints: number[] = [];
+      const secondOpinionPoints: number[] = [];  // New array for second opinion connections
       
       // Color values for different connection types
       const conversationColor = new THREE.Color(0x00dbff); // Bright cyan
       const semanticColor = new THREE.Color(0x00acff);     // Mid blue
       const topicColor = new THREE.Color(0x007aff);        // Deep blue
+      const secondOpinionColor = new THREE.Color(0xff00ff); // Magenta for second opinions
       
       // Process each edge
       edges.forEach(edge => {
@@ -68,13 +77,24 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
           const sourcePos = sourceData.position;
           const targetPos = targetData.position;
           
+          // Check if either source or target is from a second opinion source
+          const sourceNodeId = edge.source;
+          const targetNodeId = edge.target;
+          const isSourceSecondOpinion = opinionSources[sourceNodeId] && opinionSources[sourceNodeId] !== 'main';
+          const isTargetSecondOpinion = opinionSources[targetNodeId] && opinionSources[targetNodeId] !== 'main';
+          const isSecondOpinionEdge = isSourceSecondOpinion || isTargetSecondOpinion;
+          
           // Determine connection type based on edge metadata
           // High strength (0.8-1.0) = direct conversation flow
           // Medium strength (0.4-0.7) = semantic relationship
           // Low strength (0.1-0.3) = topic similarity
+          // Any second opinion edges go to the special category
           let points: number[];
           
-          if (edge.strength >= 0.8) {
+          if (isSecondOpinionEdge) {
+            // Second opinions always use the distinct second opinion points
+            points = secondOpinionPoints;
+          } else if (edge.strength >= 0.8) {
             points = conversationPoints;
           } else if (edge.strength >= 0.4) {
             points = semanticPoints;
@@ -205,6 +225,38 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
         linesGroup.add(topicLines);
       }
       
+      // Create second opinion connections (bright, dashed, distinctive)
+      if (secondOpinionPoints.length > 0) {
+        const secondOpinionGeometry = new THREE.BufferGeometry();
+        secondOpinionGeometry.setAttribute(
+          'position', 
+          new THREE.Float32BufferAttribute(secondOpinionPoints, 3)
+        );
+        
+        // Create a dashed line material for second opinions to make them stand out
+        const secondOpinionMaterial = new THREE.LineDashedMaterial({ 
+          color: secondOpinionColor,
+          transparent: true,
+          opacity: 0.8,
+          linewidth: 2,   // Thicker lines
+          scale: 1,       // Scale of the dashes
+          dashSize: 3,    // Length of the dashes
+          gapSize: 1,     // Length of the gaps
+          blending: THREE.AdditiveBlending
+        });
+        
+        const secondOpinionLines = new THREE.LineSegments(secondOpinionGeometry, secondOpinionMaterial);
+        
+        // Need to compute line distances for dashed lines to work
+        secondOpinionLines.computeLineDistances();
+        
+        // Add to scene
+        secondOpinionLines.userData.isSecondOpinion = true; // Mark for special animations
+        linesGroup.add(secondOpinionLines);
+        
+        console.log("Added second opinion connections:", secondOpinionPoints.length / 6, "edges");
+      }
+      
       // Store the group in our ref
       edgeLinesRef.current = linesGroup;
       
@@ -240,18 +292,41 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       // Apply pulse animation to each line segment in the group
       edgeLinesRef.current.traverse((child) => {
         if (child instanceof THREE.LineSegments) {
-          const material = child.material as THREE.LineBasicMaterial;
-          if (material && !Array.isArray(material)) {
-            // Check what index this child is in the group to determine animation
-            const childIndex = child.parent?.children.indexOf(child) || 0;
+          // Check if this is a second opinion line
+          const isSecondOpinion = child.userData.isSecondOpinion === true;
+          
+          if (isSecondOpinion && child.material instanceof THREE.LineDashedMaterial) {
+            // Special animation for second opinion lines
+            const material = child.material as THREE.LineDashedMaterial;
             
-            // Different animations based on child index
-            if (childIndex === 0) { // Conversation lines
-              material.opacity = 0.6 + Math.sin(state.clock.getElapsedTime() * 2.5) * 0.25;
-            } else if (childIndex === 1) { // Semantic lines
-              material.opacity = 0.4 + Math.sin(state.clock.getElapsedTime() * 1.8) * 0.2;
-            } else { // Topic lines
-              material.opacity = 0.3 + Math.sin(state.clock.getElapsedTime() * 1.2) * 0.15;
+            // Animated dash movement
+            material.dashSize = 3 + Math.sin(state.clock.getElapsedTime() * 2) * 1;
+            material.gapSize = 1 + Math.cos(state.clock.getElapsedTime() * 3) * 0.5;
+            
+            // Pulsating opacity
+            material.opacity = 0.7 + Math.sin(state.clock.getElapsedTime() * 4) * 0.3;
+            
+            // Cycling color hue
+            const hue = (state.clock.getElapsedTime() * 0.1) % 1;
+            material.color.setHSL(hue, 0.8, 0.6);
+            
+            // Need to update this for the changes to take effect
+            material.needsUpdate = true;
+          } else {
+            // Standard animations for regular lines
+            const material = child.material as THREE.LineBasicMaterial;
+            if (material && !Array.isArray(material)) {
+              // Check what index this child is in the group to determine animation
+              const childIndex = child.parent?.children.indexOf(child) || 0;
+              
+              // Different animations based on child index
+              if (childIndex === 0) { // Conversation lines
+                material.opacity = 0.6 + Math.sin(state.clock.getElapsedTime() * 2.5) * 0.25;
+              } else if (childIndex === 1) { // Semantic lines
+                material.opacity = 0.4 + Math.sin(state.clock.getElapsedTime() * 1.8) * 0.2;
+              } else { // Topic lines
+                material.opacity = 0.3 + Math.sin(state.clock.getElapsedTime() * 1.2) * 0.15;
+              }
             }
           }
         }
