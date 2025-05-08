@@ -147,18 +147,40 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     
     // Add selected message nodes for context
     // Find user and AI message nodes that are most relevant to the selected nodes
-    // Use 3-4 message pairs to provide adequate context
+    // Instead of just taking the latest messages, find messages related to selected nodes
     const messageNodesOfInterest = messageNodes
       .filter(messageNode => {
-        // Check if this message is related to any selected node
-        // For simplicity, we'll just take the most recent messages
-        return true;
-      })
-      .slice(-6); // Get the last 6 messages (3 exchanges)
+        // Look for messages that have connections to the selected topic/entity nodes
+        // Check if this message has any of the same keywords as the selected nodes
+        const messageKeywords = messageNode.keywords || [];
+        
+        // Check if this message's keywords overlap with any selected node's content
+        const hasRelatedKeywords = selectedNodes.some(selectedNode => {
+          // For topic nodes, look for direct matches
+          if (selectedNode.type === 'topic') {
+            return messageKeywords.includes(selectedNode.content.toLowerCase());
+          }
+          
+          // For entity nodes, look for matches as well
+          if (selectedNode.type === 'entity') {
+            return messageNode.content.toLowerCase().includes(selectedNode.content.toLowerCase());
+          }
+          
+          return false;
+        });
+        
+        // If we find a relationship, include this message
+        return hasRelatedKeywords;
+      });
+      
+    // If we don't find any related messages, fall back to the most recent ones
+    const finalMessageNodes = messageNodesOfInterest.length > 0 
+      ? messageNodesOfInterest 
+      : messageNodes.slice(-6); // Get the last 6 messages (3 exchanges)
     
-    if (messageNodesOfInterest.length > 0) {
+    if (finalMessageNodes.length > 0) {
       promptContent += '## Relevant Conversation Context\n';
-      messageNodesOfInterest.forEach(messageNode => {
+      finalMessageNodes.forEach(messageNode => {
         const prefix = messageNode.type === 'user_message' ? 'User: ' : 'Assistant: ';
         promptContent += `${prefix}${messageNode.content}\n\n`;
       });
@@ -167,7 +189,11 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     // Create a prompt for the second opinion
     const secondOpinionPrompt: Message = {
       role: 'user',
-      content: `I'd like your perspective on the following points extracted from our conversation. Please analyze these concepts and their relationships, and provide your insights. Feel free to make connections between them or highlight patterns I might have missed.\n\n${promptContent}\nPlease provide a thoughtful, well-structured analysis.`
+      content: `I've selected specific elements from our conversation and would like your perspective on them. Please analyze these concepts and their relationships, focusing especially on the selected topics and entities below.
+
+${promptContent}
+
+Consider the connections between these elements and provide a thoughtful, well-structured analysis. Feel free to highlight patterns or insights that might not be immediately obvious. I'm looking for a different perspective on these specific points.`
     };
     
     // Create a new window with this initial prompt

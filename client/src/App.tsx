@@ -11,6 +11,7 @@ import AuthButton from "./components/AuthButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useAudio } from "./lib/stores/useAudio";
+import { useKeyboardState } from "./hooks/useKeyboardState";
 import { AuthProvider } from "./hooks/useAuth";
 import "../src/styles/cyberpunk.css";
 
@@ -19,6 +20,9 @@ function App() {
   const [showDrones, setShowDrones] = useState(true);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const windowsManagerRef = useRef<ParallelWindowsManagerRef>(null);
+  
+  // Use the keyboard state to detect shift key for multi-select mode
+  const keyboardState = useKeyboardState();
   
   // Get state from the LLM store
   const { 
@@ -202,6 +206,30 @@ function App() {
           {isMuted ? "🔇 Sound Off" : "🔊 Sound On"}
         </button>
       </div>
+      
+      {/* Multi-select mode indicator */}
+      {keyboardState.shiftKey && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(100, 0, 150, 0.8)',
+            color: 'white',
+            padding: '8px 15px',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: '0 0 15px rgba(100, 0, 150, 0.5)',
+            zIndex: 1000,
+            animation: 'pulse 1.5s infinite',
+            border: '1px solid rgba(200, 100, 255, 0.6)'
+          }}
+        >
+          🔍 Multi-Select Mode (Shift) - Click nodes to select multiple
+        </div>
+      )}
 
       {/* API Key Modal */}
       <ApiKeyModal 
