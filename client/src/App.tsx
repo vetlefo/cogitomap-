@@ -6,6 +6,7 @@ import ChatInterface from "./components/ChatInterface";
 import ApiKeyModal from "./components/ApiKeyModal";
 import ParallelWindowsManager, { ParallelWindowsManagerRef } from "./components/ParallelWindowsManager";
 import SelectedNodesPanel from "./components/SelectedNodesPanel";
+import NodePanelToggle from "./components/NodePanelToggle";
 import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
@@ -191,6 +192,9 @@ function App() {
       
       {/* Selected Nodes Panel for Second Opinion feature */}
       <SelectedNodesPanel onRequestSecondOpinion={handleRequestSecondOpinion} />
+      
+      {/* Node Panel Toggle Button */}
+      <NodePanelToggle initialState={true} />
 
       {/* Controls */}
       <div id="controls">

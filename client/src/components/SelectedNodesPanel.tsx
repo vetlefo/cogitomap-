@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { BubbleNode } from '../types';
 import { useKeyboardState } from '../hooks/useKeyboardState';
@@ -12,6 +12,32 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
   const [showPanel, setShowPanel] = useState(true); // Start with panel visible
   const keyboardState = useKeyboardState();
   
+  // Track external panel toggle state by checking for the data attribute
+  useEffect(() => {
+    const checkForExternalToggle = () => {
+      const toggleElement = document.querySelector('[data-panel-visible]');
+      if (toggleElement) {
+        const isPanelVisible = toggleElement.getAttribute('data-panel-visible') === 'true';
+        setShowPanel(isPanelVisible);
+      }
+    };
+    
+    // Initial check
+    checkForExternalToggle();
+    
+    // Set up a mutation observer to watch for changes to the toggle element
+    const observer = new MutationObserver(checkForExternalToggle);
+    
+    observer.observe(document.body, {
+      childList: true, 
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-panel-visible']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
   // Get the actual node objects for the selected node IDs
   const selectedNodeObjects = selectedNodes
     .map(id => nodes.find(node => node.id === id))
@@ -21,8 +47,8 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
   console.log(`SelectedNodesPanel - Selected Node IDs: [${selectedNodes.join(', ')}]`);
   console.log(`SelectedNodesPanel - Found node objects: ${selectedNodeObjects.length}`);
   
-  // For debugging, we'll make the panel always visible
-  const isDebugMode = true; // Set to true for debugging, false for production
+  // For production, we'll only show the panel when there are nodes selected AND the toggle is on
+  const isDebugMode = false; // Set to false for production
   const hasSelectedNodes = selectedNodeObjects.length > 0;
   
   const handleRequestSecondOpinion = () => {
@@ -42,8 +68,8 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
     }
   };
   
-  // In debug mode, always show the panel
-  if (!hasSelectedNodes && !isDebugMode) {
+  // If panel is hidden via toggle, or no nodes are selected (and not in debug mode), don't render
+  if (!showPanel || (!hasSelectedNodes && !isDebugMode)) {
     return null;
   }
   

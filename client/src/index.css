@@ -328,3 +328,55 @@ canvas {
 .validation-buttons .reject-button:hover {
   background-color: rgba(210, 0, 70, 0.9);
 }
+
+/* Node Panel Toggle Button Styles */
+.node-panel-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+}
+
+.node-panel-button {
+  background-color: rgba(20, 20, 30, 0.8);
+  border: 1px solid rgba(100, 100, 255, 0.3);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.node-panel-button:hover {
+  background-color: rgba(30, 30, 40, 0.9);
+  border-color: rgba(120, 120, 255, 0.5);
+  box-shadow: 0 2px 12px rgba(100, 100, 255, 0.3);
+}
+
+.node-panel-button.active {
+  background-color: rgba(60, 60, 100, 0.8);
+  border-color: rgba(150, 150, 255, 0.5);
+}
+
+.node-panel-button.has-nodes {
+  border-color: rgba(0, 255, 255, 0.5);
+}
+
+.node-count {
+  background-color: rgba(0, 255, 255, 0.2);
+  color: #0ff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  margin-left: 8px;
+  border: 1px solid rgba(0, 255, 255, 0.4);
+}

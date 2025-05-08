@@ -190,8 +190,7 @@ export const useVisualization = create<VisualizationState>((set) => ({
         const strengthenedEdge = {
           ...existingEdge,
           strength: Math.min(existingEdge.strength * 1.5, 1.0), // Increase strength but cap at 1.0
-          relationship: 'supports' // Always mark as supporting relationship
-        };
+        } as Edge; // Cast to Edge type to avoid TypeScript errors
         
         // Replace the existing edge with the strengthened one
         const edgeIndex = newEdges.findIndex(e => e.id === existingEdge.id);
