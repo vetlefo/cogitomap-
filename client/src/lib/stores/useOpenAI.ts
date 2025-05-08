@@ -198,6 +198,12 @@ export async function sendMessage(
   // Use provided API key or fall back to stored key
   let apiKey = options.apiKey || state.apiKeys[provider];
   
+  // For environment variable keys, set to null to trigger server-side env lookup
+  if (apiKey === 'env-variable') {
+    console.log(`Using environment variable for ${provider} API key`);
+    apiKey = null; // Server will use environment variable instead
+  }
+  
   // If still no API key, try to use environment variable (will be checked server-side)
   if (!apiKey) {
     console.log(`No API key provided for ${provider}, falling back to server environment variables`);
