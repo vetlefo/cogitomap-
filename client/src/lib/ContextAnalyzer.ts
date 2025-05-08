@@ -1,94 +1,257 @@
-import { BubbleNode, Edge } from '../types';
+import { BubbleNode, Edge, Message, StructuredLLMOutput, NodeType, RelationshipType } from '../types';
 
 /**
- * Analyzes a message and its context to determine its position in 3D space
- * and other visualization properties. Now also returns potential connections to other nodes.
+ * Analyzes a message and its structured data to create visualization nodes and connections.
+ * Now leverages the LLM's structured output to create a richer knowledge graph.
  */
 export function analyzeMessage(
-  message: { role: string; content: string },
-  previousMessages: Array<{ role: string; content: string }>,
+  message: Message,
+  structuredData: StructuredLLMOutput | null,
+  previousMessageId: string | null,
   existingNodes: BubbleNode[] = []
 ): {
-  node: BubbleNode;
-  connections: Edge[];
+  newNodes: BubbleNode[];
+  newEdges: Edge[];
 } {
-  // Extract keywords from the message
-  const keywords = extractKeywords(message.content);
+  // Initialize arrays for new nodes and edges
+  const newNodes: BubbleNode[] = [];
+  const newEdges: Edge[] = [];
   
-  // Calculate the position based on the message content and position in conversation
-  let position = calculatePosition(message, previousMessages, keywords);
+  // Generate timestamp for unique ID creation
+  const timestamp = Date.now();
   
-  // Calculate how important this message is (for sizing the bubble)
-  const importance = calculateImportance(message, previousMessages, keywords);
+  // Create the primary message node (either user or assistant message)
+  const nodeType: NodeType = message.role === 'user' ? 'user_message' : 'ai_message';
   
-  // Create unique ID for the node
-  const id = `message-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  // If we have structured data, use it to enhance the node
+  let keywords: string[] | undefined = undefined;
+  let sentiment: 'positive' | 'negative' | 'neutral' | undefined = undefined;
   
-  // Create the bubble node
-  const node: BubbleNode = {
-    id,
+  if (structuredData) {
+    // Use the structured data for keywords and sentiment if available
+    keywords = structuredData.identified_topics || [];
+    sentiment = structuredData.sentiment;
+  } else {
+    // Fallback to basic keyword extraction for unstructured messages
+    keywords = extractKeywords(message.content);
+  }
+  
+  // Calculate position based on existing nodes, message type, and context
+  const position = calculatePosition({
+    role: message.role,
     content: message.content,
-    type: message.role as 'user' | 'assistant',
+    keywords: keywords || []
+  }, existingNodes);
+  
+  // Determine importance of the message
+  const importance = structuredData 
+    ? calculateSimplifiedImportance(nodeType, message.content, keywords) 
+    : calculateImportance({ role: message.role, content: message.content }, [], keywords || []);
+    
+  // Generate a unique ID for the main message node
+  const mainNodeId = `${nodeType}-${timestamp}-${Math.random().toString(36).substring(2, 9)}`;
+  
+  // Create the main message node
+  const mainNode: BubbleNode = {
+    id: mainNodeId,
+    content: structuredData?.summary || message.content,
+    type: nodeType,
     position,
     importance,
-    keywords
+    keywords,
+    sentiment
   };
   
-  // Generate connections to other relevant nodes
-  const connections: Edge[] = [];
+  // Add the main node to our result set
+  newNodes.push(mainNode);
   
-  // If this is a direct response to the previous message, create a strong connection
-  if (previousMessages.length > 0 && existingNodes.length > 0) {
-    const lastMessage = previousMessages[previousMessages.length - 1];
-    const lastNode = existingNodes.find(n => 
-      n.content === lastMessage.content && 
-      n.type === (lastMessage.role as 'user' | 'assistant')
-    );
-    
-    if (lastNode) {
-      // Direct sequential connection (Q&A pair or conversation flow)
-      connections.push({
-        id: `edge-${lastNode.id}-${node.id}`,
-        source: lastNode.id,
-        target: node.id,
-        strength: message.role === 'assistant' && lastMessage.role === 'user' ? 0.9 : 0.7 // Stronger for Q&A pairs
+  // If we have previous message ID, create a connection between messages
+  if (previousMessageId) {
+    const connectionType: RelationshipType = 
+      nodeType === 'ai_message' ? 'response_to' : 'mentions';
+      
+    newEdges.push({
+      id: `edge-${previousMessageId}-${mainNodeId}`,
+      source: previousMessageId,
+      target: mainNodeId,
+      strength: nodeType === 'ai_message' ? 0.9 : 0.7,
+      relationship: connectionType
+    });
+  }
+  
+  // If we have structured data, create additional nodes and connections
+  if (structuredData) {
+    // Process identified topics
+    if (structuredData.identified_topics) {
+      structuredData.identified_topics.forEach((topic, index) => {
+        // Create a topic node with slightly offset position
+        const topicNodeId = `topic-${timestamp}-${index}`;
+        const offset = calculateTopicOffset(index, structuredData.identified_topics?.length || 1);
+        
+        const topicNode: BubbleNode = {
+          id: topicNodeId,
+          content: topic,
+          type: 'topic',
+          position: {
+            x: position.x + offset.x,
+            y: position.y + offset.y,
+            z: position.z + offset.z
+          },
+          importance: calculateSimplifiedImportance('topic', topic),
+          // No keywords for topic nodes
+        };
+        
+        newNodes.push(topicNode);
+        
+        // Connect the topic to the main message
+        newEdges.push({
+          id: `edge-${mainNodeId}-${topicNodeId}`,
+          source: mainNodeId,
+          target: topicNodeId,
+          strength: 0.6,
+          relationship: 'mentions'
+        });
       });
+    }
+    
+    // Process key entities
+    if (structuredData.key_entities) {
+      structuredData.key_entities.forEach((entity, index) => {
+        // Create an entity node with offset position
+        const entityNodeId = `entity-${timestamp}-${index}`;
+        const offset = calculateEntityOffset(index, structuredData.key_entities?.length || 1);
+        
+        const entityNode: BubbleNode = {
+          id: entityNodeId,
+          content: entity.entity,
+          type: 'entity',
+          position: {
+            x: position.x + offset.x,
+            y: position.y + offset.y,
+            z: position.z + offset.z
+          },
+          importance: calculateSimplifiedImportance('entity', entity.entity),
+          metadata: { entityType: entity.type }
+        };
+        
+        newNodes.push(entityNode);
+        
+        // Connect the entity to the main message
+        newEdges.push({
+          id: `edge-${mainNodeId}-${entityNodeId}`,
+          source: mainNodeId,
+          target: entityNodeId,
+          strength: 0.5,
+          relationship: 'mentions'
+        });
+      });
+    }
+    
+    // Create a summary node if provided
+    if (structuredData.summary && structuredData.summary !== structuredData.main_response) {
+      const summaryNodeId = `summary-${timestamp}`;
+      
+      const summaryNode: BubbleNode = {
+        id: summaryNodeId,
+        content: structuredData.summary,
+        type: 'summary',
+        position: {
+          x: position.x,
+          y: position.y + 2.5, // Position summary above the main node
+          z: position.z,
+        },
+        importance: calculateSimplifiedImportance('summary', structuredData.summary),
+      };
+      
+      newNodes.push(summaryNode);
+      
+      // Connect the summary to the main message
+      newEdges.push({
+        id: `edge-${mainNodeId}-${summaryNodeId}`,
+        source: mainNodeId,
+        target: summaryNodeId,
+        strength: 0.8,
+        relationship: 'summarizes'
+      });
+    }
+    
+    // Process suggested follow-up questions
+    if (structuredData.suggested_followups && structuredData.suggested_followups.length > 0) {
+      // Only take the first question to avoid cluttering
+      const question = structuredData.suggested_followups[0];
+      const questionNodeId = `question-${timestamp}`;
+      
+      const questionNode: BubbleNode = {
+        id: questionNodeId,
+        content: question,
+        type: 'question',
+        position: {
+          x: position.x - 1.5, // Position question to the side
+          y: position.y - 1,
+          z: position.z + 1.5,
+        },
+        importance: calculateSimplifiedImportance('question', question),
+      };
+      
+      newNodes.push(questionNode);
+      
+      // Connect the question to the main message
+      newEdges.push({
+        id: `edge-${mainNodeId}-${questionNodeId}`,
+        source: mainNodeId,
+        target: questionNodeId,
+        strength: 0.4,
+        relationship: 'raises_question'
+      });
+    }
+    
+    // Process internal links if provided
+    if (structuredData.internal_links) {
+      // Note: This requires that we can map LLM-provided node IDs to our actual node IDs
+      // This could be enhanced in a future iteration
     }
   }
   
-  // Find connections based on semantic similarity (shared keywords)
+  // Also create connections based on semantic similarity to existing nodes
   for (const existingNode of existingNodes) {
-    // Skip the most recent node as we already connected to it
-    if (previousMessages.length > 0 && 
-        existingNode.content === previousMessages[previousMessages.length - 1].content) {
-      continue;
-    }
+    // Skip connecting to the previous message as we've already handled that
+    if (existingNode.id === previousMessageId) continue;
     
-    // Calculate semantic similarity
-    const sharedKeywords = keywords.filter(keyword => 
-      existingNode.keywords.some(k => 
-        k.includes(keyword) || keyword.includes(k)
-      )
-    );
+    // Only try to find connections if the existing node has keywords
+    if (!existingNode.keywords || existingNode.keywords.length === 0) continue;
     
-    const contentSimilarity = sharedKeywords.length / 
-                             Math.max(keywords.length, existingNode.keywords.length);
+    // Only consider connections between message nodes
+    if (!['user_message', 'ai_message'].includes(existingNode.type)) continue;
     
-    // Only create connections for sufficiently related nodes
-    if (sharedKeywords.length >= 2 || contentSimilarity > 0.3) {
-      connections.push({
-        id: `edge-semantic-${existingNode.id}-${node.id}`,
-        source: existingNode.id,
-        target: node.id,
-        strength: 0.2 + (contentSimilarity * 0.6) // 0.2 to 0.8 based on similarity
-      });
+    // Calculate semantic similarity if we have keywords to compare
+    if (keywords && keywords.length > 0) {
+      const sharedKeywords = keywords.filter(keyword => 
+        existingNode.keywords?.some(k => 
+          k.includes(keyword) || keyword.includes(k)
+        )
+      );
+      
+      const keywordsLength = Math.max(keywords.length, existingNode.keywords?.length || 0);
+      const contentSimilarity = keywordsLength > 0 ? 
+        sharedKeywords.length / keywordsLength : 0;
+      
+      // Only create connections for sufficiently related nodes
+      if (sharedKeywords.length >= 2 || contentSimilarity > 0.3) {
+        newEdges.push({
+          id: `edge-semantic-${existingNode.id}-${mainNodeId}`,
+          source: existingNode.id,
+          target: mainNodeId,
+          strength: 0.2 + (contentSimilarity * 0.6), // 0.2 to 0.8 based on similarity
+          relationship: 'mentions'
+        });
+      }
     }
   }
   
-  // Return both the node and its connections
+  // Return all new nodes and edges to be added to the visualization
   return {
-    node,
-    connections
+    newNodes,
+    newEdges
   };
 }
 
@@ -212,12 +375,41 @@ function extractKeywords(content: string): string[] {
 }
 
 /**
+ * Helper function to calculate position offset for topic nodes
+ */
+function calculateTopicOffset(index: number, totalTopics: number): { x: number; y: number; z: number } {
+  // Create a circular arrangement around the main node
+  const angle = (index / totalTopics) * Math.PI * 2;
+  const radius = 3 + (index * 0.2); // Increasing radius for each topic
+  
+  return {
+    x: Math.cos(angle) * radius,
+    y: 0.5 + (index * 0.2), // Slight y offset for better visibility
+    z: Math.sin(angle) * radius
+  };
+}
+
+/**
+ * Helper function to calculate position offset for entity nodes
+ */
+function calculateEntityOffset(index: number, totalEntities: number): { x: number; y: number; z: number } {
+  // Create a different arrangement for entities (below the main node)
+  const angle = (index / totalEntities) * Math.PI + (Math.PI / 4); // Semi-circle below
+  const radius = 2.5 + (index * 0.15);
+  
+  return {
+    x: Math.cos(angle) * radius,
+    y: -1.0 - (index * 0.3), // Position below the main node
+    z: Math.sin(angle) * radius
+  };
+}
+
+/**
  * Calculate the 3D position for a message node based on semantic meaning and conversation flow
  */
 function calculatePosition(
-  message: { role: string; content: string },
-  previousMessages: Array<{ role: string; content: string }>,
-  keywords: string[]
+  message: { role: string; content: string; keywords: string[] },
+  existingNodes: BubbleNode[]
 ): { x: number; y: number; z: number } {
   // Base position influenced by message role and content
   let position = {
@@ -231,14 +423,18 @@ function calculatePosition(
   // - Group by semantic similarity (keywords)
   // - User and AI messages form a conversational axis
   
-  const messageIndex = previousMessages.length;
-  const conversationProgress = Math.min(messageIndex / 15, 1); // Scale factor, max at 15 messages
+  // Determine message index based on existing nodes
+  const messageCount = existingNodes.filter(n => 
+    n.type === 'user_message' || n.type === 'ai_message'
+  ).length;
+  
+  const conversationProgress = Math.min(messageCount / 15, 1); // Scale factor, max at 15 messages
   
   // Create a pseudo-topic vector based on message keywords
-  const topicSeed = keywords.join('').length % 8; // 0-7 based on keywords
+  const topicSeed = message.keywords.join('').length % 8; // 0-7 based on keywords
   
   // Calculate main conversation angle - this creates a spiral effect
-  const angle = (messageIndex * 0.4 + topicSeed * 0.3) % (Math.PI * 2);
+  const angle = (messageCount * 0.4 + topicSeed * 0.3) % (Math.PI * 2);
   
   // Calculate radial distance - further out as conversation progresses
   // But keep a minimum distance to avoid cluttering at center
@@ -248,21 +444,30 @@ function calculatePosition(
   // But with semi-random placement within their domain to create clusters
   let radius = baseRadius;
   
-  // Position based on semantic relationship to previous messages if they exist
-  if (messageIndex > 0 && previousMessages.length > 0) {
-    const prevMsg = previousMessages[previousMessages.length - 1];
-    const isPrevMsgSameTopic = 
-      prevMsg && 
-      keywords.some(keyword => 
-        prevMsg.content.toLowerCase().includes(keyword.toLowerCase())
+  // Find the most recent node for continuity in the conversation
+  if (messageCount > 0 && existingNodes.length > 0) {
+    // Get most recent message node
+    const recentMessageNodes = existingNodes
+      .filter(n => n.type === 'user_message' || n.type === 'ai_message')
+      .sort((a, b) => b.id.localeCompare(a.id)); // Simple timestamp-based sort
+      
+    if (recentMessageNodes.length > 0) {
+      const prevNode = recentMessageNodes[0];
+      
+      // Check if this message is semantically related to the previous one
+      const isPrevMsgSameTopic = message.keywords.some(keyword => 
+        prevNode.keywords?.some(k => 
+          k.includes(keyword) || keyword.includes(k)
+        )
       );
-    
-    // Related messages are closer to their predecessors
-    radius = isPrevMsgSameTopic ? baseRadius * 0.7 : baseRadius * 1.1;
-    
-    // Direct responses stay closer to their questions
-    if (message.role === 'assistant' && prevMsg.role === 'user') {
-      radius *= 0.8;
+      
+      // Related messages are closer to their predecessors
+      radius = isPrevMsgSameTopic ? baseRadius * 0.7 : baseRadius * 1.1;
+      
+      // Direct responses stay closer to their questions
+      if (message.role === 'assistant' && prevNode.type === 'user_message') {
+        radius *= 0.8;
+      }
     }
   }
   
@@ -273,7 +478,7 @@ function calculatePosition(
   // Y-position based on message importance, length, and conversation depth
   const importanceFactor = Math.min(message.content.length / 300, 2); // Max 2x boost based on length
   position.y = (message.role === 'user' ? -1.5 : 1.5) + 
-               (messageIndex * 0.15) + // Gradual rise with conversation
+               (messageCount * 0.15) + // Gradual rise with conversation
                (importanceFactor * 0.8); // Important messages higher
   
   // Add subtle controlled variance to prevent perfect alignments
@@ -291,6 +496,53 @@ function calculatePosition(
   position.z += varianceZ;
   
   return position;
+}
+
+/**
+ * Simplified importance calculation for structured data
+ * Used when we have structured data from the LLM
+ */
+function calculateSimplifiedImportance(
+  messageType: NodeType,
+  content: string,
+  keywords?: string[]
+): number {
+  // Base importance based on node type
+  let importance = 0.4;
+  
+  switch (messageType) {
+    case 'summary':
+      importance = 0.7; // Summaries are important
+      break;
+    case 'topic':
+      importance = 0.5; // Topics are moderately important
+      break;
+    case 'entity':
+      importance = 0.4; // Entities are slightly less important
+      break;
+    case 'question':
+      importance = 0.6; // Questions are somewhat important
+      break;
+    case 'user_message':
+      importance = 0.55; // User messages are more important than AI responses
+      break;
+    case 'ai_message':
+      importance = 0.5; // AI responses are base importance
+      break;
+  }
+  
+  // Content length affects importance
+  const lengthFactor = Math.min(content.length / 500, 0.3);
+  importance += lengthFactor;
+  
+  // Keyword richness affects importance
+  if (keywords && keywords.length > 0) {
+    const keywordFactor = Math.min(keywords.length * 0.05, 0.2);
+    importance += keywordFactor;
+  }
+  
+  // Cap importance between 0.2 and 1.0
+  return Math.max(0.2, Math.min(importance, 1.0));
 }
 
 /**

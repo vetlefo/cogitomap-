@@ -47,8 +47,11 @@ export default function ChatInterface({
   // Initialize the graph with the welcome message
   useEffect(() => {
     if (nodes.length === 0 && messages.length > 0) {
-      const welcomeAnalysis = analyzeMessage(messages[0], [], []);
-      addNode(welcomeAnalysis.node);
+      const welcomeAnalysis = analyzeMessage(messages[0], null, null, []);
+      // Add all new nodes from the analysis
+      welcomeAnalysis.newNodes.forEach(node => addNode(node));
+      // Add all new edges from the analysis
+      welcomeAnalysis.newEdges.forEach(edge => addEdge(edge));
     }
   }, []);
 
@@ -75,25 +78,20 @@ export default function ChatInterface({
     
     try {
       // Create user node for visualization with improved semantic analysis
-      const userAnalysis = analyzeMessage(userMessage, messages, nodes);
-      const userNodeId = `user-${Date.now()}`;
+      const prevMessageId = nodes.length > 0 ? nodes[nodes.length - 1].id : null;
+      const userAnalysis = analyzeMessage(userMessage, null, prevMessageId, nodes);
       
-      // Add the user node with its proper ID
-      const userNode: BubbleNode = {
-        ...userAnalysis.node,
-        id: userNodeId
-      };
+      // Generate a unique ID for the main user node (should be the first one)
+      const userNodeId = userAnalysis.newNodes.length > 0 ? userAnalysis.newNodes[0].id : `user-${Date.now()}`;
       
-      addNode(userNode);
+      // Add all nodes from the analysis
+      userAnalysis.newNodes.forEach(node => {
+        addNode(node);
+      });
       
-      // Add all the semantic connections this node creates
-      userAnalysis.connections.forEach(edge => {
-        // Update the target to use our actual node ID
-        const updatedEdge = {
-          ...edge,
-          target: userNodeId
-        };
-        addEdge(updatedEdge);
+      // Add all edges from the analysis
+      userAnalysis.newEdges.forEach(edge => {
+        addEdge(edge);
       });
 
       // Use the proper model from store or props
