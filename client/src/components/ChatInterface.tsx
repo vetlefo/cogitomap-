@@ -53,9 +53,9 @@ export default function ChatInterface({
   // Send message to API and process response
   const handleSendMessage = async () => {
     // Use store-provided API key if not passed in props
-    const effectiveApiKey = apiKey || apiKeys[selectedProvider];
+    const effectiveApiKey = apiKey !== null ? apiKey : apiKeys[selectedProvider];
     
-    if (!input.trim() || !effectiveApiKey) return;
+    if (!input.trim() || effectiveApiKey === null) return;
     
     // Don't allow sending while processing
     if (isProcessing) return;
@@ -101,7 +101,7 @@ export default function ChatInterface({
       const assistantMessage = await sendLLMMessage(
         [...messages, userMessage],
         {
-          apiKey: effectiveApiKey,
+          apiKey: effectiveApiKey === null ? undefined : effectiveApiKey,
           model: effectiveModel,
           provider: selectedProvider,
           structured
