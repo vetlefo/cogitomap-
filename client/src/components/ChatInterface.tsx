@@ -100,7 +100,7 @@ export default function ChatInterface({
       const effectiveModel = selectedModel || storeSelectedModel;
       
       // Send to API using the central LLM store function
-      const assistantMessage = await sendLLMMessage(
+      const response = await sendLLMMessage(
         [...messages, userMessage],
         {
           apiKey: effectiveApiKey === null ? undefined : effectiveApiKey,
@@ -109,6 +109,20 @@ export default function ChatInterface({
           structured
         }
       );
+      
+      // Handle different response formats (structured vs. standard)
+      let assistantMessage: Message;
+      if (response.main_response) {
+        // This is a structured response
+        assistantMessage = {
+          role: 'assistant',
+          content: response.main_response
+        };
+        console.log('Received structured response:', response);
+      } else {
+        // This is a standard message object
+        assistantMessage = response;
+      }
       
       // Play success sound
       playSuccess();
