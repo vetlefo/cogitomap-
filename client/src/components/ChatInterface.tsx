@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
+import { BubbleNode } from '../types';
 
 interface ChatInterfaceProps {
   visible: boolean;
@@ -19,7 +20,7 @@ export default function ChatInterface({
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { addNode, addEdge, clearAll } = useVisualization();
+  const { addNode, addEdge, nodes, clearAll } = useVisualization();
   
   // Auto-scroll chat to bottom when new messages come in
   useEffect(() => {
@@ -27,6 +28,14 @@ export default function ChatInterface({
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Initialize the graph with the welcome message
+  useEffect(() => {
+    if (nodes.length === 0 && messages.length > 0) {
+      const welcomeAnalysis = analyzeMessage(messages[0], [], []);
+      addNode(welcomeAnalysis.node);
+    }
+  }, []);
 
   // Send message to API and process response
   const sendMessage = async () => {
@@ -44,15 +53,26 @@ export default function ChatInterface({
     setIsProcessing(true);
     
     try {
-      // Create user node for visualization
-      const userNode = analyzeMessage(userMessage, messages);
-      addNode({
-        id: `user-${Date.now()}`,
-        content: userMessage.content,
-        type: 'user',
-        position: userNode.position,
-        importance: userNode.importance,
-        keywords: userNode.keywords
+      // Create user node for visualization with improved semantic analysis
+      const userAnalysis = analyzeMessage(userMessage, messages, nodes);
+      const userNodeId = `user-${Date.now()}`;
+      
+      // Add the user node with its proper ID
+      const userNode: BubbleNode = {
+        ...userAnalysis.node,
+        id: userNodeId
+      };
+      
+      addNode(userNode);
+      
+      // Add all the semantic connections this node creates
+      userAnalysis.connections.forEach(edge => {
+        // Update the target to use our actual node ID
+        const updatedEdge = {
+          ...edge,
+          target: userNodeId
+        };
+        addEdge(updatedEdge);
       });
 
       // Send to API
@@ -78,25 +98,42 @@ export default function ChatInterface({
       // Update messages with assistant response
       setMessages(prev => [...prev, assistantMessage]);
       
-      // Create assistant node and edge for visualization
-      const assistantNode = analyzeMessage(assistantMessage, [...messages, userMessage]);
+      // Create assistant node and semantic connections for visualization
+      // We include the user message we just added in the messages for context
+      const updatedNodes = [...nodes, userNode];
+      const assistantAnalysis = analyzeMessage(
+        assistantMessage, 
+        [...messages, userMessage],
+        updatedNodes
+      );
+      
       const aiNodeId = `ai-${Date.now()}`;
       
-      addNode({
-        id: aiNodeId,
-        content: assistantMessage.content,
-        type: 'assistant',
-        position: assistantNode.position,
-        importance: assistantNode.importance, 
-        keywords: assistantNode.keywords
+      // Add the assistant node with its proper ID
+      const assistantNode: BubbleNode = {
+        ...assistantAnalysis.node,
+        id: aiNodeId
+      };
+      
+      addNode(assistantNode);
+      
+      // Add semantic connections for the assistant node
+      assistantAnalysis.connections.forEach(edge => {
+        // Update the target to use our actual node ID
+        const updatedEdge = {
+          ...edge,
+          target: aiNodeId
+        };
+        addEdge(updatedEdge);
       });
       
-      // Add edge connecting user message to AI response
+      // Always add a direct connection between the latest user message and this response
+      // This ensures the conversation flow is visually clear
       addEdge({
-        id: `edge-${Date.now()}`,
-        source: `user-${Date.now() - 100}`, // Approximate ID of the last user node
+        id: `edge-convo-${Date.now()}`,
+        source: userNodeId,
         target: aiNodeId,
-        strength: 0.8
+        strength: 0.9 // Strong connection for direct conversation flow
       });
       
     } catch (error) {
