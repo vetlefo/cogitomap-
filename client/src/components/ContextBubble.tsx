@@ -444,6 +444,59 @@ export default function ContextBubble({
                 ))}
               </div>
             )}
+            {/* Validation UI for second opinion nodes */}
+            {nodeSource !== 'main' && (
+              <div className="validation-container">
+                <div className="validation-header">
+                  <span className="validation-source">Second Opinion Source</span>
+                </div>
+                
+                {/* Validation status indicators */}
+                {validation.validated.includes(node.id) && (
+                  <div className="validation-status validated">
+                    ✓ Validated - Added to main graph
+                  </div>
+                )}
+                
+                {validation.rejected.includes(node.id) && (
+                  <div className="validation-status rejected">
+                    ✗ Rejected - Not integrated
+                  </div>
+                )}
+                
+                {validation.pending.includes(node.id) && (
+                  <div className="validation-status pending">
+                    ⟳ Pending review...
+                  </div>
+                )}
+                
+                {/* Validation action buttons - only show if not already validated/rejected */}
+                {!validation.validated.includes(node.id) && 
+                 !validation.rejected.includes(node.id) && (
+                  <div className="validation-buttons">
+                    <button 
+                      className="validate-button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Don't trigger node click
+                        validateNode(node.id);
+                      }}
+                    >
+                      Validate & Integrate
+                    </button>
+                    <button 
+                      className="reject-button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Don't trigger node click
+                        rejectNode(node.id);
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="bubble-footer">
               {active ? 'Click to hide details' : 'Click to lock view'}
             </div>
