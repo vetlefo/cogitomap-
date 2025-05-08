@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Html, useTexture, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from "@react-three/drei";
 import { BubbleNode } from "../types";
+import { useVisualization } from "../lib/stores/useVisualization";
 
 // Utility function to blend two hex colors
 function blendColors(color1: number, color2: number, ratio: number): number {
@@ -29,13 +30,15 @@ interface ContextBubbleProps {
   onClick?: (node: BubbleNode) => void;
   pulsate?: boolean;
   scale?: number;
+  source?: string; // The source window/conversation ID for "second opinion" feature
 }
 
 export default function ContextBubble({ 
   node, 
   onClick,
   pulsate = true, 
-  scale = 1 
+  scale = 1,
+  source = 'main'
 }: ContextBubbleProps) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -44,29 +47,55 @@ export default function ContextBubble({
   const [active, setActive] = useState(false);
   const [showText, setShowText] = useState(false);
   
+  // Get state from the visualization store
+  const { 
+    selectedNodeId,
+    selectedNodes, 
+    toggleNodeSelection,
+    selectNode,
+    setHoveredNode,
+    hoveredNodeId,
+    opinionSources,
+    markNodeSource
+  } = useVisualization();
+  
+  // Determine if this node is selected (either as primary or in multi-select)
+  const isSelected = selectedNodeId === node.id || selectedNodes.includes(node.id);
+  const isHovered = hoveredNodeId === node.id || hovered;
+  
+  // Set the source window/conversation for this node when it's created
+  useEffect(() => {
+    if (source && node.id) {
+      markNodeSource(node.id, source);
+    }
+  }, [node.id, source, markNodeSource]);
+  
+  // Get the actual source from store or use the prop
+  const nodeSource = node.id && opinionSources[node.id] ? opinionSources[node.id] : source;
+  
   // Enhanced colors based on node type with more vibrance
   let color = 0x00ff99; // Default color (AI assistant)
   let emissiveIntensity = 0.6;
   
-  // Color mapping for different node types
+  // Color mapping for different node types, with 'second opinion' variations
   switch (node.type) {
     case 'user_message':
-      color = 0x0088ff; // Blue for user messages
+      color = nodeSource === 'main' ? 0x0088ff : 0x8844ff; // Blue for main, purple for second opinion
       break;
     case 'ai_message':
-      color = 0x00ff99; // Green for AI messages
+      color = nodeSource === 'main' ? 0x00ff99 : 0x66ccaa; // Green for main, teal for second opinion
       break;
     case 'topic':
-      color = 0xaa44cc; // Purple for topics
+      color = nodeSource === 'main' ? 0xaa44cc : 0xdd66ee; // Purple for main, light purple for second opinion
       break;
     case 'entity':
-      color = 0xff8800; // Orange for entities
+      color = nodeSource === 'main' ? 0xff8800 : 0xffaa44; // Orange for main, light orange for second opinion
       break;
     case 'summary':
-      color = 0xffcc00; // Yellow for summaries
+      color = nodeSource === 'main' ? 0xffcc00 : 0xffdd66; // Yellow for main, light yellow for second opinion
       break;
     case 'question':
-      color = 0xff4444; // Red for questions
+      color = nodeSource === 'main' ? 0xff4444 : 0xff6699; // Red for main, pink for second opinion
       break;
   }
   
@@ -83,14 +112,22 @@ export default function ContextBubble({
     }
   }
   
-  if (hovered) {
+  // Apply hover effect
+  if (isHovered) {
     color = blendColors(color, 0xffffff, 0.3); // Lighten on hover
     emissiveIntensity = 0.8;
   }
   
-  if (active) {
-    color = 0xff9900;
-    emissiveIntensity = 1.0;
+  // Apply active/selected effects
+  if (active || isSelected) {
+    color = isSelected ? 0xffffff : 0xff9900; // White for selected, orange for active
+    emissiveIntensity = isSelected ? 1.2 : 1.0; // Brighter for selected
+  }
+  
+  // Apply special effect for second opinion nodes
+  if (nodeSource !== 'main') {
+    // Add a slight pulsation for second opinion nodes
+    emissiveIntensity *= 1.1;
   }
 
   // Pulsation animation with more organic feel
@@ -147,7 +184,8 @@ export default function ContextBubble({
   });
 
   // Handle interaction with improved feedback
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Toggle active state for details display
     setActive(!active);
     setShowText(!showText);
     
@@ -161,6 +199,16 @@ export default function ContextBubble({
       }, 150);
     }
     
+    // If shift key is held, handle multi-select behavior
+    if (e.shiftKey) {
+      // Toggle this node in the multi-select array
+      toggleNodeSelection(node.id);
+    } else {
+      // Standard click behavior - make this the active node
+      selectNode(node.id);
+    }
+    
+    // Call the parent onClick handler if provided
     if (onClick) onClick(node);
   };
 
