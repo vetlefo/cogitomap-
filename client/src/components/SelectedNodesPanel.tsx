@@ -8,12 +8,16 @@ interface SelectedNodesPanelProps {
 
 export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedNodesPanelProps) {
   const { selectedNodes, nodes, clearSelectedNodes } = useVisualization();
-  const [showPanel, setShowPanel] = useState(false);
+  const [showPanel, setShowPanel] = useState(true); // Start with panel visible
   
   // Get the actual node objects for the selected node IDs
   const selectedNodeObjects = selectedNodes
     .map(id => nodes.find(node => node.id === id))
     .filter(node => node !== undefined) as BubbleNode[];
+  
+  // Debug logging
+  console.log(`SelectedNodesPanel - Selected Node IDs: [${selectedNodes.join(', ')}]`);
+  console.log(`SelectedNodesPanel - Found node objects: ${selectedNodeObjects.length}`);
   
   // Only show panel when nodes are selected
   const hasSelectedNodes = selectedNodeObjects.length > 0;

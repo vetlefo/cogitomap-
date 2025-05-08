@@ -78,13 +78,17 @@ export const useVisualization = create<VisualizationState>((set) => ({
   
   // For multi-select: toggle a node in the selected nodes array
   toggleNodeSelection: (id) => set((state) => {
+    console.log(`Toggling node selection for node: ${id}`);
+    
     if (state.selectedNodes.includes(id)) {
       // Remove if already selected
+      console.log(`Removing node ${id} from selection. Current selection: [${state.selectedNodes.join(', ')}]`);
       return { 
         selectedNodes: state.selectedNodes.filter(nodeId => nodeId !== id) 
       };
     } else {
       // Add if not already selected
+      console.log(`Adding node ${id} to selection. Current selection: [${state.selectedNodes.join(', ')}]`);
       return { 
         selectedNodes: [...state.selectedNodes, id] 
       };

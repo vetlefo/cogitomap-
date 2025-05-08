@@ -193,6 +193,8 @@ export default function ContextBubble({
     setActive(!active);
     setShowText(!showText);
     
+    console.log(`Clicked on node: ${node.id}, type: ${node.type}, content: ${node.content.substring(0, 30)}...`);
+    
     // Add subtle "pop" animation on click
     if (meshRef.current) {
       meshRef.current.scale.multiplyScalar(1.2);
@@ -206,6 +208,7 @@ export default function ContextBubble({
     // If shift key is held, handle multi-select behavior
     // Use our global keyboard state hook to check if shift is pressed
     const isShiftPressed = keyboardState.shiftKey;
+    console.log(`Shift key pressed: ${isShiftPressed}`);
     
     if (isShiftPressed) {
       // Toggle this node in the multi-select array

@@ -20,6 +20,12 @@ export function analyzeMessage(
   // Generate timestamp for unique ID creation
   const timestamp = Date.now();
   
+  console.log(`Analyzing message: ${message.role}, content: ${message.content.substring(0, 50)}...`);
+  console.log(`Structured data available: ${structuredData !== null}`);
+  if (structuredData) {
+    console.log(`Topics: ${structuredData.identified_topics?.length || 0}, Entities: ${structuredData.key_entities?.length || 0}`);
+  }
+  
   // Create the primary message node (either user or assistant message)
   const nodeType: NodeType = message.role === 'user' ? 'user_message' : 'ai_message';
   
