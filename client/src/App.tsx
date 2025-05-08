@@ -159,8 +159,12 @@ function App() {
         <button id="toggle-drones" title="Show/Hide AI Drones" onClick={toggleDrones}>
           Toggle Drones
         </button>
-        <button id="api-key-button" title="Set API Key" onClick={handleOpenApiKeyModal}>
-          Set API Key
+        <button 
+          id="api-key-button" 
+          title={apiKeys.openai === 'env-variable' ? "API key set via environment variable" : "Set API Key"} 
+          onClick={handleOpenApiKeyModal}
+        >
+          {apiKeys.openai === 'env-variable' ? '🔑 API Key (Env)' : 'Set API Key'}
         </button>
         <button 
           id="toggle-sound" 

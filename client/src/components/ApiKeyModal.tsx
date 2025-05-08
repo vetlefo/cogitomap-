@@ -101,54 +101,65 @@ export default function ApiKeyModal({
     <div className="modal" style={{ display: 'flex' }}>
       <div className="modal-content" style={{ borderColor: info.color }}>
         <h2 className="modal-title" style={{ color: info.color }}>
-          Enter {info.name} API Key
+          {initialValue === 'env-variable' ? `${info.name} API Key (Environment)` : `Enter ${info.name} API Key`}
         </h2>
         
         <form onSubmit={handleSubmit}>
-          <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px' }}>
-            Your API key is stored locally in your browser and is only sent directly to {info.name}.
-          </p>
-          
-          <div style={{ 
-            background: info.bgColor, 
-            padding: '10px', 
-            borderRadius: '4px', 
-            marginBottom: '15px'
-          }}>
-            <p style={{ fontSize: '12px', margin: '0 0 8px 0' }}>
-              Don't have a key? Get one from:
+          {initialValue === 'env-variable' ? (
+            <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px', backgroundColor: 'rgba(0, 40, 80, 0.4)', padding: '10px', borderRadius: '4px' }}>
+              <strong>🔑 Environment Variable Detected</strong><br/>
+              Your {info.name} API key is currently set via an environment variable. You don't need to enter it manually.
             </p>
-            <a 
-              href={info.website} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ 
-                color: info.color, 
-                textDecoration: 'none', 
-                fontWeight: 'bold',
-                fontSize: '13px'
-              }}
-            >
-              {info.website}
-            </a>
-          </div>
+          ) : (
+            <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px' }}>
+              Your API key is stored locally in your browser and is only sent directly to {info.name}.
+            </p>
+          )}
           
-          <input
-            type="password"
-            className="modal-input"
-            placeholder={info.placeholder}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            autoFocus
-            style={{ 
-              borderColor: isValid ? info.color : 'rgba(255, 80, 80, 0.6)',
-              boxShadow: isValid 
-                ? `0 0 10px rgba(0, 255, 255, 0.3)` 
-                : validationMessage 
-                  ? '0 0 10px rgba(255, 80, 80, 0.3)'
-                  : 'none'
-            }}
-          />
+          {initialValue !== 'env-variable' && (
+            <div style={{ 
+              background: info.bgColor, 
+              padding: '10px', 
+              borderRadius: '4px', 
+              marginBottom: '15px'
+            }}>
+              <p style={{ fontSize: '12px', margin: '0 0 8px 0' }}>
+                Don't have a key? Get one from:
+              </p>
+              <a 
+                href={info.website} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: info.color, 
+                  textDecoration: 'none', 
+                  fontWeight: 'bold',
+                  fontSize: '13px'
+                }}
+              >
+                {info.website}
+              </a>
+            </div>
+          )}
+          
+          {initialValue !== 'env-variable' && (
+            <input
+              type="password"
+              className="modal-input"
+              placeholder={info.placeholder}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              autoFocus
+              style={{ 
+                borderColor: isValid ? info.color : 'rgba(255, 80, 80, 0.6)',
+                boxShadow: isValid 
+                  ? `0 0 10px rgba(0, 255, 255, 0.3)` 
+                  : validationMessage 
+                    ? '0 0 10px rgba(255, 80, 80, 0.3)'
+                    : 'none'
+              }}
+            />
+          )}
           
           {validationMessage && (
             <p style={{ 
@@ -164,7 +175,7 @@ export default function ApiKeyModal({
             <button 
               type="submit" 
               className="modal-button modal-button-primary"
-              disabled={!isValid || isValidating}
+              disabled={initialValue === 'env-variable' || !isValid || isValidating}
               style={{ 
                 background: isValid 
                   ? `linear-gradient(to bottom, ${info.color}, ${info.bgColor})` 
@@ -172,7 +183,7 @@ export default function ApiKeyModal({
                 opacity: isValid && !isValidating ? 1 : 0.6
               }}
             >
-              {isValidating ? 'Validating...' : 'Save Key'}
+              {initialValue === 'env-variable' ? 'Using Environment Variable' : (isValidating ? 'Validating...' : 'Save Key')}
             </button>
             <button 
               type="button" 

@@ -76,8 +76,8 @@ export default function ModelSelector({
         <div className="current-model">
           <div className="provider-label">
             {selectedProvider.toUpperCase()}
-            <span className={`key-status ${providerHasKey(selectedProvider) ? 'has-key' : 'no-key'}`}>
-              {providerHasKey(selectedProvider) ? '✓' : '✗'}
+            <span className={`key-status ${providerHasKey(selectedProvider) ? 'has-key' : 'no-key'}`} title={isEnvironmentKey(selectedProvider) ? 'Using environment variable' : ''}>
+              {providerHasKey(selectedProvider) ? (isEnvironmentKey(selectedProvider) ? '🔑' : '✓') : '✗'}
             </span>
           </div>
           <div className="model-name">
@@ -106,8 +106,8 @@ export default function ModelSelector({
                 }}
               >
                 {provider.toUpperCase()}
-                <span className={`key-status ${providerHasKey(provider as LLMProvider) ? 'has-key' : 'no-key'}`}>
-                  {providerHasKey(provider as LLMProvider) ? '✓' : '✗'}
+                <span className={`key-status ${providerHasKey(provider as LLMProvider) ? 'has-key' : 'no-key'}`} title={isEnvironmentKey(provider as LLMProvider) ? 'Using environment variable' : ''}>
+                  {providerHasKey(provider as LLMProvider) ? (isEnvironmentKey(provider as LLMProvider) ? '🔑' : '✓') : '✗'}
                 </span>
               </div>
             ))}
