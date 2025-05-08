@@ -1,10 +1,11 @@
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import ContextVisualizer from "./components/ContextVisualizer";
 import ChatInterface from "./components/ChatInterface";
 import ApiKeyModal from "./components/ApiKeyModal";
-import ParallelWindowsManager from "./components/ParallelWindowsManager";
+import ParallelWindowsManager, { ParallelWindowsManagerRef } from "./components/ParallelWindowsManager";
+import SelectedNodesPanel from "./components/SelectedNodesPanel";
 import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
@@ -17,6 +18,7 @@ function App() {
   const [showChat, setShowChat] = useState(true);
   const [showDrones, setShowDrones] = useState(true);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const windowsManagerRef = useRef<ParallelWindowsManagerRef>(null);
   
   // Get state from the LLM store
   const { 
@@ -108,6 +110,19 @@ function App() {
     setLocalStorage("audio-muted", !isMuted);
   };
 
+  // Handle request for second opinion on selected nodes
+  const handleRequestSecondOpinion = (selectedNodeIds: string[]) => {
+    if (windowsManagerRef.current) {
+      const windowId = windowsManagerRef.current.createSecondOpinionWindow(selectedNodeIds);
+      console.log(`Created second opinion window: ${windowId}`);
+    }
+  };
+  
+  // Track window creation
+  const handleWindowCreate = (windowId: string) => {
+    console.log(`New window created: ${windowId}`);
+  };
+
   return (
     <div className="app-container">
       <div id="visualization-container">
@@ -152,7 +167,13 @@ function App() {
       />
       
       {/* Parallel Windows Manager */}
-      <ParallelWindowsManager />
+      <ParallelWindowsManager 
+        ref={windowsManagerRef}
+        onWindowCreate={handleWindowCreate}
+      />
+      
+      {/* Selected Nodes Panel for Second Opinion feature */}
+      <SelectedNodesPanel onRequestSecondOpinion={handleRequestSecondOpinion} />
 
       {/* Controls */}
       <div id="controls">
