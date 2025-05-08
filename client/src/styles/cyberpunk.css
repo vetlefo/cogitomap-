@@ -1,0 +1,322 @@
+/* Cyberpunk styling based on the provided HTML/CSS */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #000;
+  font-family: 'VT323', monospace; /* Use retro font */
+  color: #0ff; /* Cyan text color */
+}
+
+.app-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Model Selector Styles */
+.model-selector {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 4;
+  background-color: rgba(0, 20, 40, 0.8);
+  border: 1px solid #0ff;
+  border-radius: 5px;
+  padding: 10px;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+.model-selector select {
+  background-color: rgba(0, 10, 20, 0.9);
+  border: 1px solid #0af;
+  color: #fff;
+  padding: 5px;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  width: 100%;
+}
+.model-selector label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* Text snippet styling */
+.text-snippet {
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.2;
+  max-width: 200px;
+  text-align: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 5px;
+  border-radius: 3px;
+  border: 1px solid #0ff;
+}
+
+#visualization-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* Behind UI */
+}
+
+#chat-interface {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 350px;
+  max-height: 60%; /* Limit height */
+  background-color: rgba(0, 20, 40, 0.8); /* Dark blue, semi-transparent */
+  border: 1px solid #0ff; /* Cyan border */
+  border-radius: 5px;
+  z-index: 3; /* Above visualization and controls */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); /* Cyan glow */
+  transition: transform 0.3s ease-out; /* Smooth hide/show */
+}
+
+#chat-interface.hidden {
+  transform: translateX(110%); /* Slide out */
+}
+
+#chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  color: #0ff;
+  font-size: 16px;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #0af #012; /* Handle and track */
+}
+/* Webkit scrollbar styles */
+#chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+#chat-messages::-webkit-scrollbar-track {
+  background: #012; /* Dark track */
+}
+#chat-messages::-webkit-scrollbar-thumb {
+  background-color: #0af; /* Blue handle */
+  border-radius: 4px;
+  border: 1px solid #0ff; /* Cyan border */
+}
+
+#input-area {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #0ff;
+}
+
+#user-input {
+  flex: 1;
+  background-color: rgba(0, 10, 20, 0.9); /* Darker input background */
+  border: 1px solid #0af; /* Blue border */
+  border-radius: 3px;
+  color: #fff; /* White text */
+  padding: 8px;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  resize: none; /* Prevent resizing */
+  height: 60px; /* Fixed height */
+}
+#user-input:focus {
+  outline: none;
+  box-shadow: 0 0 5px #0af;
+}
+
+#send-button {
+  margin-left: 10px;
+  background-color: #0af; /* Blue button */
+  color: #000; /* Black text */
+  border: none;
+  border-radius: 3px;
+  padding: 0 15px;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+#send-button:hover {
+  background-color: #0cf; /* Lighter blue on hover */
+  box-shadow: 0 0 8px #0ff;
+}
+#send-button:disabled {
+  background-color: #055;
+  color: #0aa;
+  cursor: not-allowed;
+}
+
+#controls {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 2; /* Above visualization */
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Spacing between buttons */
+}
+
+#controls button {
+  background-color: rgba(0, 20, 40, 0.8); /* Dark blue, semi-transparent */
+  border: 1px solid #0ff; /* Cyan border */
+  color: #0ff; /* Cyan text */
+  border-radius: 3px;
+  padding: 8px 15px;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+}
+#controls button:hover {
+  background-color: rgba(0, 40, 80, 0.9); /* Lighter blue on hover */
+  box-shadow: 0 0 12px #0ff;
+}
+
+/* Message styling */
+.message {
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 3px;
+  word-wrap: break-word; /* Prevent long words from overflowing */
+}
+.user-message {
+  background-color: rgba(0, 100, 200, 0.3); /* Blue background */
+  border-left: 3px solid #0af; /* Blue accent */
+  text-align: right; /* Align user messages to the right */
+}
+.ai-message {
+  background-color: rgba(0, 200, 100, 0.3); /* Green background */
+  border-left: 3px solid #0fa; /* Green accent */
+}
+
+/* API Key Input Modal */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background-color: rgba(0, 20, 40, 0.95);
+  border: 2px solid #0ff;
+  border-radius: 5px;
+  padding: 20px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+}
+
+.modal-title {
+  color: #0ff;
+  font-size: 20px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  background-color: rgba(0, 10, 20, 0.9);
+  border: 1px solid #0af;
+  color: #fff;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+}
+
+.modal-button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 3px;
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.modal-button-primary {
+  background-color: #0af;
+  color: #000;
+}
+.modal-button-primary:disabled {
+  background-color: #055;
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.modal-button-secondary {
+  background-color: transparent;
+  color: #0ff;
+  border: 1px solid #0ff;
+}
+
+/* Loading indicator */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #0ff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Scanline effect */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+  background-size: 100% 4px; /* Adjust line thickness */
+  pointer-events: none; /* Allow clicks through */
+  z-index: 5; /* Above everything */
+  opacity: 0.4; /* Adjust intensity */
+}
+
+/* CRT flicker animation */
+@keyframes flicker {
+  0%   { opacity: 0.97; }
+  5%   { opacity: 0.94; }
+  10%  { opacity: 0.98; }
+  15%  { opacity: 0.93; }
+  20%  { opacity: 0.99; }
+  30%  { opacity: 0.95; }
+  40%  { opacity: 0.98; }
+  50%  { opacity: 0.94; }
+  60%  { opacity: 0.99; }
+  70%  { opacity: 0.96; }
+  80%  { opacity: 0.98; }
+  90%  { opacity: 0.95; }
+  95%  { opacity: 0.99; }
+  100% { opacity: 0.97; }
+}
+
+/* Apply flicker to the body */
+body {
+  animation: flicker 5s infinite;
+}
