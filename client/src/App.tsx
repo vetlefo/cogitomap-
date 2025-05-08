@@ -26,6 +26,14 @@ function App() {
     setModel
   } = useLLM();
   
+  // Get audio state and controls
+  const { 
+    isMuted, 
+    toggleMute,
+    setHitSound,
+    setSuccessSound
+  } = useAudio();
+  
   // Check if we need to show the API key modal
   useEffect(() => {
     // Load OpenAI API key from localStorage for backward compatibility
@@ -41,6 +49,23 @@ function App() {
     
     // Fetch available models
     fetchAvailableModels();
+  }, []);
+  
+  // Initialize audio
+  useEffect(() => {
+    // Load sound effects
+    const hitSound = new Audio('/sounds/hit.mp3');
+    const successSound = new Audio('/sounds/success.mp3');
+    
+    // Set the sounds in the store
+    setHitSound(hitSound);
+    setSuccessSound(successSound);
+    
+    // Load mute state from localStorage
+    const savedMuteState = getLocalStorage("audio-muted");
+    if (savedMuteState !== null && savedMuteState !== isMuted) {
+      toggleMute();
+    }
   }, []);
   
   const toggleUI = () => setShowChat(!showChat);
@@ -67,6 +92,12 @@ function App() {
 
   const handleOpenApiKeyModal = () => {
     setShowApiKeyModal(true);
+  };
+  
+  const handleToggleSound = () => {
+    toggleMute();
+    // Save mute state to localStorage
+    setLocalStorage("audio-muted", !isMuted);
   };
 
   return (
@@ -125,6 +156,14 @@ function App() {
         </button>
         <button id="api-key-button" title="Set API Key" onClick={handleOpenApiKeyModal}>
           Set API Key
+        </button>
+        <button 
+          id="toggle-sound" 
+          title={isMuted ? "Enable Sound" : "Disable Sound"} 
+          onClick={handleToggleSound}
+          className={isMuted ? "muted" : ""}
+        >
+          {isMuted ? "🔇 Sound Off" : "🔊 Sound On"}
         </button>
       </div>
 
