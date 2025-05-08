@@ -55,6 +55,7 @@ export default function ModelSelector({
   
   // Get provider status (has API key)
   const providerHasKey = (provider: LLMProvider) => apiKeys[provider] !== null;
+  const isEnvironmentKey = (provider: LLMProvider) => apiKeys[provider] === 'env-variable';
   
   const providerColors = {
     openai: { bg: 'rgba(0, 150, 180, 0.3)', border: '#0cf' },

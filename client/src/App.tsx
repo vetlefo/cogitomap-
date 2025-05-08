@@ -42,8 +42,13 @@ function App() {
       setApiKey('openai', savedOpenAIKey);
     }
     
-    // If no API key is set for the selected provider, show the modal
-    if (!apiKeys[selectedProvider]) {
+    // Mark OpenAI API key as available since it's now set as an environment variable
+    if (!apiKeys.openai) {
+      setApiKey('openai', 'env-variable');
+    }
+    
+    // If no API key is set for the selected provider that isn't OpenAI, show the modal
+    if (!apiKeys[selectedProvider] && selectedProvider !== 'openai') {
       setShowApiKeyModal(true);
     }
     
