@@ -116,9 +116,22 @@ function App() {
 
   // Handle request for second opinion on selected nodes
   const handleRequestSecondOpinion = (selectedNodeIds: string[]) => {
+    console.log(`App received request for second opinion on ${selectedNodeIds.length} nodes: [${selectedNodeIds.join(', ')}]`);
+    
     if (windowsManagerRef.current) {
-      const windowId = windowsManagerRef.current.createSecondOpinionWindow(selectedNodeIds);
-      console.log(`Created second opinion window: ${windowId}`);
+      // Try the request and handle errors
+      try {
+        const windowId = windowsManagerRef.current.createSecondOpinionWindow(selectedNodeIds);
+        console.log(`Created second opinion window: ${windowId || 'NULL'}`);
+        
+        if (!windowId) {
+          console.error('Failed to create second opinion window - null ID returned');
+        }
+      } catch (error) {
+        console.error('Error creating second opinion window:', error);
+      }
+    } else {
+      console.error('windowsManagerRef is not initialized - cannot create second opinion window');
     }
   };
   

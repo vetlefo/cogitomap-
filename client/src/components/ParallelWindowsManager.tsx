@@ -33,6 +33,8 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     initialMessages: Message[] = [],
     position?: { x: number; y: number }
   ) => {
+    console.log(`spawnWindow called with ${initialMessages.length} messages`);
+    
     // Play sound effect
     playHit();
     
@@ -50,8 +52,14 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
       initialMessages
     };
     
-    // Add to windows list
-    setWindows([...windows, newWindow]);
+    console.log(`Created new window with ID: ${newWindow.id}`);
+    
+    // Add to windows list using functional update to avoid stale state issues
+    setWindows(prevWindows => {
+      const updatedWindows = [...prevWindows, newWindow];
+      console.log(`Windows count: ${updatedWindows.length}`);
+      return updatedWindows;
+    });
     
     return newWindow.id;
   };
@@ -87,8 +95,9 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     initialMessages: Message[] = [],
     position?: { x: number; y: number }
   ) => {
+    console.log(`memoizedSpawnWindow called with ${initialMessages.length} messages`);
     return spawnWindow(initialMessages, position);
-  }, [spawnWindow]);
+  }, [windows, playHit]); // Include correct deps: windows (from state), playHit (instead of the recursive spawnWindow function)
   
   // Function to create a second opinion window based on selected nodes and their context
   const createSecondOpinionWindow = useCallback((selectedNodeIds: string[]) => {
