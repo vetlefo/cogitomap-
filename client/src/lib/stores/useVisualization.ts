@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BubbleNode, Edge } from '../../types';
+import { BubbleNode, Edge, RelationshipType } from '../../types';
 
 interface VisualizationState {
   nodes: BubbleNode[];
@@ -190,7 +190,7 @@ export const useVisualization = create<VisualizationState>((set) => ({
         const strengthenedEdge = {
           ...existingEdge,
           strength: Math.min(existingEdge.strength * 1.5, 1.0), // Increase strength but cap at 1.0
-          relationship: 'supports' as RelationshipType // Always mark as supporting relationship
+          relationship: 'supports' // Always mark as supporting relationship
         };
         
         // Replace the existing edge with the strengthened one
