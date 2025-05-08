@@ -41,7 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/auth/check');
+      // Check if we're in dev mode from URL or localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const devMode = urlParams.get('devMode') === 'true';
+      const devAuth = localStorage.getItem('devAuth') === 'true';
+      
+      // If dev mode is enabled, add a header
+      const headers: HeadersInit = {};
+      if (devMode || devAuth) {
+        headers['x-dev-auth'] = 'true';
+        localStorage.setItem('devAuth', 'true');
+      }
+      
+      const response = await fetch('/api/auth/check', { headers });
       const data = await response.json();
       
       if (data.authenticated && data.user) {

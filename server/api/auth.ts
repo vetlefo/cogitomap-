@@ -31,7 +31,27 @@ export async function getCurrentUserHandler(req: Request, res: Response) {
  */
 export async function checkAuthHandler(req: Request, res: Response) {
   try {
+    // First try to get user from Replit Auth
     const userInfo = getUserInfo(req);
+    
+    // Check for simulated dev auth mode
+    const devMode = req.query.devMode === 'true' || req.headers['x-dev-auth'] === 'true';
+    
+    if (devMode) {
+      // For development: Return a mock user for easier testing
+      return res.status(200).json({
+        authenticated: true,
+        user: {
+          id: 'dev-user-123',
+          name: 'Development User',
+          profileImage: 'https://avatars.githubusercontent.com/u/983194',
+          roles: ['user'],
+          devMode: true
+        },
+        devMode: true
+      });
+    }
+    
     return res.status(200).json({ 
       authenticated: !!userInfo,
       user: userInfo || null
@@ -46,17 +66,21 @@ export async function checkAuthHandler(req: Request, res: Response) {
 }
 
 /**
- * Redirect to Replit login page
+ * For development purposes, simply set a mock user without redirect
  */
 export function loginHandler(req: Request, res: Response) {
-  // Get the current URL to use as return URL after login
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.get('host');
-  const returnUrl = `${protocol}://${host}`;
-  
-  // Redirect to Replit login with return URL
-  const loginUrl = `https://replit.com/auth_with_repl_site?domain=${encodeURIComponent(returnUrl)}`;
-  res.redirect(loginUrl);
+  // For development: Instead of redirecting to Replit auth, return a success
+  // and we'll handle it on the client side with simulated authentication
+  res.json({
+    success: true,
+    message: 'Development auth mode enabled',
+    mockUser: {
+      id: 'dev-user-123',
+      name: 'Development User',
+      profileImage: 'https://avatars.githubusercontent.com/u/983194',
+      roles: ['user']
+    }
+  });
 }
 
 /**
