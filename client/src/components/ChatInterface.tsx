@@ -3,6 +3,7 @@ import { useVisualization } from '../lib/stores/useVisualization';
 import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { useAudio } from '../lib/stores/useAudio';
+import { useAuth } from '../hooks/useAuth';
 import { BubbleNode, Message, Edge } from '../types';
 
 interface ChatInterfaceProps {
@@ -34,6 +35,7 @@ export default function ChatInterface({
     selectedModel: storeSelectedModel
   } = useLLM();
   const { playHit, playSuccess } = useAudio();
+  const { isAuthenticated, user } = useAuth();
   
   // Auto-scroll chat to bottom when new messages come in
   useEffect(() => {
@@ -177,6 +179,23 @@ export default function ChatInterface({
   return (
     <div id="chat-interface" className={visible ? '' : 'hidden'}>
       <div id="chat-messages">
+        {!isAuthenticated && (
+          <a 
+            href="/api/auth/login" 
+            className="auth-hint-banner"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/api/auth/login';
+            }}
+          >
+            <div className="auth-hint-content">
+              <span className="auth-hint-icon">🔐</span>
+              <span className="auth-hint-text">
+                <strong>Login with Replit</strong> to save conversations and access more features
+              </span>
+            </div>
+          </a>
+        )}
         {messages.map((message, index) => (
           <div 
             key={index} 
