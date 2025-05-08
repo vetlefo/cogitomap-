@@ -93,7 +93,7 @@ export default function ParallelConversationWindow({
       const response = await sendLLMMessage(
         updatedMessages,
         {
-          apiKey: apiKeys[selectedProvider],
+          apiKey: apiKeys[selectedProvider] === null ? undefined : apiKeys[selectedProvider],
           model: selectedModel,
           provider: selectedProvider,
           structured: true
