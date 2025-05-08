@@ -57,22 +57,7 @@ function App() {
     fetchAvailableModels();
   }, []);
   
-  // Initialize audio
-  useEffect(() => {
-    // Load sound effects
-    const hitSound = new Audio('/sounds/hit.mp3');
-    const successSound = new Audio('/sounds/success.mp3');
-    
-    // Set the sounds in the store
-    setHitSound(hitSound);
-    setSuccessSound(successSound);
-    
-    // Load mute state from localStorage
-    const savedMuteState = getLocalStorage("audio-muted");
-    if (savedMuteState !== null && savedMuteState !== isMuted) {
-      toggleMute();
-    }
-  }, []);
+  // Audio functionality has been removed
   
   const toggleUI = () => setShowChat(!showChat);
   const toggleDrones = () => setShowDrones(!showDrones);
@@ -98,12 +83,6 @@ function App() {
 
   const handleOpenApiKeyModal = () => {
     setShowApiKeyModal(true);
-  };
-  
-  const handleToggleSound = () => {
-    toggleMute();
-    // Save mute state to localStorage
-    setLocalStorage("audio-muted", !isMuted);
   };
 
   // Handle request for second opinion on selected nodes
@@ -204,14 +183,6 @@ function App() {
           onClick={handleOpenApiKeyModal}
         >
           {apiKeys.openai === 'env-variable' ? '🔑 API Key (Env)' : 'Set API Key'}
-        </button>
-        <button 
-          id="toggle-sound" 
-          title={isMuted ? "Enable Sound" : "Disable Sound"} 
-          onClick={handleToggleSound}
-          className={isMuted ? "muted" : ""}
-        >
-          {isMuted ? "🔇 Sound Off" : "🔊 Sound On"}
         </button>
       </div>
       

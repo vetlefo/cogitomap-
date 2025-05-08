@@ -5,7 +5,6 @@ import ModelSelector from './ModelSelector';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { BubbleNode, Message, StructuredLLMOutput } from '../types';
 import { useVisualization } from '../lib/stores/useVisualization';
-import { useAudio } from '../lib/stores/useAudio';
 
 interface ParallelConversationWindowProps {
   windowId: string;
