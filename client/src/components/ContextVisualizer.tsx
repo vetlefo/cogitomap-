@@ -12,7 +12,7 @@ interface ContextVisualizerProps {
 
 export default function ContextVisualizer({ showDrones }: ContextVisualizerProps) {
   const { nodes, edges } = useVisualization();
-  const edgeLinesRef = useRef<THREE.LineSegments | null>(null);
+  const edgeLinesRef = useRef<THREE.Group | null>(null);
   
   // Update edge connections with enhanced visuals and meaningful representations
   useEffect(() => {
@@ -40,9 +40,9 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       const topicPoints: number[] = [];
       
       // Color values for different connection types
-      const conversationColor = new THREE.Color("#00dbff"); // Bright cyan
-      const semanticColor = new THREE.Color("#00acff");     // Mid blue
-      const topicColor = new THREE.Color("#007aff");        // Deep blue
+      const conversationColor = new THREE.Color(0x00dbff); // Bright cyan
+      const semanticColor = new THREE.Color(0x00acff);     // Mid blue
+      const topicColor = new THREE.Color(0x007aff);        // Deep blue
       
       // Process each edge
       edges.forEach(edge => {
@@ -103,21 +103,26 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
         }
       });
       
-      // Clean up old geometry and materials
+      // Clean up old edge lines
       if (edgeLinesRef.current) {
-        if (edgeLinesRef.current.geometry) {
-          edgeLinesRef.current.geometry.dispose();
-        }
-        
-        const material = edgeLinesRef.current.material;
-        if (material) {
-          if (Array.isArray(material)) {
-            material.forEach(m => m.dispose());
-          } else {
-            material.dispose();
+        // Dispose of all geometries and materials in the group
+        edgeLinesRef.current.traverse((child) => {
+          if (child instanceof THREE.LineSegments) {
+            if (child.geometry) {
+              child.geometry.dispose();
+            }
+            
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
           }
-        }
+        });
         
+        // Remove the group from the scene
         edgeLinesRef.current.parent?.remove(edgeLinesRef.current);
         edgeLinesRef.current = null;
       }
@@ -217,8 +222,25 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
   // Animation for edge lines - pulse effect
   useFrame((state) => {
     if (edgeLinesRef.current) {
-      const material = edgeLinesRef.current.material as THREE.LineBasicMaterial;
-      material.opacity = 0.3 + Math.sin(state.clock.getElapsedTime() * 2) * 0.2;
+      // Apply pulse animation to each line segment in the group
+      edgeLinesRef.current.traverse((child) => {
+        if (child instanceof THREE.LineSegments) {
+          const material = child.material as THREE.LineBasicMaterial;
+          if (material && !Array.isArray(material)) {
+            // Check what index this child is in the group to determine animation
+            const childIndex = child.parent?.children.indexOf(child) || 0;
+            
+            // Different animations based on child index
+            if (childIndex === 0) { // Conversation lines
+              material.opacity = 0.6 + Math.sin(state.clock.getElapsedTime() * 2.5) * 0.25;
+            } else if (childIndex === 1) { // Semantic lines
+              material.opacity = 0.4 + Math.sin(state.clock.getElapsedTime() * 1.8) * 0.2;
+            } else { // Topic lines
+              material.opacity = 0.3 + Math.sin(state.clock.getElapsedTime() * 1.2) * 0.15;
+            }
+          }
+        }
+      });
     }
   });
 

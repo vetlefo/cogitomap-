@@ -216,7 +216,7 @@ export default function ContextBubble({
         </Sphere>
       )}
       
-      {/* Enhanced text label with keywords */}
+      {/* Enhanced text label with keywords and metadata */}
       {(showText || hovered) && (
         <Html
           position={[0, 1.8, 0]}
@@ -224,17 +224,28 @@ export default function ContextBubble({
           distanceFactor={10}
           occlude
         >
-          <div className="text-snippet">
+          <div className={`text-snippet ${node.type === 'user' ? 'text-user' : 'text-ai'}`}>
+            <div className="bubble-header">
+              <span className="bubble-type">{node.type === 'user' ? 'USER' : 'AI'}</span>
+              <span className="bubble-importance">{Math.round(node.importance * 100)}% relevance</span>
+            </div>
             <div className="bubble-content">
-              {node.content.length > 100 
-                ? `${node.content.substring(0, 100)}...` 
+              {node.content.length > 150 
+                ? `${node.content.substring(0, 150)}...` 
                 : node.content}
             </div>
             {keywordsText && (
               <div className="bubble-keywords">
-                {keywordsText}
+                <span className="keywords-label">Topics:</span> {node.keywords.map((keyword, i) => (
+                  <span key={i} className="keyword-tag">
+                    {keyword}
+                  </span>
+                ))}
               </div>
             )}
+            <div className="bubble-footer">
+              {active ? 'Click to hide details' : 'Click to lock view'}
+            </div>
           </div>
         </Html>
       )}
