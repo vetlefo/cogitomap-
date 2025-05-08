@@ -11,7 +11,6 @@ import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
-import { useAudio } from "./lib/stores/useAudio";
 import { useKeyboardState } from "./hooks/useKeyboardState";
 import { AuthProvider } from "./hooks/useAuth";
 import "../src/styles/cyberpunk.css";
@@ -34,14 +33,6 @@ function App() {
     setProvider,
     setModel
   } = useLLM();
-  
-  // Get audio state and controls
-  const { 
-    isMuted, 
-    toggleMute,
-    setHitSound,
-    setSuccessSound
-  } = useAudio();
   
   // Check if we need to show the API key modal
   useEffect(() => {

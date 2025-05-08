@@ -5,7 +5,6 @@ import ModelSelector from './ModelSelector';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { BubbleNode, Message, StructuredLLMOutput } from '../types';
 import { useVisualization } from '../lib/stores/useVisualization';
-import { useAudio } from '../lib/stores/useAudio';
 
 interface ParallelConversationWindowProps {
   windowId: string;
@@ -51,9 +50,6 @@ export default function ParallelConversationWindow({
   
   // Visualization integration
   const { addNode, addEdge, nodes: windowNodes } = useVisualization();
-  
-  // Audio
-  const { playHit, playSuccess } = useAudio();
   
   // Check if an API key is needed
   const needsApiKey = !apiKeys[selectedProvider];
@@ -146,9 +142,6 @@ export default function ParallelConversationWindow({
         }
       );
       
-      // Play success sound
-      playSuccess();
-      
       // Once we have the response, update the message
       setMessages([initialMessages[0], {
         role: 'assistant',
@@ -192,9 +185,6 @@ export default function ParallelConversationWindow({
       console.log("Message empty or already loading, not sending");
       return;
     }
-    
-    // Play sound effect
-    playHit();
     
     // Add user message
     const userMessage: Message = { role: 'user', content: inputValue };
@@ -300,9 +290,6 @@ export default function ParallelConversationWindow({
           structured: true
         }
       );
-      
-      // Play success sound
-      playSuccess();
       
       // Handle different response formats (structured vs. standard)
       let assistantMessage: Message;

@@ -1,6 +1,5 @@
 import React, { useState, useCallback, forwardRef, useImperativeHandle, ForwardRefRenderFunction } from 'react';
 import ParallelConversationWindow from './ParallelConversationWindow';
-import { useAudio } from '../lib/stores/useAudio';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { Message, BubbleNode } from '../types';
 
@@ -25,7 +24,6 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
   ParallelWindowManagerProps
 > = ({ onWindowCreate }, ref) => {
   const [windows, setWindows] = useState<ParallelWindow[]>([]);
-  const { playHit } = useAudio();
   const { nodes } = useVisualization();
   
   // Function to create a new parallel window
@@ -34,9 +32,6 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     position?: { x: number; y: number }
   ) => {
     console.log(`spawnWindow called with ${initialMessages.length} messages`);
-    
-    // Play sound effect
-    playHit();
     
     // Calculate default position if not provided
     const defaultPosition = position || {
@@ -103,7 +98,7 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
   ) => {
     console.log(`memoizedSpawnWindow called with ${initialMessages.length} messages`);
     return spawnWindow(initialMessages, position);
-  }, [windows, playHit]); // Include correct deps: windows (from state), playHit (instead of the recursive spawnWindow function)
+  }, [windows]); // Include windows state as dependency
   
   // Function to create a second opinion window based on selected nodes and their context
   const createSecondOpinionWindow = useCallback((selectedNodeIds: string[]) => {

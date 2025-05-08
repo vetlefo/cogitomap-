@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
-import { useAudio } from '../lib/stores/useAudio';
 import { useAuth } from '../hooks/useAuth';
 import { BubbleNode, Message, Edge, StructuredLLMOutput, NodeType } from '../types';
 
@@ -46,7 +45,6 @@ export default function ChatInterface({
     apiKeys,
     selectedModel: storeSelectedModel
   } = useLLM();
-  const { playHit, playSuccess } = useAudio();
   const { isAuthenticated, user } = useAuth();
   
   // Auto-scroll chat to bottom when new messages come in
@@ -83,9 +81,6 @@ export default function ChatInterface({
       return;
     }
     
-    // Play sound effect
-    playHit();
-    
     // First clear any existing selection
     clearSelectedNodes();
     
@@ -103,7 +98,7 @@ export default function ChatInterface({
         console.log(`Added to selection: ${nodeIds[i]}`);
       }
     }
-  }, [messageNodeMap, selectNode, toggleNodeSelection, clearSelectedNodes, playHit]);
+  }, [messageNodeMap, selectNode, toggleNodeSelection, clearSelectedNodes]);
 
   // Send message to API and process response
   const handleSendMessage = async () => {
@@ -114,9 +109,6 @@ export default function ChatInterface({
     
     // Don't allow sending while processing
     if (isProcessing) return;
-    
-    // Play sound effect
-    playHit();
     
     // Add user message to chat
     const userMessage: Message = { role: 'user', content: input };
@@ -179,9 +171,6 @@ export default function ChatInterface({
         // This is a standard message object
         assistantMessage = response;
       }
-      
-      // Play success sound
-      playSuccess();
       
       // Update messages with assistant response
       setMessages(prev => [...prev, assistantMessage]);
