@@ -66,7 +66,13 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
   
   // Function to close a window
   const closeWindow = (id: string) => {
-    setWindows(windows.filter(window => window.id !== id));
+    console.log(`Closing window: ${id}`);
+    // Use functional update pattern to avoid stale state issues
+    setWindows(prevWindows => {
+      const updatedWindows = prevWindows.filter(window => window.id !== id);
+      console.log(`Windows remaining after close: ${updatedWindows.length}`);
+      return updatedWindows;
+    });
   };
   
   // Function to duplicate a conversation in a new window

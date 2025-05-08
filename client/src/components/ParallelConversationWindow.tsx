@@ -33,6 +33,18 @@ export default function ParallelConversationWindow({
   const dragStartPos = useRef({ x: 0, y: 0 });
   const dragStartWindowPos = useRef({ x: 0, y: 0 });
   
+  // Animation states
+  const [isNew, setIsNew] = useState(true);
+  
+  // Set isNew to false after mount animation
+  useEffect(() => {
+    console.log(`ParallelConversationWindow ${windowId} mounted`);
+    const timer = setTimeout(() => {
+      setIsNew(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [windowId]);
+  
   // Get providers and model info
   const {
     selectedProvider,
@@ -280,10 +292,15 @@ export default function ParallelConversationWindow({
         zIndex: 4,
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: `0 0 20px ${currentProviderColor.border}33`,
+        boxShadow: isNew 
+          ? `0 0 40px ${currentProviderColor.border}88` 
+          : `0 0 20px ${currentProviderColor.border}33`,
         backdropFilter: 'blur(3px)',
         overflow: 'hidden',
-        cursor: isDragging ? 'grabbing' : 'default'
+        cursor: isDragging ? 'grabbing' : 'default',
+        opacity: isNew ? 0.5 : 1,
+        transform: isNew ? 'scale(0.95)' : 'scale(1)',
+        transition: 'opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease'
       }}
       onMouseDown={handleWindowMouseDown}
     >
@@ -303,7 +320,9 @@ export default function ParallelConversationWindow({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: 'bold' }}>
-          {selectedProvider.toUpperCase()} DIALOG #{windowId}
+          {initialMessages.length > 0 && initialMessages[0].content.includes('I\'ve selected specific elements') 
+            ? `${selectedProvider.toUpperCase()} SECOND OPINION`
+            : `${selectedProvider.toUpperCase()} DIALOG`}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button 
