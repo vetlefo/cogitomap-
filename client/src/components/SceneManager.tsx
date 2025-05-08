@@ -237,18 +237,6 @@ export default function SceneManager() {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-      
-      {/* Render the HTML overlays */}
-      <div className="overlay-container">
-        {/* Node selection panel for second opinion */}
-        <SelectedNodesPanel onRequestSecondOpinion={handleRequestSecondOpinion} />
-        
-        {/* Parallel conversation windows manager */}
-        <ParallelWindowsManager 
-          ref={windowsManagerRef}
-          onWindowCreate={handleWindowCreate}
-        />
-      </div>
     </>
   );
 }
