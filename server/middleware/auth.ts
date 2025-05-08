@@ -12,7 +12,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   }
   
   // Add the user to the request object for later use
-  req.user = user;
+  req.user = user as any;  // Type cast to bypass type checking
   next();
 };
 

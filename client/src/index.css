@@ -28,3 +28,24 @@ canvas {
   height: 100% !important;
   touch-action: none;
 }
+
+/* Auth styles */
+.auth-button {
+  position: relative;
+  z-index: 5;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 191, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: rgba(0, 191, 255, 1);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
