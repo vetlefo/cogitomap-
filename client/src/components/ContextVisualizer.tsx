@@ -5,14 +5,29 @@ import ContextBubble from './ContextBubble';
 import SceneManager from './SceneManager';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { AgentDrone } from './AgentDrone';
+import { useKeyboardState } from '../hooks/useKeyboardState';
 
 interface ContextVisualizerProps {
   showDrones: boolean;
 }
 
 export default function ContextVisualizer({ showDrones }: ContextVisualizerProps) {
-  const { nodes, edges } = useVisualization();
+  const { nodes, edges, selectedNodes } = useVisualization();
   const edgeLinesRef = useRef<THREE.Group | null>(null);
+  const keyboardState = useKeyboardState();
+  
+  // Debug console log for selected nodes
+  useEffect(() => {
+    console.log(`ContextVisualizer - Selected Nodes: [${selectedNodes.join(', ')}]`);
+    console.log(`ContextVisualizer - Total Nodes: ${nodes.length}`);
+    console.log(`ContextVisualizer - Shift key state: ${keyboardState.shiftKey}`);
+    
+    // Log a few node examples if we have any
+    if (nodes.length > 0) {
+      const sampleNode = nodes[0];
+      console.log(`Sample node: id=${sampleNode.id}, type=${sampleNode.type}, content=${sampleNode.content.substring(0, 30)}...`);
+    }
+  }, [nodes, selectedNodes, keyboardState.shiftKey]);
   
   // Update edge connections with enhanced visuals and meaningful representations
   useEffect(() => {

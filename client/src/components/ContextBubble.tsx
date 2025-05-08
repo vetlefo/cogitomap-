@@ -67,6 +67,16 @@ export default function ContextBubble({
   const isSelected = selectedNodeId === node.id || selectedNodes.includes(node.id);
   const isHovered = hoveredNodeId === node.id || hovered;
   
+  // Add debug logging for selection state
+  useEffect(() => {
+    console.log(`ContextBubble ${node.id.substring(0, 8)} - Selection Update:
+    - isSelected: ${isSelected}
+    - In selectedNodes array: ${selectedNodes.includes(node.id)}
+    - selectedNodeId: ${selectedNodeId === node.id ? 'yes' : 'no'}
+    - selectedNodes count: ${selectedNodes.length}
+    - Current selectedNodes: [${selectedNodes.join(', ')}]`);
+  }, [isSelected, selectedNodes, selectedNodeId, node.id]);
+  
   // Set the source window/conversation for this node when it's created
   useEffect(() => {
     if (source && node.id) {
