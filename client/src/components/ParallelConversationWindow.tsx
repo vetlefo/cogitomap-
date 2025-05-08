@@ -103,11 +103,23 @@ export default function ParallelConversationWindow({
       // Play success sound
       playSuccess();
       
-      // Handle structured response
-      let assistantMessage: Message = response;
+      // Handle different response formats (structured vs. standard)
+      let assistantMessage: Message;
       const aiNodeId = `assistant-${windowId}-${Date.now()}`;
       
-      if (response && typeof response === 'object' && response.content) {
+      if (response.main_response) {
+        // This is a structured response
+        assistantMessage = {
+          role: 'assistant',
+          content: response.main_response
+        };
+        console.log('Received structured response in parallel window:', response);
+      } else {
+        // This is a standard message object
+        assistantMessage = response;
+      }
+      
+      if (assistantMessage && typeof assistantMessage === 'object' && assistantMessage.content) {
         // Create node with enhanced information from structured output
         const assistantAnalysis = analyzeMessage(
           assistantMessage,

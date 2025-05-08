@@ -68,6 +68,7 @@ export async function handleLLMRequest(req: Request, res: Response) {
           if (!selectedApiKey) {
             return res.status(400).json({ message: 'OpenAI API key is required' });
           }
+          console.log(`Using OpenAI API key from environment variables`);
           break;
         case 'anthropic':
         case 'a':
@@ -75,6 +76,7 @@ export async function handleLLMRequest(req: Request, res: Response) {
           if (!selectedApiKey) {
             return res.status(400).json({ message: 'Anthropic API key is required' });
           }
+          console.log(`Using Anthropic API key from environment variables`);
           break;
         case 'gemini':
         case 'g':
@@ -82,6 +84,7 @@ export async function handleLLMRequest(req: Request, res: Response) {
           if (!selectedApiKey) {
             return res.status(400).json({ message: 'Google Gemini API key is required' });
           }
+          console.log(`Using Gemini API key from environment variables`);
           break;
         default:
           return res.status(400).json({ message: `Unsupported provider: ${provider}` });
