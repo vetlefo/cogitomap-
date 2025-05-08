@@ -83,3 +83,59 @@ canvas {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Message-to-node selection feature styles */
+.message {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.message.has-nodes {
+  border-left: 2px solid #0ff;
+}
+
+.message.has-nodes:hover {
+  transform: translateX(2px);
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.85em;
+}
+
+.message-role {
+  font-weight: bold;
+  color: #0cf;
+}
+
+.message-content {
+  line-height: 1.4;
+}
+
+.node-indicator {
+  font-size: 0.75em;
+  background: rgba(0, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: #0ff;
+  margin-left: 8px;
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+}
+
+/* Second opinion stronger connections */
+.second-opinion-edge {
+  stroke-dasharray: 5;
+  animation: dash 10s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 1000;
+  }
+}

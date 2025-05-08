@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { useAudio } from '../lib/stores/useAudio';
 import { useAuth } from '../hooks/useAuth';
-import { BubbleNode, Message, Edge, StructuredLLMOutput } from '../types';
+import { BubbleNode, Message, Edge, StructuredLLMOutput, NodeType } from '../types';
 
 interface ChatInterfaceProps {
   visible: boolean;
@@ -24,8 +24,20 @@ export default function ChatInterface({
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  // Track message to node mappings
+  const [messageNodeMap, setMessageNodeMap] = useState<Record<number, string[]>>({});
+  
   // Global stores
-  const { addNode, addEdge, nodes, clearAll } = useVisualization();
+  const { 
+    addNode,
+    addEdge, 
+    nodes, 
+    clearAll,
+    selectNode,
+    toggleNodeSelection,
+    clearSelectedNodes
+  } = useVisualization();
+  
   const { 
     isLoading, 
     error, 
@@ -52,8 +64,46 @@ export default function ChatInterface({
       welcomeAnalysis.newNodes.forEach(node => addNode(node));
       // Add all new edges from the analysis
       welcomeAnalysis.newEdges.forEach(edge => addEdge(edge));
+      
+      // Save mapping of message index to node IDs
+      const nodeIds = welcomeAnalysis.newNodes.map(node => node.id);
+      setMessageNodeMap({ 0: nodeIds });
     }
   }, []);
+  
+  // Function to handle message click - selects related nodes in visualization
+  const handleMessageClick = useCallback((messageIndex: number) => {
+    console.log(`Message clicked: ${messageIndex}`);
+    
+    // Get the nodes associated with this message
+    const nodeIds = messageNodeMap[messageIndex];
+    
+    if (!nodeIds || nodeIds.length === 0) {
+      console.log(`No nodes found for message ${messageIndex}`);
+      return;
+    }
+    
+    // Play sound effect
+    playHit();
+    
+    // First clear any existing selection
+    clearSelectedNodes();
+    
+    // Select the primary node (first one)
+    if (nodeIds.length > 0) {
+      selectNode(nodeIds[0]);
+      console.log(`Selected primary node: ${nodeIds[0]}`);
+    }
+    
+    // Add all other nodes to multi-selection
+    if (nodeIds.length > 1) {
+      // Skip the first node as it's already the primary selection
+      for (let i = 1; i < nodeIds.length; i++) {
+        toggleNodeSelection(nodeIds[i]);
+        console.log(`Added to selection: ${nodeIds[i]}`);
+      }
+    }
+  }, [messageNodeMap, selectNode, toggleNodeSelection, clearSelectedNodes, playHit]);
 
   // Send message to API and process response
   const handleSendMessage = async () => {
@@ -93,6 +143,14 @@ export default function ChatInterface({
       userAnalysis.newEdges.forEach(edge => {
         addEdge(edge);
       });
+      
+      // Store mapping of message index to node IDs for bi-directional selection
+      const userMessageIndex = messages.length;
+      const userNodeIds = userAnalysis.newNodes.map(node => node.id);
+      setMessageNodeMap(prev => ({
+        ...prev,
+        [userMessageIndex]: userNodeIds
+      }));
 
       // Use the proper model from store or props
       const effectiveModel = selectedModel || storeSelectedModel;
@@ -153,9 +211,21 @@ export default function ChatInterface({
         addEdge(edge);
       });
       
+      // Store mapping of assistant message index to node IDs
+      const assistantMessageIndex = messages.length + 1; // +1 because we added the user message
+      const assistantNodeIds = assistantAnalysis.newNodes.map(node => node.id);
+      setMessageNodeMap(prev => ({
+        ...prev,
+        [assistantMessageIndex]: assistantNodeIds
+      }));
+      
       // Log the nodes and edges added for debugging
       console.log('Added assistant nodes:', assistantAnalysis.newNodes);
       console.log('Added assistant edges:', assistantAnalysis.newEdges);
+      console.log('Updated message-node mapping:', {
+        ...messageNodeMap,
+        [assistantMessageIndex]: assistantNodeIds
+      });
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -203,9 +273,17 @@ export default function ChatInterface({
         {messages.map((message, index) => (
           <div 
             key={index} 
-            className={`message ${message.role === 'user' ? 'user-message' : 'ai-message'}`}
+            className={`message ${message.role === 'user' ? 'user-message' : 'ai-message'} ${messageNodeMap[index] ? 'has-nodes' : ''}`}
+            onClick={() => handleMessageClick(index)}
+            title={messageNodeMap[index] ? "Click to select related nodes" : ""}
           >
-            {message.role === 'user' ? 'You: ' : 'AI: '}{message.content}
+            <div className="message-header">
+              <span className="message-role">{message.role === 'user' ? 'You' : 'AI'}</span>
+              {messageNodeMap[index] && (
+                <span className="node-indicator">{messageNodeMap[index].length} node{messageNodeMap[index].length > 1 ? 's' : ''}</span>
+              )}
+            </div>
+            <div className="message-content">{message.content}</div>
           </div>
         ))}
         {isProcessing && (
