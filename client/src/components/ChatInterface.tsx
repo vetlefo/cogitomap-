@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
+import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
-import { BubbleNode } from '../types';
+import { useAudio } from '../lib/stores/useAudio';
+import { BubbleNode, Message, Edge } from '../types';
 
 interface ChatInterfaceProps {
   visible: boolean;
@@ -14,13 +16,24 @@ export default function ChatInterface({
   apiKey,
   selectedModel 
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<{role: string; content: string}[]>([
+  const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Welcome! I\'ll help you visualize our conversation as a 3D knowledge graph.' }
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Global stores
   const { addNode, addEdge, nodes, clearAll } = useVisualization();
+  const { 
+    isLoading, 
+    error, 
+    selectedProvider, 
+    structured,
+    apiKeys,
+    selectedModel: storeSelectedModel
+  } = useLLM();
+  const { playHit, playSuccess } = useAudio();
   
   // Auto-scroll chat to bottom when new messages come in
   useEffect(() => {
@@ -38,14 +51,20 @@ export default function ChatInterface({
   }, []);
 
   // Send message to API and process response
-  const sendMessage = async () => {
-    if (!input.trim() || !apiKey) return;
+  const handleSendMessage = async () => {
+    // Use store-provided API key if not passed in props
+    const effectiveApiKey = apiKey || apiKeys[selectedProvider];
+    
+    if (!input.trim() || !effectiveApiKey) return;
     
     // Don't allow sending while processing
     if (isProcessing) return;
     
+    // Play sound effect
+    playHit();
+    
     // Add user message to chat
-    const userMessage = { role: 'user', content: input };
+    const userMessage: Message = { role: 'user', content: input };
     setMessages([...messages, userMessage]);
     
     // Clear input and set processing state
@@ -75,25 +94,22 @@ export default function ChatInterface({
         addEdge(updatedEdge);
       });
 
-      // Send to API
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          apiKey,
-          model: selectedModel
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response from API');
-      }
-
-      const data = await response.json();
-      const assistantMessage = data.message;
+      // Use the proper model from store or props
+      const effectiveModel = selectedModel || storeSelectedModel;
+      
+      // Send to API using the central LLM store function
+      const assistantMessage = await sendLLMMessage(
+        [...messages, userMessage],
+        {
+          apiKey: effectiveApiKey,
+          model: effectiveModel,
+          provider: selectedProvider,
+          structured
+        }
+      );
+      
+      // Play success sound
+      playSuccess();
       
       // Update messages with assistant response
       setMessages(prev => [...prev, assistantMessage]);
@@ -154,7 +170,7 @@ export default function ChatInterface({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
     }
   };
 
@@ -182,15 +198,20 @@ export default function ChatInterface({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={apiKey ? "Ask something..." : "Enter your API key first"}
-          disabled={!apiKey || isProcessing}
+          placeholder={apiKeys[selectedProvider] 
+            ? `Ask ${selectedProvider.toUpperCase()} something...` 
+            : `Set your ${selectedProvider.toUpperCase()} API key first`}
+          disabled={!apiKeys[selectedProvider] || isProcessing}
         />
         <button 
           id="send-button" 
-          onClick={sendMessage}
-          disabled={!apiKey || isProcessing}
+          onClick={handleSendMessage}
+          disabled={!apiKeys[selectedProvider] || isProcessing}
         >
-          Send
+          {isProcessing ? 
+            <span className="loading"></span> : 
+            'Send'
+          }
         </button>
       </div>
     </div>

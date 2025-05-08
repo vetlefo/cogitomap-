@@ -4,16 +4,44 @@ import { OrbitControls } from "@react-three/drei";
 import ContextVisualizer from "./components/ContextVisualizer";
 import ChatInterface from "./components/ChatInterface";
 import ApiKeyModal from "./components/ApiKeyModal";
+import ParallelWindowsManager from "./components/ParallelWindowsManager";
+import ModelSelector from "./components/ModelSelector";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
+import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import "../src/styles/cyberpunk.css";
 
 function App() {
   const [showChat, setShowChat] = useState(true);
   const [showDrones, setShowDrones] = useState(true);
-  const [apiKey, setApiKey] = useState<string | null>(getLocalStorage("openai-api-key"));
-  const [showApiKeyModal, setShowApiKeyModal] = useState(!apiKey);
-  const [selectedModel, setSelectedModel] = useState<string>("gpt-3.5-turbo");
-
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  
+  // Get state from the LLM store
+  const { 
+    apiKeys, 
+    selectedProvider,
+    selectedModel,
+    setApiKey,
+    setProvider,
+    setModel
+  } = useLLM();
+  
+  // Check if we need to show the API key modal
+  useEffect(() => {
+    // Load OpenAI API key from localStorage for backward compatibility
+    const savedOpenAIKey = getLocalStorage("openai-api-key");
+    if (savedOpenAIKey && !apiKeys.openai) {
+      setApiKey('openai', savedOpenAIKey);
+    }
+    
+    // If no API key is set for the selected provider, show the modal
+    if (!apiKeys[selectedProvider]) {
+      setShowApiKeyModal(true);
+    }
+    
+    // Fetch available models
+    fetchAvailableModels();
+  }, []);
+  
   const toggleUI = () => setShowChat(!showChat);
   const toggleDrones = () => setShowDrones(!showDrones);
   
@@ -25,18 +53,19 @@ function App() {
     }
   };
 
-  const handleApiKeySubmit = (key: string) => {
-    setApiKey(key);
-    setLocalStorage("openai-api-key", key);
+  const handleApiKeySubmit = (key: string, provider: LLMProvider) => {
+    setApiKey(provider, key);
+    
+    // Also save to localStorage for backward compatibility if it's OpenAI
+    if (provider === 'openai') {
+      setLocalStorage("openai-api-key", key);
+    }
+    
     setShowApiKeyModal(false);
   };
 
   const handleOpenApiKeyModal = () => {
     setShowApiKeyModal(true);
-  };
-
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedModel(e.target.value);
   };
 
   return (
@@ -53,32 +82,34 @@ function App() {
             <ContextVisualizer showDrones={showDrones} />
           </Suspense>
           <OrbitControls 
-            className="orbit-controls"
-            enableZoom={true}
-            enablePan={true}
-            enableRotate={true}
             minDistance={5}
             maxDistance={50}
           />
         </Canvas>
       </div>
 
-      {/* Model Selector */}
-      <div className="model-selector">
-        <label htmlFor="model-select">Model:</label>
-        <select id="model-select" value={selectedModel} onChange={handleModelChange}>
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="gpt-4">GPT-4</option>
-          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-        </select>
+      {/* Model Selector - visible in the top-right corner */}
+      <div style={{ position: 'fixed', top: '20px', right: '20px', width: '250px', zIndex: 3 }}>
+        <ModelSelector 
+          onProviderChange={(provider) => {
+            // Check if we need to show the API key modal for this provider
+            if (!apiKeys[provider]) {
+              setProvider(provider);
+              setShowApiKeyModal(true);
+            }
+          }}
+        />
       </div>
 
       {/* Chat Interface */}
       <ChatInterface 
         visible={showChat} 
-        apiKey={apiKey}
+        apiKey={apiKeys[selectedProvider]}
         selectedModel={selectedModel}
       />
+      
+      {/* Parallel Windows Manager */}
+      <ParallelWindowsManager />
 
       {/* Controls */}
       <div id="controls">
@@ -99,13 +130,14 @@ function App() {
       {/* API Key Modal */}
       <ApiKeyModal 
         isOpen={showApiKeyModal} 
+        provider={selectedProvider}
         onSubmit={handleApiKeySubmit} 
         onCancel={() => {
-          if (apiKey) {
+          if (apiKeys[selectedProvider]) {
             setShowApiKeyModal(false);
           }
         }}
-        initialValue={apiKey || ""}
+        initialValue={apiKeys[selectedProvider] || ""}
       />
     </div>
   );

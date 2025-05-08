@@ -21,7 +21,10 @@ interface AnthropicResponse {
  * Converts standard messages to Anthropic-compatible format
  * Note: Anthropic has different handling for system messages
  */
-function convertMessagesToAnthropicFormat(messages: Message[]): any[] {
+function convertMessagesToAnthropicFormat(messages: Message[]): {
+  messages: { role: string; content: string }[];
+  system?: string;
+} {
   const result = [];
   let systemMessage = '';
   
