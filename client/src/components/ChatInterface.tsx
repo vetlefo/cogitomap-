@@ -4,7 +4,7 @@ import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { useAudio } from '../lib/stores/useAudio';
 import { useAuth } from '../hooks/useAuth';
-import { BubbleNode, Message, Edge } from '../types';
+import { BubbleNode, Message, Edge, StructuredLLMOutput } from '../types';
 
 interface ChatInterfaceProps {
   visible: boolean;
@@ -129,42 +129,33 @@ export default function ChatInterface({
       setMessages(prev => [...prev, assistantMessage]);
       
       // Create assistant node and semantic connections for visualization
-      // We include the user message we just added in the messages for context
-      const updatedNodes = [...nodes, userNode];
+      // Use structured data if available
+      const structuredData = 'main_response' in response ? response as StructuredLLMOutput : null;
+      
+      // Get the updated nodes list including user nodes that were just added
+      const updatedNodes = [...nodes];
+      
+      // Process the assistant message along with its structured data
       const assistantAnalysis = analyzeMessage(
         assistantMessage, 
-        [...messages, userMessage],
-        updatedNodes
+        structuredData,
+        userNodeId, // Connect to the user message that triggered it
+        updatedNodes // Pass all existing nodes for context
       );
       
-      const aiNodeId = `ai-${Date.now()}`;
-      
-      // Add the assistant node with its proper ID
-      const assistantNode: BubbleNode = {
-        ...assistantAnalysis.node,
-        id: aiNodeId
-      };
-      
-      addNode(assistantNode);
-      
-      // Add semantic connections for the assistant node
-      assistantAnalysis.connections.forEach(edge => {
-        // Update the target to use our actual node ID
-        const updatedEdge = {
-          ...edge,
-          target: aiNodeId
-        };
-        addEdge(updatedEdge);
+      // Add all nodes from the assistant analysis
+      assistantAnalysis.newNodes.forEach(node => {
+        addNode(node);
       });
       
-      // Always add a direct connection between the latest user message and this response
-      // This ensures the conversation flow is visually clear
-      addEdge({
-        id: `edge-convo-${Date.now()}`,
-        source: userNodeId,
-        target: aiNodeId,
-        strength: 0.9 // Strong connection for direct conversation flow
+      // Add all edges from the assistant analysis
+      assistantAnalysis.newEdges.forEach(edge => {
+        addEdge(edge);
       });
+      
+      // Log the nodes and edges added for debugging
+      console.log('Added assistant nodes:', assistantAnalysis.newNodes);
+      console.log('Added assistant edges:', assistantAnalysis.newEdges);
       
     } catch (error) {
       console.error('Error sending message:', error);

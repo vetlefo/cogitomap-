@@ -205,7 +205,7 @@ export default function ContextBubble({
       case 'entity': return 'ENTITY';
       case 'summary': return 'SUMMARY';
       case 'question': return 'QUESTION';
-      default: return node.type.toUpperCase();
+      default: return (node.type || 'UNKNOWN').toUpperCase();
     }
   };
 
