@@ -14,7 +14,7 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
   const { nodes, edges } = useVisualization();
   const edgeLinesRef = useRef<THREE.LineSegments | null>(null);
   
-  // Update edge connections
+  // Update edge connections with enhanced visuals
   useEffect(() => {
     if (edges.length > 0) {
       // Create a lookup map for node positions by ID
@@ -45,17 +45,31 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
           new THREE.Float32BufferAttribute(linePoints, 3)
         );
         
+        // Enhanced edge material with glow effect
         const edgeMaterial = new THREE.LineBasicMaterial({ 
           color: 0x00ffff,
           transparent: true,
-          opacity: 0.5,
-          linewidth: 1
+          opacity: 0.6,
+          linewidth: 1, // Note: line width beyond 1 doesn't work in WebGL
+          blending: THREE.AdditiveBlending // Adds glow effect
         });
         
         // Remove old lines if they exist
         if (edgeLinesRef.current) {
-          edgeLinesRef.current.geometry.dispose();
-          edgeLinesRef.current.material.dispose();
+          if (edgeLinesRef.current.geometry) {
+            edgeLinesRef.current.geometry.dispose();
+          }
+          
+          // Properly handle material disposal by checking type
+          const material = edgeLinesRef.current.material;
+          if (material) {
+            if (Array.isArray(material)) {
+              material.forEach(m => m.dispose());
+            } else {
+              material.dispose();
+            }
+          }
+          
           edgeLinesRef.current.parent?.remove(edgeLinesRef.current);
         }
         
@@ -67,8 +81,20 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
         return () => {
           if (edgeLinesRef.current) {
             edgeLinesRef.current.parent?.remove(edgeLinesRef.current);
-            edgeLinesRef.current.geometry.dispose();
-            edgeLinesRef.current.material.dispose();
+            
+            if (edgeLinesRef.current.geometry) {
+              edgeLinesRef.current.geometry.dispose();
+            }
+            
+            // Properly handle material disposal
+            const material = edgeLinesRef.current.material;
+            if (material) {
+              if (Array.isArray(material)) {
+                material.forEach(m => m.dispose());
+              } else {
+                material.dispose();
+              }
+            }
           }
         };
       }

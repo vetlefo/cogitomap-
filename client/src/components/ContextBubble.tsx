@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
+import { Html, useTexture, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from "@react-three/drei";
 import { BubbleNode } from "../types";
 
 interface ContextBubbleProps {
@@ -17,98 +17,224 @@ export default function ContextBubble({
   pulsate = true, 
   scale = 1 
 }: ContextBubbleProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [active, setActive] = useState(false);
   const [showText, setShowText] = useState(false);
   
-  // Color based on node type and state
-  let color = node.type === 'user' ? 0x0066ff : 0x00ff99;
-  if (hovered) color = node.type === 'user' ? 0x66aaff : 0x66ffbb;
-  if (active) color = 0xff9900;
+  // Enhanced colors with more vibrance
+  let color = node.type === 'user' ? 0x0088ff : 0x00ff99;
+  let emissiveIntensity = 0.6;
+  
+  if (hovered) {
+    color = node.type === 'user' ? 0x66aaff : 0x66ffbb;
+    emissiveIntensity = 0.8;
+  }
+  
+  if (active) {
+    color = 0xff9900;
+    emissiveIntensity = 1.0;
+  }
 
-  // Pulsation animation
+  // Pulsation animation with more organic feel
   useFrame((state) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !glowRef.current) return;
+    
+    const t = state.clock.getElapsedTime();
     
     if (pulsate) {
-      const t = state.clock.getElapsedTime();
-      const pulseFactor = 0.05 * Math.sin(t * 2);
-      meshRef.current.scale.setScalar((scale + pulseFactor) * (1 + node.importance * 0.5));
+      // More natural pulsation with combined sine waves
+      const pulseFactor = 0.05 * Math.sin(t * 2) + 0.03 * Math.sin(t * 3.7);
+      const baseScale = scale * (1 + node.importance * 0.5);
+      meshRef.current.scale.setScalar(baseScale + pulseFactor);
+      
+      // Make the glow pulsate slightly larger than the bubble
+      glowRef.current.scale.setScalar(baseScale + pulseFactor + 0.3);
     }
     
-    // Add subtle rotation
-    meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() / 4) * 0.3;
-    meshRef.current.rotation.z = Math.cos(state.clock.getElapsedTime() / 4) * 0.2;
+    // Add subtle, more natural rotation
+    meshRef.current.rotation.x = Math.sin(t / 4) * 0.3;
+    meshRef.current.rotation.z = Math.cos(t / 5) * 0.2;
+    meshRef.current.rotation.y = Math.sin(t / 6) * 0.1;
   });
 
-  // Random offsets for more organic movement
+  // Enhanced wobble effect with more natural motion
   const wobbleOffset = useRef({
     x: Math.random() * Math.PI * 2,
     y: Math.random() * Math.PI * 2,
     z: Math.random() * Math.PI * 2,
-    speed: 0.2 + Math.random() * 0.3,
-    amplitude: 0.05 + Math.random() * 0.1
+    speed: 0.15 + Math.random() * 0.2, // Slower for more natural feel
+    amplitude: 0.05 + Math.random() * 0.1 * (node.importance + 0.5) // More important nodes move more
   });
 
-  // Bubble wobble effect
+  // Bubble position with organic wobble
   useFrame((state) => {
-    if (!meshRef.current) return;
+    if (!groupRef.current) return;
     const t = state.clock.getElapsedTime();
     const wobble = wobbleOffset.current;
     
-    // Apply the wobble effect
-    const posX = node.position.x + Math.sin(t * wobble.speed + wobble.x) * wobble.amplitude;
-    const posY = node.position.y + Math.sin(t * wobble.speed + wobble.y) * wobble.amplitude;
-    const posZ = node.position.z + Math.sin(t * wobble.speed + wobble.z) * wobble.amplitude;
+    // Apply complex wobble effect with multiple sine waves for natural movement
+    const posX = node.position.x + 
+      Math.sin(t * wobble.speed + wobble.x) * wobble.amplitude + 
+      Math.sin(t * wobble.speed * 0.7 + wobble.x * 2) * wobble.amplitude * 0.3;
+      
+    const posY = node.position.y + 
+      Math.sin(t * wobble.speed + wobble.y) * wobble.amplitude + 
+      Math.cos(t * wobble.speed * 0.6 + wobble.y * 1.5) * wobble.amplitude * 0.4;
+      
+    const posZ = node.position.z + 
+      Math.sin(t * wobble.speed + wobble.z) * wobble.amplitude +
+      Math.sin(t * wobble.speed * 0.8 + wobble.z * 1.8) * wobble.amplitude * 0.3;
     
-    meshRef.current.position.set(posX, posY, posZ);
+    groupRef.current.position.set(posX, posY, posZ);
   });
 
-  // Handle interaction
+  // Handle interaction with improved feedback
   const handleClick = () => {
     setActive(!active);
     setShowText(!showText);
+    
+    // Add subtle "pop" animation on click
+    if (meshRef.current) {
+      meshRef.current.scale.multiplyScalar(1.2);
+      setTimeout(() => {
+        if (meshRef.current) {
+          meshRef.current.scale.divideScalar(1.2);
+        }
+      }, 150);
+    }
+    
     if (onClick) onClick(node);
   };
 
-  // Create a material with glow effect
-  const material = useRef(
+  // Set up the main material with enhanced properties
+  const bubbleMaterial = useRef(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
-      emissive: new THREE.Color(color).multiplyScalar(0.4),
-      metalness: 0.5,
+      emissive: new THREE.Color(color),
+      emissiveIntensity: emissiveIntensity,
+      metalness: 0.6,
       roughness: 0.2,
+      envMapIntensity: 1.0,
+      transparent: true,
+      opacity: 0.9,
     })
   );
 
-  // Update material when color changes
+  // Update material properties on color/state change
   useEffect(() => {
-    material.current.color.set(new THREE.Color(color));
-    material.current.emissive.set(new THREE.Color(color).multiplyScalar(0.4));
-  }, [color]);
+    if (bubbleMaterial.current) {
+      bubbleMaterial.current.color.set(new THREE.Color(color));
+      bubbleMaterial.current.emissive.set(new THREE.Color(color));
+      bubbleMaterial.current.emissiveIntensity = emissiveIntensity;
+      
+      // Make active nodes more shiny
+      bubbleMaterial.current.metalness = active ? 0.8 : 0.6;
+      bubbleMaterial.current.roughness = active ? 0.1 : 0.2;
+    }
+  }, [color, active, emissiveIntensity]);
+
+  // Prepare keywords for display
+  const keywordsText = node.keywords.length > 0 
+    ? node.keywords.slice(0, 3).join(", ") 
+    : "";
 
   return (
-    <group>
+    <group ref={groupRef}>
+      {/* Outer glow sphere */}
       <mesh
-        ref={meshRef}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        onClick={handleClick}
-        position={[node.position.x, node.position.y, node.position.z]}
-        scale={scale * (1 + node.importance * 0.5)}
+        ref={glowRef}
+        scale={scale * (1 + node.importance * 0.5) + 0.3}
       >
-        <sphereGeometry args={[1, 32, 32]} />
-        <primitive object={material.current} attach="material" />
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshBasicMaterial
+          color={new THREE.Color(color)}
+          transparent={true}
+          opacity={0.15}
+          blending={THREE.AdditiveBlending}
+        />
       </mesh>
       
-      {/* Text label */}
+      {/* Main bubble */}
+      {node.type === 'user' ? (
+        // User nodes use MeshWobbleMaterial for a more organic feel
+        <mesh
+          ref={meshRef}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          onClick={handleClick}
+          scale={scale * (1 + node.importance * 0.5)}
+        >
+          <sphereGeometry args={[1, 32, 32]} />
+          <MeshWobbleMaterial
+            color={new THREE.Color(color)}
+            emissive={new THREE.Color(color)}
+            emissiveIntensity={emissiveIntensity}
+            metalness={active ? 0.8 : 0.6}
+            roughness={active ? 0.1 : 0.2}
+            factor={0.2} // Wobble amount
+            speed={0.5} // Wobble speed
+            transparent
+            opacity={0.95}
+          />
+        </mesh>
+      ) : (
+        // AI nodes use MeshDistortMaterial for a more technical, fluid look
+        <mesh
+          ref={meshRef}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          onClick={handleClick}
+          scale={scale * (1 + node.importance * 0.5)}
+        >
+          <sphereGeometry args={[1, 32, 32]} />
+          <MeshDistortMaterial
+            color={new THREE.Color(color)}
+            emissive={new THREE.Color(color)}
+            emissiveIntensity={emissiveIntensity}
+            metalness={active ? 0.8 : 0.6}
+            roughness={active ? 0.1 : 0.2}
+            distort={0.3} // Amount of distortion
+            speed={2} // Speed of distortion
+            transparent
+            opacity={0.95}
+          />
+        </mesh>
+      )}
+      
+      {/* Particle effect around important nodes */}
+      {node.importance > 0.6 && (
+        <Sphere args={[1.5, 8, 8]} scale={scale * (1 + node.importance * 0.4)}>
+          <meshBasicMaterial
+            color={new THREE.Color(color)}
+            wireframe
+            transparent
+            opacity={0.1}
+          />
+        </Sphere>
+      )}
+      
+      {/* Enhanced text label with keywords */}
       {(showText || hovered) && (
-        <Html position={[node.position.x, node.position.y + 1.5, node.position.z]}>
+        <Html
+          position={[0, 1.8, 0]}
+          center
+          distanceFactor={10}
+          occlude
+        >
           <div className="text-snippet">
-            {node.content.length > 100 
-              ? `${node.content.substring(0, 100)}...` 
-              : node.content}
+            <div className="bubble-content">
+              {node.content.length > 100 
+                ? `${node.content.substring(0, 100)}...` 
+                : node.content}
+            </div>
+            {keywordsText && (
+              <div className="bubble-keywords">
+                {keywordsText}
+              </div>
+            )}
           </div>
         </Html>
       )}
