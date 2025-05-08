@@ -181,11 +181,12 @@ export default function ChatInterface({
       <div id="chat-messages">
         {!isAuthenticated && (
           <a 
-            href="/api/auth/login" 
+            href="/?devMode=true" 
             className="auth-hint-banner"
             onClick={(e) => {
               e.preventDefault();
-              window.location.href = '/api/auth/login';
+              localStorage.setItem('devAuth', 'true');
+              window.location.href = '/?devMode=true';
             }}
           >
             <div className="auth-hint-content">

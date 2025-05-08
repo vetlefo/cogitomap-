@@ -16,26 +16,12 @@ export default function AuthButton() {
     );
   }
 
-  const handleLogin = async () => {
-    try {
-      // For development mode, fetch directly without redirect
-      const response = await fetch('/api/auth/login');
-      const data = await response.json();
-      
-      if (data.success) {
-        // Set dev mode header for future requests
-        localStorage.setItem('devAuth', 'true');
-        // Force refresh auth state
-        window.location.href = '/?devMode=true';
-      } else {
-        // Fallback to normal auth flow
-        window.location.href = `/api/auth/login`;
-      }
-    } catch (e) {
-      console.error('Auth error:', e);
-      // Fallback to normal auth flow
-      window.location.href = `/api/auth/login`;
-    }
+  const handleLogin = () => {
+    // Set dev mode flag
+    localStorage.setItem('devAuth', 'true');
+    
+    // Just reload with the dev param
+    window.location.href = '/?devMode=true';
   };
   
   const handleLogout = () => {
