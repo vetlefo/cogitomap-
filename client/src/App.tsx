@@ -45,6 +45,7 @@ function App() {
     }
     
     // Mark OpenAI API key as available since it's now set as an environment variable
+    // The client will recognize 'env-variable' and send null to the server
     if (!apiKeys.openai) {
       setApiKey('openai', 'env-variable');
     }

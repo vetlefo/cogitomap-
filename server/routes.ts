@@ -101,6 +101,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(models);
   });
   
+  // Check for API keys in environment variables
+  app.get('/api/keys/check', (req, res) => {
+    // Check which providers have environment keys
+    const envKeys = {
+      openai: !!process.env.OPENAI_API_KEY,
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      gemini: !!process.env.GEMINI_API_KEY
+    };
+    
+    res.json(envKeys);
+  });
+  
   // Authentication routes
   app.get('/api/auth/user', getCurrentUserHandler);
   app.get('/api/auth/check', checkAuthHandler);
