@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { Html, useTexture, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from "@react-three/drei";
 import { BubbleNode } from "../types";
 import { useVisualization } from "../lib/stores/useVisualization";
+import { useKeyboardState } from "../hooks/useKeyboardState";
 
 // Utility function to blend two hex colors
 function blendColors(color1: number, color2: number, ratio: number): number {
@@ -46,6 +47,9 @@ export default function ContextBubble({
   const [hovered, setHovered] = useState(false);
   const [active, setActive] = useState(false);
   const [showText, setShowText] = useState(false);
+  
+  // Use our keyboard state hook to track shift key
+  const keyboardState = useKeyboardState();
   
   // Get state from the visualization store
   const { 
@@ -184,7 +188,7 @@ export default function ContextBubble({
   });
 
   // Handle interaction with improved feedback
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
     // Toggle active state for details display
     setActive(!active);
     setShowText(!showText);
@@ -200,12 +204,18 @@ export default function ContextBubble({
     }
     
     // If shift key is held, handle multi-select behavior
-    if (e.shiftKey) {
+    // Use our global keyboard state hook to check if shift is pressed
+    const isShiftPressed = keyboardState.shiftKey;
+    
+    if (isShiftPressed) {
       // Toggle this node in the multi-select array
       toggleNodeSelection(node.id);
     } else {
       // Standard click behavior - make this the active node
       selectNode(node.id);
+      
+      // Set hovered node as well for visual consistency
+      setHoveredNode(node.id);
     }
     
     // Call the parent onClick handler if provided
@@ -253,7 +263,7 @@ export default function ContextBubble({
       case 'entity': return 'ENTITY';
       case 'summary': return 'SUMMARY';
       case 'question': return 'QUESTION';
-      default: return (node.type || 'UNKNOWN').toUpperCase();
+      default: return 'UNKNOWN';
     }
   };
 

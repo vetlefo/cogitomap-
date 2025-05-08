@@ -3,6 +3,8 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { Stars, Sparkles } from '@react-three/drei';
+import ParallelWindowsManager, { ParallelWindowsManagerRef } from './ParallelWindowsManager';
+import SelectedNodesPanel from './SelectedNodesPanel';
 import { MathUtils } from 'three';
 
 export default function SceneManager() {
@@ -176,6 +178,31 @@ export default function SceneManager() {
     }
   }, [nodes, camera]);
   
+  // Create refs for component communication
+  const windowsManagerRef = useRef<ParallelWindowsManagerRef>(null);
+  
+  // Track created second opinion windows
+  const [secondOpinionWindows, setSecondOpinionWindows] = useState<string[]>([]);
+  
+  // Handle the request for a second opinion
+  const handleRequestSecondOpinion = (selectedNodeIds: string[]) => {
+    if (windowsManagerRef.current) {
+      const windowId = windowsManagerRef.current.createSecondOpinionWindow(selectedNodeIds);
+      if (windowId) {
+        setSecondOpinionWindows(prev => [...prev, windowId]);
+      }
+    }
+  };
+  
+  // Handle window creation (for tracking)
+  const handleWindowCreate = (windowId: string) => {
+    // Track the window ID for integration with visualization
+    console.log(`New window created: ${windowId}`);
+    
+    // Update visualization store to mark nodes coming from this window
+    // They'll be rendered with the "second opinion" color scheme
+  };
+  
   return (
     <>
       {/* Add stars for cosmic background effect */}
@@ -210,6 +237,18 @@ export default function SceneManager() {
           blending={THREE.AdditiveBlending}
         />
       </mesh>
+      
+      {/* Render the HTML overlays */}
+      <div className="overlay-container">
+        {/* Node selection panel for second opinion */}
+        <SelectedNodesPanel onRequestSecondOpinion={handleRequestSecondOpinion} />
+        
+        {/* Parallel conversation windows manager */}
+        <ParallelWindowsManager 
+          ref={windowsManagerRef}
+          onWindowCreate={handleWindowCreate}
+        />
+      </div>
     </>
   );
 }
