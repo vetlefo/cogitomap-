@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { handleLLMRequest } from "./api/llm_router";
+import { getCurrentUserHandler, checkAuthHandler } from "./api/auth";
+import { requireAuth } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Multi-provider LLM Chat Completions API endpoint
@@ -97,6 +99,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
     
     res.json(models);
+  });
+  
+  // Authentication routes
+  app.get('/api/auth/user', getCurrentUserHandler);
+  app.get('/api/auth/check', checkAuthHandler);
+  
+  // Protected route example
+  app.get('/api/protected', requireAuth, (req, res) => {
+    res.json({ message: 'This is a protected route', user: req.user });
   });
 
   const httpServer = createServer(app);
