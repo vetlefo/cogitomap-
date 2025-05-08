@@ -3,7 +3,7 @@ import { sendMessage as sendLLMMessage, useLLM, LLMProvider } from '../lib/store
 import ApiKeyModal from './ApiKeyModal';
 import ModelSelector from './ModelSelector';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
-import { BubbleNode, Message, Edge } from '../types';
+import { BubbleNode, Message, Edge, StructuredLLMOutput } from '../types';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { useAudio } from '../lib/stores/useAudio';
 
@@ -74,20 +74,22 @@ export default function ParallelConversationWindow({
       // Create node for visualization
       const userAnalysis = analyzeMessage(
         userMessage,
-        updatedMessages.slice(0, -1), // Previous messages
+        null, // No structured data for user message
+        null, // No previous message ID
         windowNodes
       );
       
-      const userNodeId = `user-${windowId}-${Date.now()}`;
+      const userNodeId = userAnalysis.newNodes.length > 0 ? userAnalysis.newNodes[0].id : `user-${windowId}-${Date.now()}`;
       
-      // Add the user node with proper ID
-      const userNode: BubbleNode = {
-        ...userAnalysis.node,
-        id: userNodeId
-      };
+      // Add all nodes from the analysis
+      userAnalysis.newNodes.forEach(node => {
+        addNode(node);
+      });
       
-      // Add the node to visualization state
-      addNode(userNode);
+      // Add all edges from the analysis
+      userAnalysis.newEdges.forEach(edge => {
+        addEdge(edge);
+      });
       
       // Send to API using the LLM store
       const response = await sendLLMMessage(
@@ -121,49 +123,37 @@ export default function ParallelConversationWindow({
       
       if (assistantMessage && typeof assistantMessage === 'object' && assistantMessage.content) {
         // Create node with enhanced information from structured output
+        const structuredData = 'main_response' in response ? response as StructuredLLMOutput : null;
+        
+        // Process the assistant message along with its structured data
         const assistantAnalysis = analyzeMessage(
           assistantMessage,
-          [...updatedMessages], // Include user message
-          windowNodes
+          structuredData,
+          userNodeId, // Connect to the user message that triggered it
+          windowNodes // Pass all existing nodes for context
         );
         
-        // Create assistant node with proper ID
-        const assistantNode: BubbleNode = {
-          ...assistantAnalysis.node,
-          id: aiNodeId
-        };
-        
-        // Enhance node with structured data
-        if (response.identified_topics) {
-          assistantNode.keywords = response.identified_topics;
-        }
-        
-        if (response.sentiment) {
-          // Adjust importance based on sentiment for visualization purposes
-          const sentimentBoost = response.sentiment === 'positive' ? 0.1 : 
-                                 response.sentiment === 'negative' ? 0.2 : 0;
-          assistantNode.importance = Math.min(1, assistantNode.importance + sentimentBoost);
-        }
-        // Add all the semantic connections for this node
-        assistantAnalysis.connections.forEach(edge => {
-          // Update the target to use our actual node ID
-          const updatedEdge = {
-            ...edge,
-            target: aiNodeId
-          };
-          addEdge(updatedEdge);
+        // Add all nodes from the assistant analysis
+        assistantAnalysis.newNodes.forEach(node => {
+          addNode(node);
         });
         
-        // Always add a direct connection between the latest user message and this response
-        addEdge({
-          id: `edge-convo-${windowId}-${Date.now()}`,
-          source: userNodeId,
-          target: aiNodeId,
-          strength: 0.8 // Strong connection for direct conversation flow
+        // Add all edges from the assistant analysis
+        assistantAnalysis.newEdges.forEach(edge => {
+          addEdge(edge);
         });
         
-        // Add the assistant node to the visualization
-        addNode(assistantNode);
+        // Always add a direct connection between the latest user message and the first assistant node
+        if (assistantAnalysis.newNodes.length > 0) {
+          const assistantMainNode = assistantAnalysis.newNodes[0];
+          
+          addEdge({
+            id: `edge-convo-${windowId}-${Date.now()}`,
+            source: userNodeId,
+            target: assistantMainNode.id,
+            strength: 0.8 // Strong connection for direct conversation flow
+          });
+        }
       } else {
         // Regular response
         assistantMessage = {
@@ -176,36 +166,32 @@ export default function ParallelConversationWindow({
         // Create node with enhanced information
         const assistantAnalysis = analyzeMessage(
           assistantMessage,
-          [...updatedMessages],
-          windowNodes
+          null, // No structured data
+          userNodeId, // Connect to the user message
+          windowNodes // Existing nodes
         );
         
-        // Create assistant node with proper ID
-        const assistantNode: BubbleNode = {
-          ...assistantAnalysis.node,
-          id: aiNodeId
-        };
-        
-        // Add all the semantic connections for this node
-        assistantAnalysis.connections.forEach(edge => {
-          // Update the target to use our actual node ID
-          const updatedEdge = {
-            ...edge,
-            target: aiNodeId
-          };
-          addEdge(updatedEdge);
+        // Add all nodes from the assistant analysis
+        assistantAnalysis.newNodes.forEach(node => {
+          addNode(node);
         });
         
-        // Always add a direct connection between the latest user message and this response
-        addEdge({
-          id: `edge-convo-${windowId}-${Date.now()}`,
-          source: userNodeId,
-          target: aiNodeId,
-          strength: 0.8 // Strong connection for direct conversation flow
+        // Add all edges from the assistant analysis
+        assistantAnalysis.newEdges.forEach(edge => {
+          addEdge(edge);
         });
         
-        // Add the assistant node to the visualization
-        addNode(assistantNode);
+        // Always add a direct connection between the latest user message and the first assistant node
+        if (assistantAnalysis.newNodes.length > 0) {
+          const assistantMainNode = assistantAnalysis.newNodes[0];
+          
+          addEdge({
+            id: `edge-convo-${windowId}-${Date.now()}`,
+            source: userNodeId,
+            target: assistantMainNode.id,
+            strength: 0.8 // Strong connection for direct conversation flow
+          });
+        }
       }
       
       // Add assistant message to the chat
