@@ -222,9 +222,16 @@ export default function ContextBubble({
     
     if (isShiftPressed) {
       // Toggle this node in the multi-select array
+      console.log(`Shift-click detected on node ${node.id}, calling toggleNodeSelection`);
       toggleNodeSelection(node.id);
+      
+      // When using shift-select, also set this as the primary active node
+      // This improves usability and visual feedback
+      selectNode(node.id);
     } else {
       // Standard click behavior - make this the active node
+      // This will also clear the multi-selection array
+      console.log(`Regular click detected on node ${node.id}, calling selectNode`);
       selectNode(node.id);
       
       // Set hovered node as well for visual consistency

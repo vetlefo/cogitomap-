@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { BubbleNode } from '../types';
+import { useKeyboardState } from '../hooks/useKeyboardState';
 
 interface SelectedNodesPanelProps {
   onRequestSecondOpinion: (selectedNodeIds: string[]) => void;
 }
 
 export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedNodesPanelProps) {
-  const { selectedNodes, nodes, clearSelectedNodes } = useVisualization();
+  const { selectedNodes, nodes, clearSelectedNodes, selectedNodeId } = useVisualization();
   const [showPanel, setShowPanel] = useState(true); // Start with panel visible
+  const keyboardState = useKeyboardState();
   
   // Get the actual node objects for the selected node IDs
   const selectedNodeObjects = selectedNodes
@@ -19,7 +21,8 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
   console.log(`SelectedNodesPanel - Selected Node IDs: [${selectedNodes.join(', ')}]`);
   console.log(`SelectedNodesPanel - Found node objects: ${selectedNodeObjects.length}`);
   
-  // Only show panel when nodes are selected
+  // For debugging, we'll make the panel always visible
+  const isDebugMode = true; // Set to true for debugging, false for production
   const hasSelectedNodes = selectedNodeObjects.length > 0;
   
   const handleRequestSecondOpinion = () => {
@@ -29,8 +32,8 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
     }
   };
   
-  // If no nodes are selected, don't render the panel
-  if (!hasSelectedNodes) {
+  // In debug mode, always show the panel
+  if (!hasSelectedNodes && !isDebugMode) {
     return null;
   }
   
@@ -146,6 +149,29 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
               </div>
             ))}
           </div>
+          
+          {/* Debug section */}
+          {isDebugMode && (
+            <div
+              className="debug-section"
+              style={{
+                marginBottom: '10px',
+                padding: '8px',
+                backgroundColor: 'rgba(80, 0, 80, 0.3)',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontFamily: 'monospace'
+              }}
+            >
+              <div><strong>DEBUG INFO:</strong></div>
+              <div>Shift Key: {keyboardState.shiftKey ? '✓' : '✗'}</div>
+              <div>Ctrl Key: {keyboardState.ctrlKey ? '✓' : '✗'}</div>
+              <div>Total Nodes: {nodes.length}</div>
+              <div>selectedNodeId: {selectedNodeId ? selectedNodeId.substring(0, 8) + '...' : 'null'}</div>
+              <div>selectedNodes: [{selectedNodes.length}]</div>
+              <div>Selected Objects: {selectedNodeObjects.length}</div>
+            </div>
+          )}
           
           {/* Action buttons */}
           <div 
