@@ -6,9 +6,11 @@ import ChatInterface from "./components/ChatInterface";
 import ApiKeyModal from "./components/ApiKeyModal";
 import ParallelWindowsManager from "./components/ParallelWindowsManager";
 import ModelSelector from "./components/ModelSelector";
+import AuthButton from "./components/AuthButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useAudio } from "./lib/stores/useAudio";
+import { AuthProvider } from "./hooks/useAuth";
 import "../src/styles/cyberpunk.css";
 
 function App() {
@@ -127,6 +129,9 @@ function App() {
 
       {/* Model Selector - visible in the top-right corner */}
       <div style={{ position: 'fixed', top: '20px', right: '20px', width: '250px', zIndex: 3 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <AuthButton />
+        </div>
         <ModelSelector 
           onProviderChange={(provider) => {
             // Check if we need to show the API key modal for this provider
@@ -192,4 +197,13 @@ function App() {
   );
 }
 
-export default App;
+// Wrap the App component with AuthProvider to provide auth context
+function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
+
+export default AppWithAuth;

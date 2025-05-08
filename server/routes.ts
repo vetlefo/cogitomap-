@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { handleLLMRequest } from "./api/llm_router";
-import { getCurrentUserHandler, checkAuthHandler } from "./api/auth";
+import { getCurrentUserHandler, checkAuthHandler, loginHandler, logoutHandler } from "./api/auth";
 import { requireAuth } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -104,6 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.get('/api/auth/user', getCurrentUserHandler);
   app.get('/api/auth/check', checkAuthHandler);
+  app.get('/api/auth/login', loginHandler);
+  app.get('/api/auth/logout', logoutHandler);
   
   // Protected route example
   app.get('/api/protected', requireAuth, (req, res) => {

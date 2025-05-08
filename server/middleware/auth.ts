@@ -48,6 +48,15 @@ interface UserInfo {
   [key: string]: unknown;
 }
 
+// User type that can be assigned to request.user
+type RequestUser = {
+  [key: string]: unknown;
+} & {
+  id?: string;
+  name?: string;
+  roles?: string[];
+}
+
 // Augment express Request type to include user
 declare global {
   namespace Express {

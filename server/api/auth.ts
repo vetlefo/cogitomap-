@@ -44,3 +44,26 @@ export async function checkAuthHandler(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Redirect to Replit login page
+ */
+export function loginHandler(req: Request, res: Response) {
+  // Get the current URL to use as return URL after login
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  const returnUrl = `${protocol}://${host}`;
+  
+  // Redirect to Replit login with return URL
+  const loginUrl = `https://replit.com/auth_with_repl_site?domain=${encodeURIComponent(returnUrl)}`;
+  res.redirect(loginUrl);
+}
+
+/**
+ * Handle logout by clearing cookies and redirecting
+ */
+export function logoutHandler(req: Request, res: Response) {
+  // In Replit Auth, we can't directly log out the user server-side
+  // Instead, redirect to home page and let client handle the state
+  res.redirect('/');
+}
