@@ -92,12 +92,19 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
   
   // Function to create a second opinion window based on selected nodes and their context
   const createSecondOpinionWindow = useCallback((selectedNodeIds: string[]) => {
+    console.log(`Creating second opinion window with selected nodes: [${selectedNodeIds.join(', ')}]`);
+    
     // Get node objects for the selected IDs
     const selectedNodes = selectedNodeIds
       .map(id => nodes.find(node => node.id === id))
       .filter(Boolean) as BubbleNode[];
     
-    if (selectedNodes.length === 0) return null;
+    if (selectedNodes.length === 0) {
+      console.log('No valid nodes found for the selected IDs');
+      return null;
+    }
+    
+    console.log(`Found ${selectedNodes.length} nodes for analysis`);
     
     // Collect the conversation nodes (user/ai messages) that are related to the selected nodes
     // First identify all message nodes
@@ -110,9 +117,34 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
     const entities = selectedNodes.filter(node => node.type === 'entity');
     const questions = selectedNodes.filter(node => node.type === 'question');
     const summaries = selectedNodes.filter(node => node.type === 'summary');
+    const userMessages = selectedNodes.filter(node => node.type === 'user_message');
+    const aiMessages = selectedNodes.filter(node => node.type === 'ai_message');
+    
+    console.log(`Node breakdown:
+      - Topics: ${topics.length}
+      - Entities: ${entities.length}
+      - Questions: ${questions.length}
+      - Summaries: ${summaries.length}
+      - User Messages: ${userMessages.length}
+      - AI Messages: ${aiMessages.length}`
+    );
     
     // Format each section
     let promptContent = '';
+    
+    // Add selected messages section if we have them (highest priority)
+    if (userMessages.length > 0 || aiMessages.length > 0) {
+      promptContent += '## Selected Messages\n\n';
+      
+      // Sort all selected messages by their position.y to maintain conversation flow
+      const allSelectedMessages = [...userMessages, ...aiMessages]
+        .sort((a, b) => a.position.y - b.position.y);
+      
+      allSelectedMessages.forEach(node => {
+        const prefix = node.type === 'user_message' ? 'User: ' : 'Assistant: ';
+        promptContent += `${prefix}${node.content}\n\n`;
+      });
+    }
     
     // Add topics section if we have topics
     if (topics.length > 0) {
@@ -145,56 +177,62 @@ const ParallelWindowsManagerComponent: ForwardRefRenderFunction<
       promptContent += '\n\n';
     }
     
-    // Add selected message nodes for context
-    // Find user and AI message nodes that are most relevant to the selected nodes
-    // Instead of just taking the latest messages, find messages related to selected nodes
-    const messageNodesOfInterest = messageNodes
-      .filter(messageNode => {
-        // Look for messages that have connections to the selected topic/entity nodes
-        // Check if this message has any of the same keywords as the selected nodes
-        const messageKeywords = messageNode.keywords || [];
-        
-        // Check if this message's keywords overlap with any selected node's content
-        const hasRelatedKeywords = selectedNodes.some(selectedNode => {
-          // For topic nodes, look for direct matches
-          if (selectedNode.type === 'topic') {
-            return messageKeywords.includes(selectedNode.content.toLowerCase());
-          }
+    // Add relevant conversation context only if we don't have selected messages
+    if (userMessages.length === 0 && aiMessages.length === 0) {
+      // Find user and AI message nodes that are most relevant to the selected nodes
+      const messageNodesOfInterest = messageNodes
+        .filter(messageNode => {
+          // Look for messages that have connections to the selected topics/entities
+          const messageKeywords = messageNode.keywords || [];
           
-          // For entity nodes, look for matches as well
-          if (selectedNode.type === 'entity') {
-            return messageNode.content.toLowerCase().includes(selectedNode.content.toLowerCase());
-          }
+          // Check if this message's keywords overlap with any selected node's content
+          const hasRelatedKeywords = selectedNodes.some(selectedNode => {
+            // For topic nodes, look for direct matches
+            if (selectedNode.type === 'topic') {
+              return messageKeywords.includes(selectedNode.content.toLowerCase());
+            }
+            
+            // For entity nodes, look for content matches
+            if (selectedNode.type === 'entity') {
+              return messageNode.content.toLowerCase().includes(selectedNode.content.toLowerCase());
+            }
+            
+            return false;
+          });
           
-          return false;
+          return hasRelatedKeywords;
         });
         
-        // If we find a relationship, include this message
-        return hasRelatedKeywords;
-      });
+      // If we don't find any related messages, fall back to the most recent ones
+      const finalMessageNodes = messageNodesOfInterest.length > 0 
+        ? messageNodesOfInterest 
+        : messageNodes.slice(-6); // Get the last 6 messages (3 exchanges)
       
-    // If we don't find any related messages, fall back to the most recent ones
-    const finalMessageNodes = messageNodesOfInterest.length > 0 
-      ? messageNodesOfInterest 
-      : messageNodes.slice(-6); // Get the last 6 messages (3 exchanges)
-    
-    if (finalMessageNodes.length > 0) {
-      promptContent += '## Relevant Conversation Context\n';
-      finalMessageNodes.forEach(messageNode => {
-        const prefix = messageNode.type === 'user_message' ? 'User: ' : 'Assistant: ';
-        promptContent += `${prefix}${messageNode.content}\n\n`;
-      });
+      if (finalMessageNodes.length > 0) {
+        promptContent += '## Relevant Conversation Context\n';
+        // Sort messages by Y position to maintain conversation flow
+        finalMessageNodes
+          .sort((a, b) => a.position.y - b.position.y)
+          .forEach(messageNode => {
+            const prefix = messageNode.type === 'user_message' ? 'User: ' : 'Assistant: ';
+            promptContent += `${prefix}${messageNode.content}\n\n`;
+          });
+      }
     }
     
     // Create a prompt for the second opinion
     const secondOpinionPrompt: Message = {
       role: 'user',
-      content: `I've selected specific elements from our conversation and would like your perspective on them. Please analyze these concepts and their relationships, focusing especially on the selected topics and entities below.
+      content: `I've selected specific elements from our conversation and would like your perspective on them. Please analyze these concepts and their relationships, focusing especially on the selected topics, entities, and messages below.
 
 ${promptContent}
 
-Consider the connections between these elements and provide a thoughtful, well-structured analysis. Feel free to highlight patterns or insights that might not be immediately obvious. I'm looking for a different perspective on these specific points.`
+Consider the connections between these elements and provide a thoughtful, well-structured analysis. Feel free to highlight patterns or insights that might not be immediately obvious. I'm looking for a different perspective on these specific points.
+
+Please try to address any questions I've selected, and connect your answer to the topics and entities mentioned.`
     };
+    
+    console.log('Second opinion prompt created:', secondOpinionPrompt.content.substring(0, 100) + '...');
     
     // Create a new window with this initial prompt
     const windowId = memoizedSpawnWindow(
@@ -204,6 +242,8 @@ Consider the connections between these elements and provide a thoughtful, well-s
         y: 80
       }
     );
+    
+    console.log(`New second opinion window created with ID: ${windowId}`);
     
     // Notify parent component about window creation
     if (onWindowCreate) {

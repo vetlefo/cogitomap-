@@ -64,7 +64,9 @@ export default function ContextBubble({
   } = useVisualization();
   
   // Determine if this node is selected (either as primary or in multi-select)
-  const isSelected = selectedNodeId === node.id || selectedNodes.includes(node.id);
+  const isPrimarySelected = selectedNodeId === node.id;
+  const isMultiSelected = selectedNodes.includes(node.id);
+  const isSelected = isPrimarySelected || isMultiSelected;
   const isHovered = hoveredNodeId === node.id || hovered;
   
   // Add debug logging for selection state
@@ -132,10 +134,23 @@ export default function ContextBubble({
     emissiveIntensity = 0.8;
   }
   
-  // Apply active/selected effects
-  if (active || isSelected) {
-    color = isSelected ? 0xffffff : 0xff9900; // White for selected, orange for active
-    emissiveIntensity = isSelected ? 1.2 : 1.0; // Brighter for selected
+  // Apply active/selected effects with different visuals for primary vs multi-select
+  if (active) {
+    // Active (showing details) - Orange glow
+    color = 0xff9900;
+    emissiveIntensity = 1.0;
+  }
+  
+  if (isPrimarySelected) {
+    // Primary selection - White glow
+    color = 0xffffff;
+    emissiveIntensity = 1.2;
+  }
+  
+  if (isMultiSelected && !isPrimarySelected) {
+    // Multi-selected but not primary - Purple glow
+    color = 0xaa44cc;
+    emissiveIntensity = 1.1;
   }
   
   // Apply special effect for second opinion nodes

@@ -26,9 +26,19 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
   const hasSelectedNodes = selectedNodeObjects.length > 0;
   
   const handleRequestSecondOpinion = () => {
+    console.log(`Requesting second opinion for nodes: [${selectedNodes.join(', ')}]`);
+    
     if (selectedNodeObjects.length > 0) {
+      // Call the parent handler to create a second opinion window
       onRequestSecondOpinion(selectedNodes);
-      clearSelectedNodes();
+      
+      // Optionally clear the selection after creating the window
+      // We're keeping the selection for now to allow the user to make edits
+      // clearSelectedNodes();
+      
+      console.log("Second opinion request sent");
+    } else {
+      console.log("No nodes selected for second opinion");
     }
   };
   
