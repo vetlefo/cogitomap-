@@ -1,0 +1,107 @@
+Phase 1: Parsing and Visualizing Structured Data
+
+Update Type Definitions (# client/src/types.ts):
+Ensure the StructuredLLMOutput interface (defined previously) exists and is exported.
+Consider adding more specific types for nodes and edges based on the structured data. For example:
+export type NodeType = 'user_message' | 'ai_message' | 'topic' | 'entity' | 'summary' | 'question'; // Add more as needed
+export type RelationshipType = 'response_to' | 'mentions' | 'elaborates' | 'supports' | 'contradicts' | 'summarizes' | 'raises_question'; // Add more as needed
+
+export interface BubbleNode {
+  id: string;
+  content: string; // Main text for messages, topic name for topics, entity name, etc.
+  type: NodeType; // Use the new NodeType enum/type
+  position: { x: number; y: number; z: number };
+  importance: number;
+  keywords?: string[]; // Keep for messages, maybe less relevant for other types
+  // Add optional fields based on StructuredLLMOutput
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  metadata?: Record<string, any>; // For extra info like entity type (PERSON, ORG)
+}
+
+export interface Edge {
+  id: string;
+  source: string; // Source node ID
+  target: string; // Target node ID
+  strength: number; // Can still be used for physics/layout importance
+  relationship?: RelationshipType; // Use the new RelationshipType enum/type
+}
+
+// Keep the original Message type for chat history
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+// Interface for the expected *parsed* backend response in ChatInterface
+export type BackendResponseData = {
+    message: StructuredLLMOutput | Message; // It could be structured or fallback
+    usage?: { /* ... */ }; // Optional usage stats
+}
+
+// Define StructuredLLMOutput if not already done
+export interface StructuredLLMOutput {
+  main_response: string;
+  identified_topics?: string[];
+  key_entities?: { entity: string; type: string }[];
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  suggested_followups?: string[];
+  internal_links?: { source_node_id: string; target_node_id: string; relationship: string }[]; // Keep simple string for now
+  summary?: string;
+}
+Use code with caution.
+TypeScript
+Overhaul Context Analyzer (# client/src/lib/ContextAnalyzer.ts):
+Goal: This should no longer primarily generate keywords/importance itself from raw text. Its main job now is to take the StructuredLLMOutput from the backend and translate it into BubbleNode and Edge objects for the useVisualization store.
+Modify analyzeMessage Function:
+Change its signature. It should now probably accept the original Message and the StructuredLLMOutput (if available) as input, along with existingNodes and maybe the previousMessageId to link conversation flow.
+Node Creation:
+Create the primary BubbleNode for the main_response (type user_message or ai_message). Use the summary from the structured data if available, otherwise use the first part of main_response as content. Use sentiment or other factors to influence initial importance.
+Iterate through identified_topics. For each topic, create a new BubbleNode with type: 'topic', content: topic_name. Calculate its position relative to the main message node.
+Iterate through key_entities. For each entity, create a new BubbleNode with type: 'entity', content: entity.entity, and store entity.type in metadata. Position it near the main message node.
+(Self-Correction: Need IDs for these new nodes. Generate unique IDs like topic-${topic_name}-${timestamp} or entity-${entity.entity}-${timestamp}).
+Edge Creation:
+Create a primary Edge linking the previousMessageId to the new main message node's ID (relationship response_to).
+Create edges from the main message node to each topic node (relationship: 'mentions').
+Create edges from the main message node to each entity node (relationship: 'mentions').
+(Future enhancement: Use internal_links from the structured output if the LLM provides them for more specific relationships).
+Return Value: The function should return an object containing lists of the new nodes and new edges to be added. { newNodes: BubbleNode[], newEdges: Edge[] }.
+Remove Old Logic: Delete the old extractKeywords, calculatePosition, and calculateImportance functions within this file, as their logic is now driven by the LLM's structured output and the new analyzer's transformation. Positioning might still need a basic calculation to place related topic/entity nodes near the main message node initially.
+Update Visualization Store (# client/src/lib/stores/useVisualization.ts):
+No major changes needed to the store's structure, but ensure the addNode and addEdge functions correctly handle the potentially new node/edge types and properties defined in types.ts.
+Update Chat Interface (# client/src/ChatInterface.tsx):
+Modify handleSendMessage:
+After receiving the data: BackendResponseData from the backend.
+Check if data.message is structured (e.g., has main_response).
+If structured:
+Extract the main_response to display in the chat UI.
+Call the new analyzeMessage function, passing the original user message, the structured data.message, the existingNodes (from useVisualization), and the ID of the user message node you created earlier.
+Get the newNodes and newEdges from the result.
+Call addNode for each newNode and addEdge for each newEdge.
+If not structured (fallback):
+Display the data.message.content in the chat UI.
+Call a simplified version of analyzeMessage (or a separate fallback function) that performs basic node/edge creation based only on the raw text message (similar to the old logic, but perhaps just creating the message node and a single link).
+Add the resulting node/edge.
+Enhance Node Appearance (# client/src/components/ContextBubble.tsx):
+Modify Colors/Shapes: Change the logic that sets the color and potentially the geometry based on node.type. Use distinct appearances for user_message, ai_message, topic, entity, etc.
+Example: Use different base colors (User: Blue, AI: Green, Topic: Purple, Entity: Orange).
+Example: Maybe use slightly different geometries (e.g., SphereGeometry for messages, IcosahedronGeometry for topics, BoxGeometry for entities).
+Modify Importance Mapping: Adjust how node.importance influences the scale. Maybe topics/entities have a base size plus importance boost.
+Update HTML Overlay: Modify the JSX within the <Html> component to display the richer information:
+Show node.type clearly.
+Display node.content.
+If it's an entity node, show node.metadata.type.
+If available, show node.sentiment.
+Consider showing node.keywords if relevant for that node type.
+(Self-Correction: The current overlay shows keywords - this might only make sense for message nodes now. Adapt the display based on node.type).
+Enhance Edge Appearance (# client/src/components/ContextVisualizer.tsx):
+Modify Edge Generation: In the useEffect hook that processes edges:
+Instead of one lineMaterial, create multiple materials (e.g., conversationMaterial, mentionMaterial, elaborationMaterial).
+When iterating through edges, check the edge.relationship property (which should now be set by the updated ContextAnalyzer).
+Use the appropriate material based on the relationship type.
+Apply different visual styles (color, opacity, maybe LineDashedMaterial for weaker relationships) to each material.
+Modify Edge Animation: Update the useFrame hook for edge animation. If you want different pulse speeds/opacities per relationship type, you'll need to assign the lines to different groups or check their material type within the loop.
+Remove Parallel Windows (Recommendation):
+Action: Delete # client/src/components/ParallelConversationWindow.tsx and # client/src/components/ParallelWindowsManager.tsx.
+Action: Remove the import and usage of ParallelWindowsManager from # client/src/App.tsx.
+Action: Remove the "New Conversation" button from App.tsx and any related CSS.
+(Self-Correction: If the user strongly wants to keep parallel windows, this step should be skipped, but acknowledge the potential conflict with the single-context vision).

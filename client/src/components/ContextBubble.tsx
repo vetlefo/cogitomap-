@@ -4,6 +4,26 @@ import * as THREE from "three";
 import { Html, useTexture, MeshDistortMaterial, MeshWobbleMaterial, Sphere } from "@react-three/drei";
 import { BubbleNode } from "../types";
 
+// Utility function to blend two hex colors
+function blendColors(color1: number, color2: number, ratio: number): number {
+  // Convert hex to RGB
+  const r1 = (color1 >> 16) & 255;
+  const g1 = (color1 >> 8) & 255;
+  const b1 = color1 & 255;
+  
+  const r2 = (color2 >> 16) & 255;
+  const g2 = (color2 >> 8) & 255;
+  const b2 = color2 & 255;
+  
+  // Blend colors
+  const r = Math.round(r1 * (1 - ratio) + r2 * ratio);
+  const g = Math.round(g1 * (1 - ratio) + g2 * ratio);
+  const b = Math.round(b1 * (1 - ratio) + b2 * ratio);
+  
+  // Convert back to hex
+  return (r << 16) + (g << 8) + b;
+}
+
 interface ContextBubbleProps {
   node: BubbleNode;
   onClick?: (node: BubbleNode) => void;
@@ -24,12 +44,47 @@ export default function ContextBubble({
   const [active, setActive] = useState(false);
   const [showText, setShowText] = useState(false);
   
-  // Enhanced colors with more vibrance
-  let color = node.type === 'user' ? 0x0088ff : 0x00ff99;
+  // Enhanced colors based on node type with more vibrance
+  let color = 0x00ff99; // Default color (AI assistant)
   let emissiveIntensity = 0.6;
   
+  // Color mapping for different node types
+  switch (node.type) {
+    case 'user_message':
+      color = 0x0088ff; // Blue for user messages
+      break;
+    case 'ai_message':
+      color = 0x00ff99; // Green for AI messages
+      break;
+    case 'topic':
+      color = 0xaa44cc; // Purple for topics
+      break;
+    case 'entity':
+      color = 0xff8800; // Orange for entities
+      break;
+    case 'summary':
+      color = 0xffcc00; // Yellow for summaries
+      break;
+    case 'question':
+      color = 0xff4444; // Red for questions
+      break;
+  }
+  
+  // Apply sentiment color variations if sentiment is defined
+  if (node.sentiment) {
+    switch (node.sentiment) {
+      case 'positive':
+        color = blendColors(color, 0x00ff00, 0.3); // Blend with green
+        break;
+      case 'negative':
+        color = blendColors(color, 0xff0000, 0.3); // Blend with red
+        break;
+      // neutral keeps the original color
+    }
+  }
+  
   if (hovered) {
-    color = node.type === 'user' ? 0x66aaff : 0x66ffbb;
+    color = blendColors(color, 0xffffff, 0.3); // Lighten on hover
     emissiveIntensity = 0.8;
   }
   
@@ -137,9 +192,42 @@ export default function ContextBubble({
   }, [color, active, emissiveIntensity]);
 
   // Prepare keywords for display
-  const keywordsText = node.keywords.length > 0 
+  const keywordsText = node.keywords && node.keywords.length > 0 
     ? node.keywords.slice(0, 3).join(", ") 
     : "";
+
+  // Generate node display type based on nodetype
+  const getNodeTypeDisplay = () => {
+    switch (node.type) {
+      case 'user_message': return 'USER';
+      case 'ai_message': return 'AI';
+      case 'topic': return 'TOPIC';
+      case 'entity': return 'ENTITY';
+      case 'summary': return 'SUMMARY';
+      case 'question': return 'QUESTION';
+      default: return node.type.toUpperCase();
+    }
+  };
+
+  // Determine which 3D geometry to use based on node type
+  const getNodeGeometry = () => {
+    switch (node.type) {
+      case 'user_message':
+        return <sphereGeometry args={[1, 32, 32]} />;
+      case 'ai_message':
+        return <sphereGeometry args={[1, 32, 32]} />;
+      case 'topic':
+        return <icosahedronGeometry args={[1, 1]} />;
+      case 'entity':
+        return <boxGeometry args={[1.4, 1.4, 1.4]} />;
+      case 'summary':
+        return <dodecahedronGeometry args={[1, 0]} />;
+      case 'question':
+        return <octahedronGeometry args={[1, 0]} />;
+      default:
+        return <sphereGeometry args={[1, 24, 24]} />;
+    }
+  };
 
   return (
     <group ref={groupRef}>
@@ -157,9 +245,9 @@ export default function ContextBubble({
         />
       </mesh>
       
-      {/* Main bubble */}
-      {node.type === 'user' ? (
-        // User nodes use MeshWobbleMaterial for a more organic feel
+      {/* Main bubble - choose material based on node type */}
+      {node.type === 'user_message' || node.type === 'question' ? (
+        // User messages and questions use MeshWobbleMaterial for a more organic feel
         <mesh
           ref={meshRef}
           onPointerOver={() => setHovered(true)}
@@ -167,7 +255,7 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          <sphereGeometry args={[1, 32, 32]} />
+          {getNodeGeometry()}
           <MeshWobbleMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
@@ -181,7 +269,7 @@ export default function ContextBubble({
           />
         </mesh>
       ) : (
-        // AI nodes use MeshDistortMaterial for a more technical, fluid look
+        // Other nodes use MeshDistortMaterial for a more technical, fluid look
         <mesh
           ref={meshRef}
           onPointerOver={() => setHovered(true)}
@@ -189,7 +277,7 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          <sphereGeometry args={[1, 32, 32]} />
+          {getNodeGeometry()}
           <MeshDistortMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
@@ -224,21 +312,37 @@ export default function ContextBubble({
           distanceFactor={10}
           occlude
         >
-          <div className={`text-snippet ${node.type === 'user' ? 'text-user' : 'text-ai'}`}>
+          <div className={`text-snippet ${node.type === 'user_message' ? 'text-user' : 'text-ai'}`}>
             <div className="bubble-header">
-              <span className="bubble-type">{node.type === 'user' ? 'USER' : 'AI'}</span>
+              <span className="bubble-type">{getNodeTypeDisplay()}</span>
               <span className="bubble-importance">{Math.round(node.importance * 100)}% relevance</span>
+              {node.sentiment && (
+                <span className={`bubble-sentiment ${node.sentiment}`}>
+                  {node.sentiment.toUpperCase()}
+                </span>
+              )}
             </div>
             <div className="bubble-content">
               {node.content.length > 150 
                 ? `${node.content.substring(0, 150)}...` 
                 : node.content}
             </div>
-            {keywordsText && (
+            {node.keywords && node.keywords.length > 0 && (
               <div className="bubble-keywords">
-                <span className="keywords-label">Topics:</span> {node.keywords.map((keyword, i) => (
+                <span className="keywords-label">Topics:</span>
+                {node.keywords.map((keyword, i) => (
                   <span key={i} className="keyword-tag">
                     {keyword}
+                  </span>
+                ))}
+              </div>
+            )}
+            {node.metadata && Object.keys(node.metadata).length > 0 && (
+              <div className="bubble-metadata">
+                <span className="metadata-label">Metadata:</span>
+                {Object.entries(node.metadata).map(([key, value], i) => (
+                  <span key={i} className="metadata-item">
+                    {key}: {String(value)}
                   </span>
                 ))}
               </div>
