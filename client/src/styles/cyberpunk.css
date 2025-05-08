@@ -506,20 +506,7 @@ body, html {
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.4), inset 0 0 4px rgba(0, 100, 140, 0.3);
 }
 
-/* Sound controls specific styling */
-#toggle-sound.muted {
-  background-color: rgba(35, 15, 15, 0.85);
-  border-color: #f55;
-  color: #f88;
-  box-shadow: 0 0 10px rgba(255, 80, 80, 0.2), inset 0 0 4px rgba(255, 40, 40, 0.2);
-  text-shadow: 0 0 5px rgba(255, 80, 80, 0.4);
-}
-
-#toggle-sound.muted:hover {
-  background-color: rgba(50, 20, 20, 0.9);
-  box-shadow: 0 0 15px rgba(255, 80, 80, 0.6), inset 0 0 8px rgba(255, 40, 40, 0.4);
-  text-shadow: 0 0 8px rgba(255, 80, 80, 0.6);
-}
+/* Sound controls removed */
 
 /* Message styling */
 .message {
