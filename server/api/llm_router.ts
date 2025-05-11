@@ -20,6 +20,11 @@ You MUST structure your entire response as a single JSON object with the followi
 - main_response (required): The primary natural language answer to the user's last message
 - identified_topics (optional): List of 3-5 key topics discussed in your response
 - key_entities (optional): List of named entities (PERSON, ORG, LOC, etc.) mentioned in your response
+  * Important: When dealing with many similar entities (like company names):
+    - Group them into 5-8 meaningful categories by sector/industry
+    - For each category, include 2-3 representative entities as examples
+    - In the entity name, include the category, e.g., "Technology Sector: Apple, Microsoft, Google"
+    - This approach ensures better visualization in the knowledge graph
 - sentiment (optional): Overall sentiment of your response ('positive', 'negative', or 'neutral')
 - suggested_followups (optional): 1-3 relevant follow-up questions the user might ask
 - summary (optional): A very brief (1-2 sentence) summary of your response content
@@ -28,6 +33,7 @@ IMPORTANT:
 1. Your output MUST be a valid JSON object
 2. Ensure your output ONLY contains the JSON object, with no text before or after
 3. Do not include backticks, markdown formatting, or any non-JSON content
+4. When handling large lists (like 50+ companies), group them into categories to maintain a clear visual structure
 
 Here's an example of the expected format:
 ${getStructuredOutputExample()}

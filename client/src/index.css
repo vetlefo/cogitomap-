@@ -638,17 +638,18 @@ canvas {
   z-index: 20;
   display: flex;
   flex-direction: row;
-  justify-content: center;
-  padding: 0;
+  justify-content: space-between; /* Changed to space-between for better distribution */
+  align-items: center;
+  padding: 0 20px; /* Added horizontal padding */
   height: 45px;
   background: linear-gradient(180deg, 
-    rgba(4, 15, 30, 0.9) 0%, 
-    rgba(6, 20, 40, 0.8) 100%
+    rgba(4, 15, 30, 0.95) 0%, 
+    rgba(6, 20, 40, 0.85) 100%
   );
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(30, 120, 180, 0.3);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
+  overflow: visible; /* Changed to visible to allow dropdowns */
 }
 
 .top-cockpit-panel::before {
@@ -697,11 +698,12 @@ canvas {
 }
 
 .cockpit-auth-container {
-  padding: 0 20px;
+  padding: 0;
   position: relative;
   display: flex;
   align-items: center;
   height: 100%;
+  margin-left: auto; /* Push to right side */
 }
 
 .cockpit-auth-container::before {
@@ -738,7 +740,7 @@ canvas {
 }
 
 .cockpit-model-selector {
-  padding: 0 20px;
+  padding: 0;
   display: flex;
   align-items: center;
   height: 100%;
