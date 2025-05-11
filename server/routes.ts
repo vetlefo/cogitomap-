@@ -32,6 +32,11 @@ const NodeInputSchema = z.object({
   id: z.string().min(1),
   type: NodeTypeEnum,
   content: z.string().min(1),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number()
+  }).optional(), // Make it optional to handle legacy data
   timestamp: z.number().optional(),
   sentiment: z.enum(["positive", "negative", "neutral"]).optional(),
   keywords: z.array(z.string()).optional(),
