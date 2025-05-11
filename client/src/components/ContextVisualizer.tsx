@@ -339,13 +339,10 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
             <meshStandardMaterial color="#00ff44" emissive="#00ff44" emissiveIntensity={0.5} />
           </mesh>
           
-          {/* Debug info - node count */}
+          {/* Simple debug info - just a colored box */}
           <mesh position={[-9, -8, 0]}>
-            <Html>
-              <div style={{ color: 'white', fontSize: '0.8rem', background: 'rgba(0,0,0,0.5)', padding: '3px' }}>
-                {nodes.length} nodes
-              </div>
-            </Html>
+            <boxGeometry args={[0.5, 0.5, 0.1]} />
+            <meshStandardMaterial color="#ff3333" emissive="#ff0000" emissiveIntensity={0.5} />
           </mesh>
         </group>
       )}
