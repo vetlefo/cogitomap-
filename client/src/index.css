@@ -429,3 +429,179 @@ canvas {
   margin-left: 8px;
   border: 1px solid rgba(0, 255, 255, 0.4);
 }
+
+/* HUD Panel Styling */
+.hud-panel {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 20;
+  min-width: 280px;
+  max-width: 350px;
+  pointer-events: none;
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  transform: translateY(0) rotateX(0deg);
+  transition: all 0.4s cubic-bezier(0.17, 0.84, 0.44, 1);
+  opacity: 0.95;
+}
+
+.hud-content {
+  background-color: rgba(8, 15, 30, 0.7);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(30, 120, 180, 0.3);
+  border-left: 2px solid rgba(30, 120, 180, 0.5);
+  border-radius: 2px;
+  padding: 2px;
+  overflow: hidden;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+  transform: perspective(800px) rotateX(0deg);
+  animation: hudSlideIn 0.5s forwards;
+}
+
+@keyframes hudSlideIn {
+  from {
+    transform: perspective(800px) rotateX(20deg) translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: perspective(800px) rotateX(0deg) translateY(0);
+    opacity: 1;
+  }
+}
+
+.hud-panel::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: linear-gradient(90deg, 
+    rgba(30, 120, 180, 0), 
+    rgba(30, 120, 180, 0.5) 20%,
+    rgba(30, 120, 180, 0.8) 50%,
+    rgba(30, 120, 180, 0.5) 80%,
+    rgba(30, 120, 180, 0)
+  );
+  opacity: 0.5;
+}
+
+.hud-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(30, 120, 180, 0.3);
+  background: rgba(10, 25, 45, 0.8);
+  font-family: 'Inter', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.hud-status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(30, 150, 200, 0.8);
+  box-shadow: 0 0 5px rgba(30, 150, 200, 0.8);
+  margin-right: 8px;
+  position: relative;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.hud-title {
+  color: rgba(30, 150, 200, 0.95);
+  font-weight: 500;
+  flex: 1;
+}
+
+.hud-timestamp {
+  color: rgba(30, 150, 200, 0.7);
+  font-size: 9px;
+}
+
+.hud-body {
+  padding: 10px 12px;
+  color: rgba(220, 240, 255, 0.9);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  position: relative;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Cognitive Scan Button Styling */
+.cognitive-scan-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background-color: rgba(10, 25, 45, 0.7);
+  border: 1px solid rgba(30, 120, 180, 0.3);
+  color: rgba(120, 200, 255, 0.85);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
+  border-radius: 2px;
+  transition: all 0.2s;
+  min-width: 180px;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.cognitive-scan-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    rgba(30, 120, 180, 0),
+    rgba(30, 120, 180, 0.1),
+    rgba(30, 120, 180, 0)
+  );
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.cognitive-scan-btn:hover {
+  background-color: rgba(15, 35, 60, 0.8);
+  color: rgba(150, 220, 255, 0.95);
+  border-color: rgba(60, 150, 210, 0.5);
+}
+
+.cognitive-scan-btn:hover::before {
+  transform: translateX(100%);
+}
+
+.cognitive-scan-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.cognitive-scan-btn:disabled:hover::before {
+  transform: translateX(-100%);
+}
+
+.scan-icon {
+  margin-right: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.scan-text {
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
