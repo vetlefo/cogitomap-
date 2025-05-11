@@ -276,7 +276,7 @@ export default function ParallelConversationWindow({
       
       // Add all edges from the analysis
       userAnalysis.newEdges.forEach(edge => {
-        addEdge(edge);
+        addEdge(edge, "message", { animated: false });
       });
       
       console.log(`Sending message to API from window ${windowId}`);
