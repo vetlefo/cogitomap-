@@ -209,47 +209,24 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
     }
   }, [nodes, edges]);
 
-  // Animation for edge lines - pulse effect
+  // Simplified animation for edge lines - subtle pulse effect
   useFrame((state) => {
     if (edgeLinesRef.current) {
-      // Apply pulse animation to each line segment in the group
+      // Apply subtle pulse animation to each line segment in the group
       edgeLinesRef.current.traverse((child) => {
-        if (child instanceof THREE.LineSegments) {
-          // Check if this is a second opinion line
-          const isSecondOpinion = child.userData.isSecondOpinion === true;
-          
-          if (isSecondOpinion && child.material instanceof THREE.LineDashedMaterial) {
-            // Special animation for second opinion lines
-            const material = child.material as THREE.LineDashedMaterial;
+        if (child instanceof THREE.LineSegments && child.material instanceof THREE.LineBasicMaterial) {
+          const material = child.material;
+          if (material && !Array.isArray(material)) {
+            // Determine which type of line by checking the index in parent
+            const childIndex = child.parent?.children.indexOf(child) || 0;
             
-            // Animated dash movement
-            material.dashSize = 3 + Math.sin(state.clock.getElapsedTime() * 2) * 1;
-            material.gapSize = 1 + Math.cos(state.clock.getElapsedTime() * 3) * 0.5;
-            
-            // Pulsating opacity
-            material.opacity = 0.7 + Math.sin(state.clock.getElapsedTime() * 4) * 0.3;
-            
-            // Cycling color hue
-            const hue = (state.clock.getElapsedTime() * 0.1) % 1;
-            material.color.setHSL(hue, 0.8, 0.6);
-            
-            // Need to update this for the changes to take effect
-            material.needsUpdate = true;
-          } else {
-            // Standard animations for regular lines
-            const material = child.material as THREE.LineBasicMaterial;
-            if (material && !Array.isArray(material)) {
-              // Check what index this child is in the group to determine animation
-              const childIndex = child.parent?.children.indexOf(child) || 0;
-              
-              // Different animations based on child index
-              if (childIndex === 0) { // Conversation lines
-                material.opacity = 0.6 + Math.sin(state.clock.getElapsedTime() * 2.5) * 0.25;
-              } else if (childIndex === 1) { // Semantic lines
-                material.opacity = 0.4 + Math.sin(state.clock.getElapsedTime() * 1.8) * 0.2;
-              } else { // Topic lines
-                material.opacity = 0.3 + Math.sin(state.clock.getElapsedTime() * 1.2) * 0.15;
-              }
+            // Primary connections (index 0) pulse more visibly
+            if (childIndex === 0) {
+              material.opacity = 0.6 + Math.sin(state.clock.getElapsedTime() * 2) * 0.2;
+            } 
+            // Secondary connections (index 1) pulse more subtly
+            else {
+              material.opacity = 0.4 + Math.sin(state.clock.getElapsedTime() * 1.5) * 0.1;
             }
           }
         }
