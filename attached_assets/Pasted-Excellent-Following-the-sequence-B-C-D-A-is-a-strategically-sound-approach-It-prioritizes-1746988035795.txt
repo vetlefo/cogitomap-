@@ -1,0 +1,77 @@
+Excellent. Following the sequence B -> C -> D -> A is a strategically sound approach. It prioritizes building a robust foundation before layering on more advanced features and UI polish. This maximizes the chances of delivering real value and minimizes the risk of building complex features on unstable ground.
+
+Let's focus on Phase 1: Core Knowledge Graph Focus (B). This phase is critical for addressing the core weaknesses we identified and establishing the technical backbone for CogitoMap's vision.
+
+Here are the detailed, step-by-step recommendations for this phase, suitable for your development team or a capable AI agent:
+
+Phase 1: Core Knowledge Graph Foundation - Action Plan
+
+Objective: Establish a robust, scalable, and semantically-aware backend data engine. Simplify the frontend to reliably visualize and interact with this new foundation.
+
+Key Principles: Prioritize function over form initially. Build modular components. Get the data layer right.
+
+Steps:
+
+Backend - Graph Database Setup (MVP):
+Action: Set up Memgraph (as recommended in your evaluation for speed and ease of start-up) or Dgraph if long-term horizontal scaling is already a certainty. Use Docker for ease of deployment.
+Rationale: Addresses the critical lack of persistence and enables graph-specific querying essential for CogitoMap's goals. Memgraph's in-memory focus aligns with interactive visualization needs initially.
+Task: Configure connection pooling and basic data access patterns from the Express server (server/index.ts). Define basic error handling for DB connection issues.
+Backend - Basic Graph Schema:
+Action: Define and implement a core schema in the chosen graph database. Start simple:
+Nodes: Message (user, ai), Topic, Entity, Question, Summary. Include properties like id, type, content, timestamp, sentiment, metadata (for entity type, etc.). Crucially, add an embedding vector property (e.g., List<Float>).
+Edges: Start with RESPONSE_TO (linking messages in sequence) and MENTIONS (linking messages to topics/entities). Add a strength property (float).
+Rationale: Provides the fundamental structure for storing the knowledge graph. Typing nodes and edges immediately adds value.
+Backend - API Refactoring:
+Action: Refactor the backend API (server/api/llm_router.ts, server/routes.ts). It needs to do more than just proxy chat requests. Create endpoints for:
+POST /api/graph/node: Add a new node to the graph DB.
+POST /api/graph/edge: Add a new edge to the graph DB.
+GET /api/graph/node/:id: Retrieve node details.
+GET /api/graph/neighbors/:id: Retrieve nodes connected to a given node.
+POST /api/graph/search: Perform a basic semantic search (initially text-based, later vector-based).
+Rationale: Decouples the frontend from direct DB interaction and provides a clear interface for graph manipulation and querying.
+Data Processing - Overhaul ContextAnalyzer.ts:
+Action: Completely rewrite ContextAnalyzer.ts. Its new responsibilities are:
+Receive the StructuredLLMOutput (or fallback Message) from the backend.
+Generate Typed Nodes: Create BubbleNode objects corresponding to the main_response, identified_topics, key_entities, suggested_followups, summary. Assign correct NodeType.
+Generate Basic Edges: Create Edge objects representing RESPONSE_TO (linking user/AI messages) and MENTIONS (linking messages to topics/entities). Set initial strength (e.g., 0.7 for mentions).
+(MVP Embedding): For the main_response message node and potentially topic nodes, call the new embedding service (see Step 5) to get a vector. Add this vector to the BubbleNode object.
+Trigger Backend Calls: Instead of directly updating Zustand, call the new backend API endpoints (/api/graph/node, /api/graph/edge) to persist these new nodes and edges.
+Rationale: This is the core transformation step, moving from simplistic client-side analysis to leveraging structured LLM data and preparing for semantic linking via the backend graph.
+Backend - Embedding Service (MVP):
+Action: Design and implement a basic embedding generation service.
+Strategy: Follow the "Local Microservice" approach recommended in the embedding document, conceptually. For MVP, this could initially be a separate module within the main backend process, but design it to be easily extractable later.
+Technology: Use Python with sentence-transformers (start with a fast, decent model like all-MiniLM-L6-v2) or leverage an API service (like OpenAI text-embedding-3-small) if infrastructure is a constraint.
+API: Create a simple internal endpoint (e.g., POST /api/internal/embed) that takes text and returns a vector.
+Rationale: Decouples embedding logic, allows for future scaling/model swapping, and enables the semantic features central to the vision. Starting simple is key.
+Backend - Basic Semantic Linking:
+Action: Implement a backend process (can be triggered after node creation or periodically) that:
+Retrieves nodes with embeddings.
+Calculates cosine similarity between relevant node pairs (e.g., message-message, message-topic).
+If similarity > threshold (e.g., 0.75), create a RELATED_TO edge in the graph DB via the API, storing the similarity score in the strength property.
+Rationale: Introduces the first layer of semantic understanding beyond explicit mentions, a core value proposition. Doing this on the backend is more scalable.
+Frontend - Simplification & Refocus:
+Action: Temporarily remove or disable ParallelWindowsManager and AgentDrone components and associated UI triggers. Comment out the code cleanly so it can be revisited later (Phase A).
+Rationale: Reduces complexity and allows focus on stabilizing the core visualization based on the new backend data source.
+Action: Refactor ContextVisualizer.tsx: Instead of relying heavily on Zustand for node/edge state, fetch initial graph data from the backend API and subscribe to updates (consider WebSocket or polling for MVP). Ensure it correctly renders the different NodeTypes and RelationshipTypes.
+Rationale: Connects the visualization directly to the persistent graph data, ensuring consistency and scalability.
+Action: Simplify ContextBubble.tsx: Focus on clearly displaying core node information (type, content, basic metadata). Defer complex animations or overlays not directly related to core data.
+Action: Refocus SelectedNodesPanel.tsx: Keep the shift-click multi-select mechanism. For now, the panel should primarily display details of the selected nodes retrieved from the backend. Defer the "second opinion" logic until Phase D, but the UI shell can remain.
+Rationale: Aligns UI with the available backend data and core interaction patterns.
+Testing:
+Action: Implement unit and integration tests for:
+Backend API endpoints (node/edge creation, retrieval, search).
+ContextAnalyzer's parsing of structured data and generation of node/edge objects.
+Embedding service functionality.
+Basic graph DB operations.
+Rationale: Ensures the new foundation is reliable before building more complex features on top.
+Completion Criteria for Phase 1 (B):
+
+Memgraph/Dgraph is operational and storing basic typed nodes/edges.
+Backend API allows creation and retrieval of graph elements.
+ContextAnalyzer correctly processes structured LLM output and triggers backend persistence.
+An MVP embedding service generates vectors for key nodes.
+Basic semantic RELATED_TO edges are created based on embedding similarity (backend).
+Frontend visualization renders the graph based on data fetched from the backend.
+Parallel Windows and Agent Drones are temporarily removed/disabled.
+Core loop (chat -> LLM -> structured data -> graph update -> visualization update) is functional.
+Executing these steps thoroughly will establish the solid foundation CogitoMap needs. It directly addresses the core data and semantic gaps while simplifying the frontend to match. Once this phase is complete, you'll be in a much stronger position to tackle Phase 2 (Agent Assistance - C).
