@@ -12,6 +12,10 @@ import type { BubbleNode, Edge } from "../../client/src/types";
 let usingFallback = false;
 let connectionTested = false;
 
+// Constants for pagination defaults
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+
 /**
  * Test if Memgraph connection is available
  */
@@ -200,6 +204,323 @@ export async function getNodeNeighbors(nodeId: string): Promise<{ node: BubbleNo
   
   // Fallback implementation
   return fallbackStorage.getNodeNeighbors(nodeId);
+}
+
+/**
+ * Get all nodes with optional pagination and type filtering
+ */
+export async function getAllNodes(
+  page: number = 0,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+  nodeType: string | null = null
+): Promise<{ nodes: BubbleNode[], total: number, page: number, pageSize: number }> {
+  // Ensure we've tested the connection
+  if (!connectionTested) {
+    await testMemgraphConnection();
+  }
+
+  // Sanitize pagination parameters
+  pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+  page = Math.max(0, page);
+  const skip = page * pageSize;
+  
+  if (!usingFallback) {
+    try {
+      // Build the query based on whether we're filtering by type
+      let countQuery, nodesQuery;
+      const params: Record<string, any> = { skip, limit: pageSize };
+      
+      if (nodeType) {
+        countQuery = `MATCH (n:${nodeType}) RETURN count(n) AS total`;
+        nodesQuery = `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
+      } else {
+        countQuery = `MATCH (n) RETURN count(n) AS total`;
+        nodesQuery = `MATCH (n) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
+      }
+      
+      // Get the total count
+      const countResult = await runMemgraphQuery(countQuery);
+      const totalRaw = countResult.records[0].get('total');
+      const total = typeof totalRaw.toNumber === 'function' ? 
+        totalRaw.toNumber() : Number(totalRaw);
+      
+      // Get the nodes for the current page
+      const nodesResult = await runMemgraphQuery(nodesQuery, params);
+      
+      const nodes = nodesResult.records.map(record => record.get('n').properties as BubbleNode);
+      
+      return {
+        nodes,
+        total,
+        page,
+        pageSize
+      };
+    } catch (error) {
+      // Switch to fallback mode if there's an error
+      usingFallback = true;
+      log(`Error getting all nodes from Memgraph, switching to fallback: ${error}`, "graph-service");
+      // Continue with fallback implementation
+    }
+  }
+  
+  // Fallback implementation
+  const allNodes = fallbackStorage.getAllNodes();
+  
+  // Apply type filtering if specified
+  const filteredNodes = nodeType 
+    ? allNodes.filter(node => node.type === nodeType)
+    : allNodes;
+  
+  const total = filteredNodes.length;
+  const paginatedNodes = filteredNodes.slice(skip, skip + pageSize);
+  
+  return {
+    nodes: paginatedNodes,
+    total,
+    page,
+    pageSize
+  };
+}
+
+/**
+ * Get all edges with optional pagination and relationship type filtering
+ */
+export async function getAllEdges(
+  page: number = 0,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+  relationshipType: string | null = null
+): Promise<{ edges: Edge[], total: number, page: number, pageSize: number }> {
+  // Ensure we've tested the connection
+  if (!connectionTested) {
+    await testMemgraphConnection();
+  }
+
+  // Sanitize pagination parameters
+  pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
+  page = Math.max(0, page);
+  const skip = page * pageSize;
+  
+  if (!usingFallback) {
+    try {
+      // Build the query based on whether we're filtering by relationship type
+      let countQuery, edgesQuery;
+      const params: Record<string, any> = { skip, limit: pageSize };
+      
+      if (relationshipType) {
+        countQuery = `MATCH ()-[r:${relationshipType}]->() RETURN count(r) AS total`;
+        edgesQuery = `
+          MATCH (source)-[r:${relationshipType}]->(target)
+          RETURN type(r) AS relationship, 
+                 source.id AS sourceId, 
+                 target.id AS targetId, 
+                 properties(r) AS properties
+          ORDER BY source.id, target.id
+          SKIP $skip LIMIT $limit
+        `;
+      } else {
+        countQuery = `MATCH ()-[r]->() RETURN count(r) AS total`;
+        edgesQuery = `
+          MATCH (source)-[r]->(target)
+          RETURN type(r) AS relationship, 
+                 source.id AS sourceId, 
+                 target.id AS targetId, 
+                 properties(r) AS properties
+          ORDER BY source.id, target.id
+          SKIP $skip LIMIT $limit
+        `;
+      }
+      
+      // Get the total count
+      const countResult = await runMemgraphQuery(countQuery);
+      const totalRaw = countResult.records[0].get('total');
+      const total = typeof totalRaw.toNumber === 'function' ? 
+        totalRaw.toNumber() : Number(totalRaw);
+      
+      // Get the edges for the current page
+      const edgesResult = await runMemgraphQuery(edgesQuery, params);
+      
+      const edges = edgesResult.records.map(record => {
+        const sourceId = record.get('sourceId');
+        const targetId = record.get('targetId');
+        const relationship = record.get('relationship');
+        const properties = record.get('properties');
+        
+        return {
+          id: `${sourceId}-${relationship}-${targetId}`,
+          source: sourceId,
+          target: targetId,
+          relationship,
+          strength: properties.strength || 0.5,
+          ...properties
+        } as Edge;
+      });
+      
+      return {
+        edges,
+        total,
+        page,
+        pageSize
+      };
+    } catch (error) {
+      // Switch to fallback mode if there's an error
+      usingFallback = true;
+      log(`Error getting all edges from Memgraph, switching to fallback: ${error}`, "graph-service");
+      // Continue with fallback implementation
+    }
+  }
+  
+  // Fallback implementation
+  const allEdges = fallbackStorage.getAllEdges();
+  
+  // Apply relationship type filtering if specified
+  const filteredEdges = relationshipType 
+    ? allEdges.filter(edge => edge.relationship === relationshipType)
+    : allEdges;
+  
+  const total = filteredEdges.length;
+  const paginatedEdges = filteredEdges.slice(skip, skip + pageSize);
+  
+  return {
+    edges: paginatedEdges,
+    total,
+    page,
+    pageSize
+  };
+}
+
+/**
+ * Get a subgraph centered around a specific node
+ */
+export async function getSubgraph(
+  nodeId: string,
+  depth: number = 1
+): Promise<{ nodes: BubbleNode[], edges: Edge[] }> {
+  // Ensure we've tested the connection
+  if (!connectionTested) {
+    await testMemgraphConnection();
+  }
+  
+  // Limit maximum depth for performance reasons
+  depth = Math.min(depth, 3);
+  
+  if (!usingFallback) {
+    try {
+      // Use variable path length to get neighbors up to specified depth
+      const query = `
+        MATCH path = (center {id: $nodeId})-[*0..${depth}]-(neighbor)
+        WITH collect(path) AS paths
+        UNWIND paths AS p
+        UNWIND nodes(p) AS node
+        WITH DISTINCT node
+        RETURN collect(node) AS nodes
+      `;
+      
+      const edgesQuery = `
+        MATCH path = (center {id: $nodeId})-[*0..${depth}]-(neighbor)
+        WITH collect(path) AS paths
+        UNWIND paths AS p
+        UNWIND relationships(p) AS r
+        WITH DISTINCT r, startNode(r) AS source, endNode(r) AS target
+        RETURN collect({
+          relationship: type(r), 
+          sourceId: source.id, 
+          targetId: target.id, 
+          properties: properties(r)
+        }) AS edges
+      `;
+      
+      const params = { nodeId };
+      
+      // Get nodes in the subgraph
+      const nodesResult = await runMemgraphQuery(query, params);
+      const edgesResult = await runMemgraphQuery(edgesQuery, params);
+      
+      // Process nodes
+      const nodes: BubbleNode[] = [];
+      if (nodesResult.records.length > 0 && nodesResult.records[0].get('nodes')) {
+        const nodeResults = nodesResult.records[0].get('nodes');
+        for (const nodeResult of nodeResults) {
+          nodes.push(nodeResult.properties as BubbleNode);
+        }
+      }
+      
+      // Process edges
+      const edges: Edge[] = [];
+      if (edgesResult.records.length > 0 && edgesResult.records[0].get('edges')) {
+        const edgeResults = edgesResult.records[0].get('edges');
+        for (const edgeResult of edgeResults) {
+          const sourceId = edgeResult.sourceId;
+          const targetId = edgeResult.targetId;
+          const relationship = edgeResult.relationship;
+          const properties = edgeResult.properties || {};
+          
+          edges.push({
+            id: `${sourceId}-${relationship}-${targetId}`,
+            source: sourceId,
+            target: targetId,
+            relationship,
+            strength: properties.strength || 0.5,
+            ...properties
+          } as Edge);
+        }
+      }
+      
+      return { nodes, edges };
+    } catch (error) {
+      // Switch to fallback mode if there's an error
+      usingFallback = true;
+      log(`Error getting subgraph from Memgraph, switching to fallback: ${error}`, "graph-service");
+      // Continue with fallback implementation
+    }
+  }
+  
+  // Fallback implementation
+  // This is a simplified version; in a real implementation we'd need to do a proper breadth-first traversal
+  
+  // Start with the center node
+  const centerNode = fallbackStorage.getNode(nodeId);
+  if (!centerNode) {
+    return { nodes: [], edges: [] };
+  }
+  
+  const nodes: BubbleNode[] = [centerNode];
+  const edges: Edge[] = [];
+  const visitedNodeIds = new Set<string>([nodeId]);
+  let currentDepth = 0;
+  let currentLayer = [nodeId];
+  
+  // Breadth-first traversal to collect nodes and edges
+  while (currentDepth < depth && currentLayer.length > 0) {
+    const nextLayer: string[] = [];
+    
+    for (const currentNodeId of currentLayer) {
+      // Get all neighbors
+      const neighbors = fallbackStorage.getNodeNeighbors(currentNodeId);
+      
+      for (const { node: neighborNode, relationship } of neighbors) {
+        // Add the edge
+        const edge = fallbackStorage.getEdge(`${currentNodeId}-${relationship}-${neighborNode.id}`) ||
+                    fallbackStorage.getEdge(`${neighborNode.id}-${relationship}-${currentNodeId}`);
+        
+        if (edge && !edges.some(e => e.id === edge.id)) {
+          edges.push(edge);
+        }
+        
+        // Add the node if not already visited
+        if (!visitedNodeIds.has(neighborNode.id)) {
+          visitedNodeIds.add(neighborNode.id);
+          nodes.push(neighborNode);
+          nextLayer.push(neighborNode.id);
+        }
+      }
+    }
+    
+    // Move to the next layer
+    currentLayer = nextLayer;
+    currentDepth++;
+  }
+  
+  return { nodes, edges };
 }
 
 /**
