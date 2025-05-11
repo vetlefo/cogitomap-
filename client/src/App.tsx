@@ -171,46 +171,35 @@ function App() {
 
       {/* Controls */}
       <div id="controls">
+        <div className="panel-header">NAVIGATION</div>
         <button id="toggle-ui" title="Show/Hide Chat UI" onClick={toggleUI}>
-          Toggle UI
+          <span className="control-icon">⊙</span> Toggle Interface
         </button>
         <button id="reset-view" title="Reset Camera View" onClick={resetView}>
-          Reset View
+          <span className="control-icon">↻</span> Reset View
         </button>
         <button id="toggle-drones" title="Show/Hide AI Drones" onClick={toggleDrones}>
-          Toggle Drones
+          <span className="control-icon">⚑</span> Toggle Drones
         </button>
         <button 
           id="api-key-button" 
           title={apiKeys.openai === 'env-variable' ? "API key set via environment variable" : "Set API Key"} 
           onClick={handleOpenApiKeyModal}
         >
-          {apiKeys.openai === 'env-variable' ? '🔑 API Key (Env)' : 'Set API Key'}
+          <span className="control-icon">🔑</span> {apiKeys.openai === 'env-variable' ? 'API Key (Env)' : 'Set API Key'}
         </button>
         <SemanticAnalysisButton />
       </div>
       
       {/* Multi-select mode indicator */}
       {keyboardState.shiftKey && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(100, 0, 150, 0.8)',
-            color: 'white',
-            padding: '8px 15px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            boxShadow: '0 0 15px rgba(100, 0, 150, 0.5)',
-            zIndex: 1000,
-            animation: 'pulse 1.5s infinite',
-            border: '1px solid rgba(200, 100, 255, 0.6)'
-          }}
-        >
-          🔍 Multi-Select Mode (Shift) - Click nodes to select multiple
+        <div className="mode-indicator">
+          <div className="mode-indicator-pulse"></div>
+          <div className="mode-indicator-content">
+            <span className="mode-icon">⊕</span>
+            <span className="mode-label">MULTI-SELECT MODE</span>
+            <span className="mode-hint">Click nodes to add to selection</span>
+          </div>
         </div>
       )}
 
