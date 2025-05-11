@@ -317,37 +317,38 @@ export default function ContextBubble({
   };
 
   // Determine which 3D geometry to use based on node type
+  // Enhanced with larger, more distinct shapes
   const getNodeGeometry = () => {
     switch (node.type) {
       case 'user_message':
-        return <sphereGeometry args={[1, 32, 32]} />;
+        return <sphereGeometry args={[1.1, 36, 36]} />; // Larger, smoother sphere
       case 'ai_message':
-        return <sphereGeometry args={[1, 32, 32]} />;
+        return <sphereGeometry args={[1.15, 38, 38]} />; // Slightly larger sphere for AI messages
       case 'topic':
-        return <icosahedronGeometry args={[1, 1]} />;
+        return <icosahedronGeometry args={[1.2, 1]} />; // Larger icosahedron
       case 'entity':
-        return <boxGeometry args={[1.4, 1.4, 1.4]} />;
+        return <boxGeometry args={[1.5, 1.5, 1.5]} />; // Larger cube
       case 'summary':
-        return <dodecahedronGeometry args={[1, 0]} />;
+        return <dodecahedronGeometry args={[1.25, 0]} />; // Larger dodecahedron
       case 'question':
-        return <octahedronGeometry args={[1, 0]} />;
+        return <octahedronGeometry args={[1.3, 0]} />; // Larger octahedron
       default:
-        return <sphereGeometry args={[1, 24, 24]} />;
+        return <sphereGeometry args={[1.1, 32, 32]} />; // Fallback geometry
     }
   };
 
   return (
     <group ref={groupRef}>
-      {/* Outer glow sphere */}
+      {/* Outer glow sphere - reduced scale and opacity for less dominating effect */}
       <mesh
         ref={glowRef}
-        scale={scale * (1 + node.importance * 0.5) + 0.3}
+        scale={scale * (1 + node.importance * 0.3) + 0.2}
       >
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={new THREE.Color(color)}
           transparent={true}
-          opacity={0.15}
+          opacity={0.08}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -366,13 +367,13 @@ export default function ContextBubble({
           <MeshWobbleMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity}
-            metalness={active ? 0.8 : 0.6}
-            roughness={active ? 0.1 : 0.2}
-            factor={0.2} // Wobble amount
-            speed={0.5} // Wobble speed
+            emissiveIntensity={emissiveIntensity * 1.5} // Increased emission for more visibility
+            metalness={active ? 0.85 : 0.7}  // Increased metalness for better reflection
+            roughness={active ? 0.1 : 0.15}  // Decreased roughness for shinier appearance
+            factor={0.15} // Reduced wobble amount for more stability
+            speed={0.4}  // Slightly reduced wobble speed
             transparent
-            opacity={0.95}
+            opacity={0.98} // Increased opacity
           />
         </mesh>
       ) : (
@@ -388,13 +389,13 @@ export default function ContextBubble({
           <MeshDistortMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity}
-            metalness={active ? 0.8 : 0.6}
-            roughness={active ? 0.1 : 0.2}
-            distort={0.3} // Amount of distortion
-            speed={2} // Speed of distortion
+            emissiveIntensity={emissiveIntensity * 1.5} // Increased emission for visibility
+            metalness={active ? 0.85 : 0.7} // Increased metalness
+            roughness={active ? 0.1 : 0.15} // Decreased roughness for shininess
+            distort={0.2} // Reduced distortion for more clarity
+            speed={1.5} // Slower distortion for better visibility
             transparent
-            opacity={0.95}
+            opacity={0.98} // Increased opacity
           />
         </mesh>
       )}
