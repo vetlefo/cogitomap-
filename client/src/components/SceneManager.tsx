@@ -220,7 +220,7 @@ export default function SceneManager() {
     // Generate deterministic pseudo-random positions for background knowledge nodes
     // Using deterministic randomness ensures consistent positions between renders
     const generateBackgroundNodes = () => {
-      const count = 2000; // Fewer than stars for better performance
+      const count = 500; // Dramatically reduced count for better performance
       const nodes = [];
       const seed = 42; // Fixed seed for deterministic randomness
       
@@ -230,12 +230,19 @@ export default function SceneManager() {
       };
       
       // Generate node properties with various node types
-      const nodeTypes = ['topic', 'entity', 'concept', 'idea', 'question'];
-      const nodeColors = [0x00aaff, 0xaa44cc, 0x00ff99, 0xff8800, 0xff4444];
+      const nodeTypes = ['topic', 'entity', 'concept'];
+      const nodeColors = [0x00aaff, 0xaa44cc, 0x00ff99];
+      
+      // Pre-compute geometries to share across nodes (huge performance boost)
+      const sharedGeometry = {
+        topic: new THREE.IcosahedronGeometry(1, 0), // 0 = lowest detail
+        entity: new THREE.BoxGeometry(1, 1, 1),
+        concept: new THREE.SphereGeometry(1, 4, 4) // Extremely low segment count
+      };
       
       for (let i = 0; i < count; i++) {
         // Use deterministic randomness for position
-        const distance = 80 + randomFromSeed(seed, i * 3) * 120; // Place nodes between 80-200 units away
+        const distance = 100 + randomFromSeed(seed, i * 3) * 100; // Place nodes farther away
         const theta = randomFromSeed(seed, i * 3 + 1) * Math.PI * 2;
         const phi = randomFromSeed(seed, i * 3 + 2) * Math.PI;
         
@@ -244,13 +251,19 @@ export default function SceneManager() {
         const y = distance * Math.sin(phi) * Math.sin(theta);
         const z = distance * Math.cos(phi);
         
+        // Only add nodes that are visible in certain regions to reduce visual clutter
+        // Skip nodes in some areas based on a pattern
+        if ((i % 5 === 0) || (Math.abs(x) > 150 && Math.abs(y) > 150)) {
+          continue; // Skip this node
+        }
+        
         // Randomly select node type and color
         const typeIndex = Math.floor(randomFromSeed(seed, i * 7) * nodeTypes.length);
         const type = nodeTypes[typeIndex];
         const color = nodeColors[typeIndex];
         
         // Size based on "importance" (smaller for background nodes)
-        const size = 0.05 + randomFromSeed(seed, i * 5) * 0.15;
+        const size = 0.04 + randomFromSeed(seed, i * 5) * 0.08; // Smaller sizes
         
         nodes.push({
           position: [x, y, z],
@@ -260,39 +273,48 @@ export default function SceneManager() {
         });
       }
       
-      return nodes;
+      return { nodes, sharedGeometry };
     };
     
     // Generate nodes once and memoize
-    const backgroundNodes = useRef(generateBackgroundNodes());
+    const backgroundData = useRef(generateBackgroundNodes());
+    
+    // Create a single material for each color to reduce draw calls
+    const materials = useRef({});
+    
+    // Initialize shared materials
+    useEffect(() => {
+      const colors = [0x00aaff, 0xaa44cc, 0x00ff99];
+      colors.forEach(color => {
+        materials.current[color] = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.12, // Lower opacity
+          blending: THREE.AdditiveBlending
+        });
+      });
+      
+      // Cleanup
+      return () => {
+        Object.values(materials.current).forEach((material: any) => {
+          material.dispose();
+        });
+        Object.values(backgroundData.current.sharedGeometry).forEach((geometry: any) => {
+          geometry.dispose();
+        });
+      };
+    }, []);
     
     return (
       <>
-        {backgroundNodes.current.map((node, index) => (
+        {backgroundData.current.nodes.map((node, index) => (
           <mesh 
             key={`bg-node-${index}`} 
             position={node.position as [number, number, number]}
             scale={node.size}
-          >
-            {/* Use very low-poly geometries for performance */}
-            {node.type === 'topic' ? (
-              <icosahedronGeometry args={[1, 0]} /> // 0 = low detail
-            ) : node.type === 'entity' ? (
-              <boxGeometry args={[1, 1, 1]} />
-            ) : node.type === 'concept' ? (
-              <sphereGeometry args={[1, 6, 6]} /> // Low segment count
-            ) : node.type === 'idea' ? (
-              <octahedronGeometry args={[1, 0]} /> // 0 = low detail
-            ) : (
-              <tetrahedronGeometry args={[1, 0]} /> // 0 = low detail
-            )}
-            <meshBasicMaterial // Use Basic material instead of Standard for better performance
-              color={node.color}
-              transparent
-              opacity={0.15 + Math.random() * 0.1} // Subtle visibility
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
+            geometry={backgroundData.current.sharedGeometry[node.type]}
+            material={materials.current[node.color]}
+          />
         ))}
       </>
     );
