@@ -3,35 +3,34 @@ import { callOpenAI } from './providers/openai_provider';
 import { callAnthropic } from './providers/anthropic_provider';
 import { callGemini } from './providers/gemini_provider';
 import { Message } from '../../client/src/types';
+import { 
+  StructuredLLMOutputSchema, 
+  SimplifiedLLMOutputSchema,
+  StructuredLLMOutput,
+  getStructuredOutputExample
+} from '../../shared/schemas/llmOutput';
+import { ZodError } from 'zod';
+import { fromZodError } from 'zod-validation-error';
 
-// Define the structured output interface
-interface StructuredLLMOutput {
-  main_response: string;
-  identified_topics?: string[];
-  key_entities?: { entity: string; type: string }[];
-  sentiment?: 'positive' | 'negative' | 'neutral';
-  suggested_followups?: string[];
-  internal_links?: { source_node_id: string; target_node_id: string; relationship: string }[];
-  summary?: string;
-}
-
-// System prompt for structured output
+// Enhanced system prompt for structured output with example
 const STRUCTURED_SYSTEM_PROMPT = `
 Your task is to respond to the user's query based on the provided conversation history.
-You MUST structure your entire response as a single JSON object conforming to the following TypeScript interface:
+You MUST structure your entire response as a single JSON object with the following fields:
 
-interface StructuredLLMOutput {
-  main_response: string; // The primary natural language answer to the user's last message
-  identified_topics?: string[]; // List of key topics discussed in the main_response (3-5 topics)
-  key_entities?: { entity: string; type: string }[]; // List of named entities (PERSON, ORG, LOC, etc.) mentioned
-  sentiment?: 'positive' | 'negative' | 'neutral'; // Overall sentiment of the main_response
-  suggested_followups?: string[]; // 1-3 relevant follow-up questions the user might ask
-  internal_links?: { source_node_id: string; target_node_id: string; relationship: string }[]; // Leave empty for now
-  summary?: string; // A very brief (1-2 sentence) summary of the main_response content
-}
+- main_response (required): The primary natural language answer to the user's last message
+- identified_topics (optional): List of 3-5 key topics discussed in your response
+- key_entities (optional): List of named entities (PERSON, ORG, LOC, etc.) mentioned in your response
+- sentiment (optional): Overall sentiment of your response ('positive', 'negative', or 'neutral')
+- suggested_followups (optional): 1-3 relevant follow-up questions the user might ask
+- summary (optional): A very brief (1-2 sentence) summary of your response content
 
-Ensure your output is ONLY the valid JSON object, starting with { and ending with }.
-Do not include any text before or after the JSON object.
+IMPORTANT:
+1. Your output MUST be a valid JSON object
+2. Ensure your output ONLY contains the JSON object, with no text before or after
+3. Do not include backticks, markdown formatting, or any non-JSON content
+
+Here's an example of the expected format:
+${getStructuredOutputExample()}
 `;
 
 /**
@@ -132,20 +131,66 @@ export async function handleLLMRequest(req: Request, res: Response) {
         // Extract the JSON object if it's embedded in text
         const jsonMatch = responseMessage.content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          const structuredContent = JSON.parse(jsonMatch[0]) as StructuredLLMOutput;
+          const parsedJson = JSON.parse(jsonMatch[0]);
           
-          // Validate that it has the required main_response field
-          if (structuredContent.main_response) {
-            return res.json({
-              message: structuredContent,
-              usage: responseData.usage
-            });
+          // First try the strict schema validation
+          try {
+            const validationResult = StructuredLLMOutputSchema.safeParse(parsedJson);
+            
+            if (validationResult.success) {
+              console.log('Structured output validated successfully with strict schema');
+              return res.json({
+                message: validationResult.data,
+                usage: responseData.usage
+              });
+            } else {
+              // Log validation errors
+              const validationError = fromZodError(validationResult.error);
+              console.warn('Strict schema validation failed:', validationError.message);
+              
+              // Try the simplified schema as a fallback
+              const simplifiedResult = SimplifiedLLMOutputSchema.safeParse(parsedJson);
+              
+              if (simplifiedResult.success) {
+                console.log('Structured output validated with simplified schema');
+                return res.json({
+                  message: simplifiedResult.data,
+                  usage: responseData.usage
+                });
+              } else {
+                // Both schemas failed, log error details for debugging
+                console.warn('Both schema validations failed. Errors:', 
+                  fromZodError(simplifiedResult.error).message);
+                  
+                // Check if at least we have main_response (absolute minimum requirement)
+                if (parsedJson.main_response && typeof parsedJson.main_response === 'string') {
+                  console.warn('Falling back to basic main_response validation');
+                  return res.json({
+                    message: { 
+                      main_response: parsedJson.main_response,
+                      // Include any other fields that might be usable
+                      ...Object.fromEntries(
+                        Object.entries(parsedJson)
+                          .filter(([key, value]) => 
+                            key !== 'main_response' && 
+                            value !== null && 
+                            value !== undefined
+                          )
+                      )
+                    },
+                    usage: responseData.usage
+                  });
+                }
+              }
+            }
+          } catch (zodError) {
+            console.error('Error during Zod validation:', zodError);
           }
         }
-        // If we couldn't extract valid JSON, continue with regular response
-        console.warn('Failed to parse structured output, returning raw response');
-      } catch (error) {
-        console.warn('Error parsing structured output:', error);
+        // If we couldn't extract valid JSON or validation failed completely
+        console.warn('Failed to parse or validate structured output, returning raw response');
+      } catch (parseError) {
+        console.warn('Error parsing JSON from LLM response:', parseError);
         // Continue with regular response
       }
     }

@@ -55,19 +55,11 @@ export interface OpenAIResponse {
 }
 
 // Structured output from LLM for enhanced visualization
-export interface StructuredLLMOutput {
-  main_response: string;
-  identified_topics?: string[];
-  key_entities?: { entity: string; type: string }[];
-  sentiment?: 'positive' | 'negative' | 'neutral';
-  suggested_followups?: string[];
-  internal_links?: { 
-    source_node_id: string; 
-    target_node_id: string; 
-    relationship: string 
-  }[];
-  summary?: string;
-}
+// We're importing the type from the shared schema to maintain consistency
+import { StructuredLLMOutput as SharedStructuredLLMOutput } from '../../shared/schemas/llmOutput';
+
+// Re-export the shared type for use in client components
+export type StructuredLLMOutput = SharedStructuredLLMOutput;
 
 // Interface for the expected parsed backend response
 export type BackendResponseData = {
