@@ -400,31 +400,39 @@ function extractKeywords(content: string): string[] {
 
 /**
  * Helper function to calculate position offset for topic nodes
+ * Radically increased spacing for an extremely spread out visualization
  */
 function calculateTopicOffset(index: number, totalTopics: number): { x: number; y: number; z: number } {
-  // Create a circular arrangement around the main node with increased spacing
+  // Create a circular arrangement with massive spacing
   const angle = (index / totalTopics) * Math.PI * 2;
-  const radius = 7 + (index * 0.5); // Significantly increased radius for better spacing
+  const radius = 25 + (index * 2.0); // Dramatically increased radius (from 7 to 25)
+  
+  // Add random variations to prevent strict patterns
+  const variation = (Math.sin(index * 7919) * 0.5 + 0.5) * 8.0; // Seeded pseudo-random variation
   
   return {
-    x: Math.cos(angle) * radius,
-    y: 1.5 + (index * 0.4), // Increased y offset for better vertical distribution
-    z: Math.sin(angle) * radius
+    x: Math.cos(angle) * (radius + variation),
+    y: 5 + (index * 1.2) + (Math.cos(index * 193) * 3), // Much larger vertical spread with variation
+    z: Math.sin(angle) * (radius + variation)
   };
 }
 
 /**
  * Helper function to calculate position offset for entity nodes
+ * Completely redesigned for extreme spacing
  */
 function calculateEntityOffset(index: number, totalEntities: number): { x: number; y: number; z: number } {
-  // Create a different arrangement for entities with more spacing
-  const angle = (index / totalEntities) * Math.PI + (Math.PI / 4); // Semi-circle below
-  const radius = 6 + (index * 0.4); // Increased radius
+  // Create a different arrangement with massive spacing
+  const angle = (index / totalEntities) * Math.PI * 2; // Full circle now
+  const radius = 20 + (index * 1.5); // Dramatically increased (from 6 to 20)
+  
+  // Add random variations to prevent strict patterns
+  const variation = (Math.cos(index * 3571) * 0.5 + 0.5) * 6.0; // Different seed from topics
   
   return {
-    x: Math.cos(angle) * radius,
-    y: -2.5 - (index * 0.5), // Positioned further below for better spacing
-    z: Math.sin(angle) * radius
+    x: Math.cos(angle) * (radius + variation),
+    y: -8 - (index * 1.5) - (Math.sin(index * 271) * 4), // Much lower with variation
+    z: Math.sin(angle) * (radius + variation)
   };
 }
 
@@ -461,9 +469,9 @@ function calculatePosition(
   // Calculate main conversation angle - this creates a spiral effect
   const angle = (messageCount * 0.4 + topicSeed * 0.3) % (Math.PI * 2);
   
-  // Calculate radial distance - significantly increased spacing
-  // with larger minimum distance to avoid cluttering at center
-  const baseRadius = 10 + (conversationProgress * 15); // Increased from 4+8 to 10+15
+  // Calculate radial distance - extremely increased spacing
+  // with massive minimum distance to eliminate any possibility of cluttering
+  const baseRadius = 30 + (conversationProgress * 40); // Dramatically increased from 10+15 to 30+40
   
   // Messages are positioned on a spiral pattern - users on negative X half, AI on positive X half
   // But with semi-random placement within their domain to create clusters
@@ -512,10 +520,10 @@ function calculatePosition(
                      (message.content.charCodeAt(0) || 0) +
                      (message.content.charCodeAt(message.content.length - 1) || 0);
   
-  // Significantly increased variance to prevent node overlapping
-  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 4.0; // Increased from 1.5 to 4.0
-  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 2.5; // Increased from 1.0 to 2.5
-  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 4.0; // Increased from 1.5 to 4.0
+  // Extreme variance to ensure wide distribution and prevent any overlap
+  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 15.0; // Dramatically increased from 4.0 to 15.0
+  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 10.0; // Dramatically increased from 2.5 to 10.0
+  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 15.0; // Dramatically increased from 4.0 to 15.0
   
   position.x += varianceX;
   position.y += varianceY;

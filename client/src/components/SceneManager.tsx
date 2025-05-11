@@ -58,8 +58,9 @@ export default function SceneManager() {
     
     scene.add(gridHelper);
     
-    // Add lighter atmospheric fog for better long-distance visibility
-    scene.fog = new THREE.FogExp2(0x000814, 0.008); // Reduced from 0.02 to 0.008
+    // Remove fog entirely for maximum visibility
+    // scene.fog = new THREE.FogExp2(0x000814, 0.008);
+    scene.fog = null;
     
     // Cleanup on unmount
     return () => {
