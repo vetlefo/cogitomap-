@@ -86,8 +86,30 @@ CogitoMap is a cutting-edge 3D interactive visualization platform that transform
 - **AgentDrone**: Animated AI agents navigating the graph
 - **SelectedNodesPanel**: Interface for managing multi-selected nodes
 
+## Recent Improvements
+
+### Enhanced Visualization Spacing
+- **Extreme Node Distribution**: Dramatically increased spatial distribution of nodes
+- **Reduced Visual Clutter**: Removed atmospheric fog for maximum visibility
+- **Dynamic Positioning**: Added semi-random variation to prevent node clustering
+- **Extended View Range**: Increased camera distance and orbit controls range
+
+### Rendering Optimizations
+- **Enhanced Materials**: Improved node materials for better visibility and distinction
+- **Larger Node Geometry**: Increased size and detail of node types for clarity
+- **Reduced Effects**: Optimized glow and particle effects to prevent overwhelming visuals
+- **Grid Expansion**: Extended the reference grid to accommodate wider visualization
+
+### Bug Fixes and Stability
+- **Position Validation**: Fixed critical 3D rendering issues with position handling
+- **API Corrections**: Resolved edge creation validation errors
+- **Interface Improvements**: Fixed incorrect edge handling in Chat Interface
+
+For a complete list of changes, see the [CHANGELOG.md](CHANGELOG.md) file.
+
 ## Future Development
 
+- **Semantic Positioning**: Use AI embeddings to place nodes based on meaning
 - **Voice Integration**: Speech-to-text and text-to-speech for conversational interaction
 - **Collaboration**: Multi-user support for team exploration of concepts
 - **Advanced Filters**: Filter visualization by type, sentiment, or relevance
