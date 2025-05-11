@@ -161,6 +161,8 @@ function App() {
         visible={showChat} 
         apiKey={apiKeys[selectedProvider]}
         selectedModel={selectedModel}
+        messages={messages}
+        setMessages={setMessages}
       />
       
       {/* Parallel Windows Manager */}

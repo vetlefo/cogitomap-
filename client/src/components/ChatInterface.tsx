@@ -9,16 +9,18 @@ interface ChatInterfaceProps {
   visible: boolean;
   apiKey: string | null;
   selectedModel: string;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 export default function ChatInterface({ 
   visible, 
   apiKey,
-  selectedModel 
+  selectedModel,
+  messages,
+  setMessages
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Welcome! I\'ll help you visualize our conversation as a 3D knowledge graph.' }
-  ]);
+  // Use messages from props instead of local state
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
