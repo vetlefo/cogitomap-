@@ -14,6 +14,7 @@ import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useKeyboardState } from "./hooks/useKeyboardState";
 import { AuthProvider } from "./hooks/useAuth";
+import { Message } from "./types";
 import "../src/styles/cyberpunk.css";
 
 function App() {
@@ -21,6 +22,11 @@ function App() {
   const [showDrones, setShowDrones] = useState(true);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const windowsManagerRef = useRef<ParallelWindowsManagerRef>(null);
+  
+  // Store conversation messages at the App level to share with semantic analysis
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: 'Welcome! I\'ll help you visualize our conversation as a 3D knowledge graph.' }
+  ]);
   
   // Use the keyboard state to detect shift key for multi-select mode
   const keyboardState = useKeyboardState();
@@ -188,7 +194,7 @@ function App() {
         >
           <span className="control-icon">🔑</span> {apiKeys.openai === 'env-variable' ? 'API Key (Env)' : 'Set API Key'}
         </button>
-        <SemanticAnalysisButton />
+        <SemanticAnalysisButton messages={messages} />
       </div>
       
       {/* Multi-select mode indicator */}
