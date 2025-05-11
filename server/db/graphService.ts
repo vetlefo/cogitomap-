@@ -48,18 +48,44 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
     await testMemgraphConnection();
   }
   
+  // Debug the node object
+  log(`Creating node with position data: ${JSON.stringify(node.position)}`, "graph-service-debug");
+  
   if (!usingFallback) {
     try {
       const nodeLabel = node.type;
+      
+      // Ensure position is included as a nested object property
+      const nodeWithPosition = {
+        ...node,
+        position_x: node.position?.x,
+        position_y: node.position?.y,
+        position_z: node.position?.z
+      };
+      
       const query = `CREATE (n:${nodeLabel} $props) RETURN n`;
-      const params = { props: node };
+      const params = { props: nodeWithPosition };
       
       const result = await runMemgraphQuery(query, params);
       
       if (result.records.length > 0 && result.records[0].get('n')) {
         const createdNodeProperties = result.records[0].get('n').properties;
         log(`Node created in Memgraph: ${createdNodeProperties.id}`, "graph-service");
-        return createdNodeProperties as BubbleNode;
+        
+        // Reconstruct the position object from individual properties
+        const returnNode = {
+          ...createdNodeProperties,
+          position: {
+            x: createdNodeProperties.position_x ?? 0,
+            y: createdNodeProperties.position_y ?? 0,
+            z: createdNodeProperties.position_z ?? 0
+          }
+        };
+        
+        // Debug the returned node
+        log(`Returning node with position: ${JSON.stringify(returnNode.position)}`, "graph-service-debug");
+        
+        return returnNode as BubbleNode;
       } else {
         throw new Error("Node creation failed in Memgraph, no record returned");
       }
@@ -151,7 +177,26 @@ export async function getNode(id: string): Promise<BubbleNode | null> {
       const result = await runMemgraphQuery(query, params);
       
       if (result.records.length > 0) {
-        return result.records[0].get('n').properties as BubbleNode;
+        const nodeProps = result.records[0].get('n').properties;
+        
+        // Reconstruct position object if we have position_x, position_y, position_z
+        if (nodeProps.position_x !== undefined) {
+          return {
+            ...nodeProps,
+            position: {
+              x: nodeProps.position_x,
+              y: nodeProps.position_y,
+              z: nodeProps.position_z
+            }
+          } as BubbleNode;
+        }
+        
+        // If we don't have position fields, add a default position
+        if (!nodeProps.position) {
+          nodeProps.position = { x: 0, y: 0, z: 0 };
+        }
+        
+        return nodeProps as BubbleNode;
       } else {
         return null;
       }
@@ -253,7 +298,28 @@ export async function getAllNodes(
       // Get the nodes for the current page
       const nodesResult = await runMemgraphQuery(nodesQuery, params);
       
-      const nodes = nodesResult.records.map(record => record.get('n').properties as BubbleNode);
+      const nodes = nodesResult.records.map(record => {
+        const nodeProps = record.get('n').properties;
+        
+        // Reconstruct position object if we have position_x, position_y, position_z
+        if (nodeProps.position_x !== undefined) {
+          return {
+            ...nodeProps,
+            position: {
+              x: nodeProps.position_x,
+              y: nodeProps.position_y,
+              z: nodeProps.position_z
+            }
+          } as BubbleNode;
+        }
+        
+        // If we don't have position fields, add a default position
+        if (!nodeProps.position) {
+          nodeProps.position = { x: 0, y: 0, z: 0 };
+        }
+        
+        return nodeProps as BubbleNode;
+      });
       
       return {
         nodes,
