@@ -60,6 +60,8 @@ export function analyzeMessage(
   }
   
   // Calculate position based on existing nodes, message type, and context
+  // If the node already has a position (e.g., from semantic embedding), use it
+  // Otherwise, calculate it based on our algorithm
   const position = calculatePosition({
     role: message.role,
     content: message.content,

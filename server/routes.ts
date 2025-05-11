@@ -16,6 +16,7 @@ import {
   getSubgraph
 } from "./db/graphService";
 import { generateEmbedding, embedding3DPosition } from "./services/embeddingService";
+import { analyzeSemanticRelationships, createSemanticEdges } from "./services/semanticService";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -94,6 +95,25 @@ async function createNodeHandler(req: Request, res: Response) {
     }
     
     try {
+      // Generate embedding for the node content if not already provided
+      if (!nodeData.embedding_vector) {
+        try {
+          log(`Generating embedding for node ${nodeData.id}`, 'api-graph-debug');
+          const embedding = await generateEmbedding(nodeData.content);
+          nodeData.embedding_vector = embedding;
+          
+          // If position is not provided, calculate it from the embedding
+          if (!nodeData.position) {
+            log(`Calculating semantic position for node ${nodeData.id}`, 'api-graph-debug');
+            nodeData.position = embedding3DPosition(embedding);
+            log(`Semantic position calculated: (${nodeData.position.x}, ${nodeData.position.y}, ${nodeData.position.z})`, 'api-graph-debug');
+          }
+        } catch (embeddingError) {
+          log(`Error generating embedding: ${embeddingError}. Using existing position data.`, 'api-graph');
+          // Continue with node creation even if embedding fails
+        }
+      }
+      
       // Use our graph service to create the node
       log(`Creating node in graph service: ${nodeData.id} of type ${nodeData.type}`, 'api-graph-debug');
       const createdNode = await createNode(nodeData as any);
@@ -320,6 +340,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/graph/node/:id', getNodeByIdHandler);
   app.get('/api/graph/node/:id/neighbors', getNodeNeighborsHandler);
   app.get('/api/graph/subgraph/:id', getSubgraphHandler);
+  
+  // Semantic analysis endpoints
+  app.post('/api/graph/semantic-analysis', async (req, res) => {
+    try {
+      const options = {
+        minSimilarity: req.query.minSimilarity ? parseFloat(req.query.minSimilarity as string) : 0.7,
+        maxRelationsPerNode: req.query.maxRelationsPerNode ? parseInt(req.query.maxRelationsPerNode as string) : 5,
+        nodeTypes: req.query.nodeTypes 
+          ? (req.query.nodeTypes as string).split(',')
+          : ['topic', 'entity', 'summary']
+      };
+      
+      log(`Running semantic analysis with options: ${JSON.stringify(options)}`, 'api-graph-debug');
+      
+      const relations = await analyzeSemanticRelationships(options);
+      
+      if (relations.length === 0) {
+        return res.json({
+          message: "No semantic relationships found",
+          relations: []
+        });
+      }
+      
+      // Create edges for these relationships
+      const createdEdges = await createSemanticEdges(relations);
+      
+      res.json({
+        message: `Created ${createdEdges.length} semantic edges from ${relations.length} relationships`,
+        relationshipsFound: relations.length,
+        edgesCreated: createdEdges.length,
+        edges: createdEdges
+      });
+    } catch (error) {
+      log(`Error in semantic analysis: ${error}`, 'api-graph-error');
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Unknown error",
+        message: "Failed to analyze semantic relationships"
+      });
+    }
+  });
 
   app.post('/api/validate-key', async (req, res) => {
     const { apiKey, provider = 'openai' } = req.body;
