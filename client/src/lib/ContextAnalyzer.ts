@@ -1,4 +1,5 @@
 import { BubbleNode, Edge, Message, StructuredLLMOutput, NodeType, RelationshipType } from '../types';
+import { generateStableNodeId } from './utils';
 
 /**
  * Analyzes a message and its structured data to create visualization nodes and connections.
@@ -54,8 +55,8 @@ export function analyzeMessage(
     ? calculateSimplifiedImportance(nodeType, message.content, keywords) 
     : calculateImportance({ role: message.role, content: message.content }, [], keywords || []);
     
-  // Generate a unique ID for the main message node
-  const mainNodeId = `${nodeType}-${timestamp}-${Math.random().toString(36).substring(2, 9)}`;
+  // Generate a stable ID for the main message node based on content
+  const mainNodeId = generateStableNodeId(nodeType, message.content);
   
   // Create the main message node
   const mainNode: BubbleNode = {
@@ -91,7 +92,7 @@ export function analyzeMessage(
     if (structuredData.identified_topics) {
       structuredData.identified_topics.forEach((topic, index) => {
         // Create a topic node with slightly offset position
-        const topicNodeId = `topic-${timestamp}-${index}`;
+        const topicNodeId = generateStableNodeId('topic', topic);
         const offset = calculateTopicOffset(index, structuredData.identified_topics?.length || 1);
         
         const topicNode: BubbleNode = {
@@ -124,7 +125,7 @@ export function analyzeMessage(
     if (structuredData.key_entities) {
       structuredData.key_entities.forEach((entity, index) => {
         // Create an entity node with offset position
-        const entityNodeId = `entity-${timestamp}-${index}`;
+        const entityNodeId = generateStableNodeId('entity', entity.entity);
         const offset = calculateEntityOffset(index, structuredData.key_entities?.length || 1);
         
         const entityNode: BubbleNode = {
@@ -155,7 +156,7 @@ export function analyzeMessage(
     
     // Create a summary node if provided
     if (structuredData.summary && structuredData.summary !== structuredData.main_response) {
-      const summaryNodeId = `summary-${timestamp}`;
+      const summaryNodeId = generateStableNodeId('summary', structuredData.summary);
       
       const summaryNode: BubbleNode = {
         id: summaryNodeId,
@@ -185,7 +186,7 @@ export function analyzeMessage(
     if (structuredData.suggested_followups && structuredData.suggested_followups.length > 0) {
       // Only take the first question to avoid cluttering
       const question = structuredData.suggested_followups[0];
-      const questionNodeId = `question-${timestamp}`;
+      const questionNodeId = generateStableNodeId('question', question);
       
       const questionNode: BubbleNode = {
         id: questionNodeId,

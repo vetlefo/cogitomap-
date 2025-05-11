@@ -16,24 +16,53 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
     nodes, 
     edges, 
     selectedNodes,
-    opinionSources 
+    opinionSources,
+    isLoading,
+    error,
+    loadInitialData,
+    syncWithDatabase
   } = useVisualization();
   
   const edgeLinesRef = useRef<THREE.Group | null>(null);
   const keyboardState = useKeyboardState();
   
-  // Debug console log for selected nodes
+  // Load initial data from graph database
+  useEffect(() => {
+    console.log('ContextVisualizer - Loading initial data from graph database');
+    loadInitialData().catch(error => {
+      console.error('Failed to load initial graph data:', error);
+    });
+    
+    // Set up periodic sync (every 30 seconds)
+    const syncInterval = setInterval(() => {
+      console.log('ContextVisualizer - Syncing with graph database');
+      syncWithDatabase().catch(error => {
+        console.error('Failed to sync with graph database:', error);
+      });
+    }, 30000);
+    
+    // Clean up on unmount
+    return () => {
+      clearInterval(syncInterval);
+    };
+  }, [loadInitialData, syncWithDatabase]);
+  
+  // Debug console log for visualization state
   useEffect(() => {
     console.log(`ContextVisualizer - Selected Nodes: [${selectedNodes.join(', ')}]`);
     console.log(`ContextVisualizer - Total Nodes: ${nodes.length}`);
-    console.log(`ContextVisualizer - Shift key state: ${keyboardState.shiftKey}`);
+    console.log(`ContextVisualizer - Total Edges: ${edges.length}`);
+    console.log(`ContextVisualizer - Loading State: ${isLoading}`);
+    if (error) {
+      console.error(`ContextVisualizer - Error: ${error}`);
+    }
     
     // Log a few node examples if we have any
     if (nodes.length > 0) {
       const sampleNode = nodes[0];
       console.log(`Sample node: id=${sampleNode.id}, type=${sampleNode.type}, content=${sampleNode.content.substring(0, 30)}...`);
     }
-  }, [nodes, selectedNodes, keyboardState.shiftKey]);
+  }, [nodes.length, edges.length, selectedNodes, isLoading, error]);
   
   // Update edge connections with enhanced visuals and meaningful representations
   useEffect(() => {
@@ -334,9 +363,65 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
     }
   });
 
+  // Helper component for loading indicator
+  const LoadingIndicator = () => {
+    const meshRef = useRef<THREE.Mesh>(null);
+    
+    useFrame(({ clock }) => {
+      if (meshRef.current) {
+        // Rotate the loading indicator
+        meshRef.current.rotation.y = clock.getElapsedTime() * 2;
+        // Pulse scale
+        const scale = 0.8 + Math.sin(clock.getElapsedTime() * 4) * 0.2;
+        meshRef.current.scale.set(scale, scale, scale);
+      }
+    });
+    
+    return (
+      <mesh ref={meshRef} position={[0, 0, 0]}>
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial 
+          color="#00a2ff" 
+          emissive="#0077ff" 
+          emissiveIntensity={2}
+          wireframe
+        />
+      </mesh>
+    );
+  };
+  
+  // Helper component for displaying errors
+  const ErrorDisplay = ({ message }: { message: string }) => {
+    return (
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[4, 1, 0.1]} />
+        <meshStandardMaterial color="#ff0044" emissive="#ff0044" emissiveIntensity={0.5} />
+        <group position={[0, 0, 0.1]}>
+          {/* Error icon (X) */}
+          <mesh position={[-1.5, 0, 0.1]} rotation={[0, 0, Math.PI / 4]}>
+            <boxGeometry args={[0.5, 0.1, 0.1]} />
+            <meshStandardMaterial color="#ffffff" />
+          </mesh>
+          <mesh position={[-1.5, 0, 0.1]} rotation={[0, 0, -Math.PI / 4]}>
+            <boxGeometry args={[0.5, 0.1, 0.1]} />
+            <meshStandardMaterial color="#ffffff" />
+          </mesh>
+          {/* We can't render text directly in Three.js without additional libraries,
+              so we'll use this as a visual indicator and log the error to console */}
+        </group>
+      </mesh>
+    );
+  };
+
   return (
     <>
       <SceneManager />
+      
+      {/* Show loading indicator when data is being fetched */}
+      {isLoading && <LoadingIndicator />}
+      
+      {/* Show error if one occurred */}
+      {error && <ErrorDisplay message={error} />}
       
       {/* Render all the nodes */}
       {nodes.map((node) => (
@@ -356,6 +441,14 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
           <AgentDrone startPosition={[-5, 3, -5]} nodes={nodes} />
           <AgentDrone startPosition={[0, -5, 8]} nodes={nodes} />
         </>
+      )}
+      
+      {/* Display database connection status */}
+      {nodes.length > 0 && (
+        <mesh position={[-10, -8, 0]} scale={0.5}>
+          <sphereGeometry args={[0.5, 16, 16]} />
+          <meshStandardMaterial color="#00ff44" emissive="#00ff44" emissiveIntensity={0.5} />
+        </mesh>
       )}
     </>
   );

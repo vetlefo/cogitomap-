@@ -5,7 +5,16 @@ import { handleLLMRequest } from "./api/llm_router";
 import { getCurrentUserHandler, checkAuthHandler, loginHandler, logoutHandler } from "./api/auth";
 import { requireAuth } from "./middleware/auth";
 import { log } from "./vite";
-import { createNode, createEdge, getNode, getNodeNeighbors, getGraphStats } from "./db/graphService";
+import { 
+  createNode, 
+  createEdge, 
+  getNode, 
+  getNodeNeighbors, 
+  getGraphStats,
+  getAllNodes,
+  getAllEdges,
+  getSubgraph
+} from "./db/graphService";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -196,13 +205,115 @@ async function getGraphStatusHandler(req: Request, res: Response) {
   }
 }
 
+async function getAllNodesHandler(req: Request, res: Response) {
+  try {
+    const page = req.query.page ? parseInt(req.query.page as string) : 0;
+    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 50;
+    const nodeType = req.query.type as string || null;
+    
+    log(`Fetching all nodes. Page: ${page}, PageSize: ${pageSize}, Type: ${nodeType || 'all'}`, 'api-graph-debug');
+    
+    const result = await getAllNodes(page, pageSize, nodeType);
+    res.json(result);
+  } catch (error) {
+    log(`Error getting all nodes: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to fetch nodes'
+    });
+  }
+}
+
+async function getAllEdgesHandler(req: Request, res: Response) {
+  try {
+    const page = req.query.page ? parseInt(req.query.page as string) : 0;
+    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string) : 50;
+    const relationshipType = req.query.relationship as string || null;
+    
+    log(`Fetching all edges. Page: ${page}, PageSize: ${pageSize}, Relationship: ${relationshipType || 'all'}`, 'api-graph-debug');
+    
+    const result = await getAllEdges(page, pageSize, relationshipType);
+    res.json(result);
+  } catch (error) {
+    log(`Error getting all edges: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to fetch edges'
+    });
+  }
+}
+
+async function getNodeByIdHandler(req: Request, res: Response) {
+  try {
+    const nodeId = req.params.id;
+    log(`Fetching node by ID: ${nodeId}`, 'api-graph-debug');
+    
+    const node = await getNode(nodeId);
+    if (!node) {
+      return res.status(404).json({ message: `Node with ID ${nodeId} not found` });
+    }
+    
+    res.json(node);
+  } catch (error) {
+    log(`Error getting node by ID: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to fetch node'
+    });
+  }
+}
+
+async function getNodeNeighborsHandler(req: Request, res: Response) {
+  try {
+    const nodeId = req.params.id;
+    log(`Fetching neighbors for node ID: ${nodeId}`, 'api-graph-debug');
+    
+    const neighbors = await getNodeNeighbors(nodeId);
+    res.json({ nodeId, neighbors });
+  } catch (error) {
+    log(`Error getting node neighbors: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to fetch node neighbors'
+    });
+  }
+}
+
+async function getSubgraphHandler(req: Request, res: Response) {
+  try {
+    const nodeId = req.params.id;
+    const depth = req.query.depth ? parseInt(req.query.depth as string) : 1;
+    
+    log(`Fetching subgraph for node ID: ${nodeId} with depth: ${depth}`, 'api-graph-debug');
+    
+    const subgraph = await getSubgraph(nodeId, depth);
+    res.json(subgraph);
+  } catch (error) {
+    log(`Error getting subgraph: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      message: 'Failed to fetch subgraph'
+    });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chat', handleLLMRequest);
 
   // Graph database endpoints
+  // Data creation endpoints
   app.post('/api/graph/node', createNodeHandler);
   app.post('/api/graph/edge', createEdgeHandler);
+  
+  // Status and general data endpoints
   app.get('/api/graph/status', getGraphStatusHandler);
+  app.get('/api/graph/nodes', getAllNodesHandler);
+  app.get('/api/graph/edges', getAllEdgesHandler);
+  
+  // Specific node/relationship endpoints
+  app.get('/api/graph/node/:id', getNodeByIdHandler);
+  app.get('/api/graph/node/:id/neighbors', getNodeNeighborsHandler);
+  app.get('/api/graph/subgraph/:id', getSubgraphHandler);
 
   app.post('/api/validate-key', async (req, res) => {
     const { apiKey, provider = 'openai' } = req.body;

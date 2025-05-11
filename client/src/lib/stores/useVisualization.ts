@@ -1,20 +1,34 @@
 import { create } from 'zustand';
 import { BubbleNode, Edge, RelationshipType } from '../../types';
+import { GraphService } from '../services/graphService';
 
 interface VisualizationState {
+  // Data from graph database
   nodes: BubbleNode[];
   edges: Edge[];
+  
+  // UI state
   selectedNodeId: string | null;
   selectedNodes: string[]; // Array of selected node IDs for bundling
   hoveredNodeId: string | null;
   
-  addNode: (node: BubbleNode) => void;
+  // Loading and error states
+  isLoading: boolean;
+  error: string | null;
+  lastSyncTime: number | null;
+  
+  // Graph operations (now connected to database)
+  addNode: (node: Omit<BubbleNode, 'id'>) => Promise<BubbleNode>;
   removeNode: (id: string) => void;
   updateNode: (id: string, updates: Partial<BubbleNode>) => void;
-  
-  addEdge: (edge: Edge) => void;
+  addEdge: (source: string, target: string, relationship: string, strength?: number) => Promise<Edge>;
   removeEdge: (id: string) => void;
   
+  // Graph data synchronization
+  loadInitialData: () => Promise<void>;
+  syncWithDatabase: () => Promise<void>;
+  
+  // Node selection functions
   selectNode: (id: string | null) => void;
   toggleNodeSelection: (id: string) => void; // For multi-select
   clearSelectedNodes: () => void;
@@ -39,29 +53,111 @@ interface ValidationState {
   pending: string[];     // Node IDs that are pending validation
 }
 
-export const useVisualization = create<VisualizationState>((set) => ({
+export const useVisualization = create<VisualizationState>((set, get) => ({
+  // Initial data state
   nodes: [],
   edges: [],
+  
+  // UI state
   selectedNodeId: null,
   selectedNodes: [],
   hoveredNodeId: null,
-  opinionSources: {},
   
-  // Validation tracking for second opinions
+  // Loading and error states
+  isLoading: false,
+  error: null,
+  lastSyncTime: null,
+  
+  // Second opinion and validation state
+  opinionSources: {},
   validation: {
     validated: [],
     rejected: [],
     pending: [],
   } as ValidationState,
   
-  addNode: (node) => set((state) => {
-    // Check if node already exists
-    if (state.nodes.some(n => n.id === node.id)) {
-      return state;
+  // Load initial data from the graph database
+  loadInitialData: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      console.log('Loading initial graph data from database...');
+      
+      // Fetch all nodes and edges
+      const nodesResponse = await GraphService.getNodes();
+      const edgesResponse = await GraphService.getEdges();
+      
+      console.log(`Loaded ${nodesResponse.nodes.length} nodes and ${edgesResponse.edges.length} edges`);
+      
+      set({ 
+        nodes: nodesResponse.nodes, 
+        edges: edgesResponse.edges,
+        isLoading: false,
+        lastSyncTime: Date.now()
+      });
+    } catch (error) {
+      console.error('Error loading initial graph data:', error);
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Unknown error loading graph data'
+      });
     }
-    return { nodes: [...state.nodes, node] };
-  }),
+  },
   
+  // Synchronize with database (for periodic updates)
+  syncWithDatabase: async () => {
+    const state = get();
+    if (state.isLoading) return; // Don't sync if already loading
+    
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Fetch data from database
+      const nodesResponse = await GraphService.getNodes();
+      const edgesResponse = await GraphService.getEdges();
+      
+      // Update local state with new data
+      set({ 
+        nodes: nodesResponse.nodes, 
+        edges: edgesResponse.edges,
+        isLoading: false,
+        lastSyncTime: Date.now()
+      });
+    } catch (error) {
+      console.error('Error syncing with graph database:', error);
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Unknown error syncing graph data'
+      });
+    }
+  },
+  
+  // Add a node to the database
+  addNode: async (nodeData) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Create node in database
+      const createdNode = await GraphService.createNode(nodeData);
+      
+      // Update local state
+      set((state) => ({
+        nodes: [...state.nodes, createdNode],
+        isLoading: false
+      }));
+      
+      return createdNode;
+    } catch (error) {
+      console.error('Error creating node:', error);
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Unknown error creating node'
+      });
+      throw error;
+    }
+  },
+  
+  // Remove node (currently only updates local state)
+  // TODO: Add API endpoint for deleting nodes
   removeNode: (id) => set((state) => ({
     nodes: state.nodes.filter(node => node.id !== id),
     // Also remove any edges connected to this node
@@ -74,6 +170,8 @@ export const useVisualization = create<VisualizationState>((set) => ({
     ),
   })),
   
+  // Update node (currently only updates local state)
+  // TODO: Add API endpoint for updating nodes
   updateNode: (id, updates) => set((state) => ({
     nodes: state.nodes.map(node => 
       node.id === id 
@@ -82,24 +180,41 @@ export const useVisualization = create<VisualizationState>((set) => ({
     ),
   })),
   
-  addEdge: (edge) => set((state) => {
-    // Check if edge already exists
-    if (state.edges.some(e => e.id === edge.id)) {
-      return state;
+  // Add an edge to the database
+  addEdge: async (source, target, relationship, strength = 0.5) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // Create edge in database
+      const createdEdge = await GraphService.createEdge(source, target, relationship, strength);
+      
+      // Update local state
+      set((state) => ({
+        edges: [...state.edges, createdEdge],
+        isLoading: false
+      }));
+      
+      return createdEdge;
+    } catch (error) {
+      console.error('Error creating edge:', error);
+      set({ 
+        isLoading: false, 
+        error: error instanceof Error ? error.message : 'Unknown error creating edge'
+      });
+      throw error;
     }
-    return { edges: [...state.edges, edge] };
-  }),
+  },
   
+  // Remove edge (currently only updates local state)
+  // TODO: Add API endpoint for deleting edges
   removeEdge: (id) => set((state) => ({
     edges: state.edges.filter(edge => edge.id !== id),
   })),
   
+  // Node selection functionality (unchanged)
   selectNode: (id) => {
     console.log(`Selecting single node: ${id}`);
-    // Don't clear the multi-selection array, as that's handled separately
-    return set({ 
-      selectedNodeId: id 
-    });
+    return set({ selectedNodeId: id });
   },
   
   // For multi-select: toggle a node in the selected nodes array
@@ -115,17 +230,13 @@ export const useVisualization = create<VisualizationState>((set) => ({
       console.log(`Removing node ${id} from selection.`);
       const newSelectedNodes = state.selectedNodes.filter(nodeId => nodeId !== id);
       console.log(`New selection will be: [${newSelectedNodes.join(', ')}]`);
-      return { 
-        selectedNodes: newSelectedNodes 
-      };
+      return { selectedNodes: newSelectedNodes };
     } else {
       // Add if not already selected
       console.log(`Adding node ${id} to selection.`);
       const newSelectedNodes = [...state.selectedNodes, id];
       console.log(`New selection will be: [${newSelectedNodes.join(', ')}]`);
-      return { 
-        selectedNodes: newSelectedNodes 
-      };
+      return { selectedNodes: newSelectedNodes };
     }
   }),
   
@@ -294,6 +405,8 @@ export const useVisualization = create<VisualizationState>((set) => ({
       validated: [],
       rejected: [],
       pending: []
-    }
+    },
+    isLoading: false,
+    error: null
   }),
 }));

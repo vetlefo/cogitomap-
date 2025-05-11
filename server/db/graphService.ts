@@ -228,14 +228,20 @@ export async function getAllNodes(
     try {
       // Build the query based on whether we're filtering by type
       let countQuery, nodesQuery;
-      const params: Record<string, any> = { skip, limit: pageSize };
+      const params: Record<string, any> = { 
+        skip: Number(skip), 
+        limit: Number(pageSize) 
+      };
+      
+      // Ensure params are numbers (Memgraph is strict about this)
+      log(`Query params: skip=${params.skip}, limit=${params.limit}`, "graph-service-debug");
       
       if (nodeType) {
         countQuery = `MATCH (n:${nodeType}) RETURN count(n) AS total`;
-        nodesQuery = `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
+        nodesQuery = `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`;
       } else {
         countQuery = `MATCH (n) RETURN count(n) AS total`;
-        nodesQuery = `MATCH (n) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
+        nodesQuery = `MATCH (n) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`;
       }
       
       // Get the total count
@@ -304,7 +310,13 @@ export async function getAllEdges(
     try {
       // Build the query based on whether we're filtering by relationship type
       let countQuery, edgesQuery;
-      const params: Record<string, any> = { skip, limit: pageSize };
+      const params: Record<string, any> = { 
+        skip: Number(skip), 
+        limit: Number(pageSize) 
+      };
+      
+      // Ensure params are numbers (Memgraph is strict about this)
+      log(`Query params: skip=${params.skip}, limit=${params.limit}`, "graph-service-debug");
       
       if (relationshipType) {
         countQuery = `MATCH ()-[r:${relationshipType}]->() RETURN count(r) AS total`;
@@ -315,7 +327,7 @@ export async function getAllEdges(
                  target.id AS targetId, 
                  properties(r) AS properties
           ORDER BY source.id, target.id
-          SKIP $skip LIMIT $limit
+          SKIP toInteger($skip) LIMIT toInteger($limit)
         `;
       } else {
         countQuery = `MATCH ()-[r]->() RETURN count(r) AS total`;
@@ -326,7 +338,7 @@ export async function getAllEdges(
                  target.id AS targetId, 
                  properties(r) AS properties
           ORDER BY source.id, target.id
-          SKIP $skip LIMIT $limit
+          SKIP toInteger($skip) LIMIT toInteger($limit)
         `;
       }
       
