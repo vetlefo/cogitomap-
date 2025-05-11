@@ -402,13 +402,13 @@ function extractKeywords(content: string): string[] {
  * Helper function to calculate position offset for topic nodes
  */
 function calculateTopicOffset(index: number, totalTopics: number): { x: number; y: number; z: number } {
-  // Create a circular arrangement around the main node
+  // Create a circular arrangement around the main node with increased spacing
   const angle = (index / totalTopics) * Math.PI * 2;
-  const radius = 3 + (index * 0.2); // Increasing radius for each topic
+  const radius = 7 + (index * 0.5); // Significantly increased radius for better spacing
   
   return {
     x: Math.cos(angle) * radius,
-    y: 0.5 + (index * 0.2), // Slight y offset for better visibility
+    y: 1.5 + (index * 0.4), // Increased y offset for better vertical distribution
     z: Math.sin(angle) * radius
   };
 }
@@ -417,13 +417,13 @@ function calculateTopicOffset(index: number, totalTopics: number): { x: number; 
  * Helper function to calculate position offset for entity nodes
  */
 function calculateEntityOffset(index: number, totalEntities: number): { x: number; y: number; z: number } {
-  // Create a different arrangement for entities (below the main node)
+  // Create a different arrangement for entities with more spacing
   const angle = (index / totalEntities) * Math.PI + (Math.PI / 4); // Semi-circle below
-  const radius = 2.5 + (index * 0.15);
+  const radius = 6 + (index * 0.4); // Increased radius
   
   return {
     x: Math.cos(angle) * radius,
-    y: -1.0 - (index * 0.3), // Position below the main node
+    y: -2.5 - (index * 0.5), // Positioned further below for better spacing
     z: Math.sin(angle) * radius
   };
 }
@@ -436,16 +436,17 @@ function calculatePosition(
   existingNodes: BubbleNode[]
 ): { x: number; y: number; z: number } {
   // Base position influenced by message role and content
+  // Significantly increased spacing between user and AI messages
   let position = {
-    x: message.role === 'user' ? -6 : 6,
+    x: message.role === 'user' ? -15 : 15, // Increased from -6/6 to -15/15
     y: 0,
     z: 0
   };
   
-  // Create a more organized layout:
-  // - Arrange messages in chronological rings
-  // - Group by semantic similarity (keywords)
-  // - User and AI messages form a conversational axis
+  // Create a more organized layout with increased spacing:
+  // - Arrange messages in wider chronological rings
+  // - Greater spatial distribution between semantic groups
+  // - User and AI messages form a well-separated conversational axis
   
   // Determine message index based on existing nodes
   const messageCount = existingNodes.filter(n => 
@@ -460,9 +461,9 @@ function calculatePosition(
   // Calculate main conversation angle - this creates a spiral effect
   const angle = (messageCount * 0.4 + topicSeed * 0.3) % (Math.PI * 2);
   
-  // Calculate radial distance - further out as conversation progresses
-  // But keep a minimum distance to avoid cluttering at center
-  const baseRadius = 4 + (conversationProgress * 8);
+  // Calculate radial distance - significantly increased spacing
+  // with larger minimum distance to avoid cluttering at center
+  const baseRadius = 10 + (conversationProgress * 15); // Increased from 4+8 to 10+15
   
   // Messages are positioned on a spiral pattern - users on negative X half, AI on positive X half
   // But with semi-random placement within their domain to create clusters
@@ -485,25 +486,25 @@ function calculatePosition(
         )
       );
       
-      // Related messages are closer to their predecessors
-      radius = isPrevMsgSameTopic ? baseRadius * 0.7 : baseRadius * 1.1;
+      // Related messages have moderate spacing, unrelated messages much further apart
+      radius = isPrevMsgSameTopic ? baseRadius * 0.8 : baseRadius * 1.4; // Increased spread between topic groups
       
-      // Direct responses stay closer to their questions
+      // Direct responses maintain some proximity to questions but with more room
       if (message.role === 'assistant' && prevNode.type === 'user_message') {
-        radius *= 0.8;
+        radius *= 0.85; // Increased from 0.8 for slightly more spacing
       }
     }
   }
   
-  // Apply trigonometric positioning for the spiral pattern
-  position.x = (message.role === 'user' ? -1 : 1) * Math.cos(angle) * radius;
+  // Apply trigonometric positioning for the spiral pattern with greater spacing
+  position.x = (message.role === 'user' ? -1.2 : 1.2) * Math.cos(angle) * radius; // Increased role multiplier
   position.z = Math.sin(angle) * radius;
   
-  // Y-position based on message importance, length, and conversation depth
-  const importanceFactor = Math.min(message.content.length / 300, 2); // Max 2x boost based on length
-  position.y = (message.role === 'user' ? -1.5 : 1.5) + 
-               (messageCount * 0.15) + // Gradual rise with conversation
-               (importanceFactor * 0.8); // Important messages higher
+  // Enhanced Y-position for better vertical distribution
+  const importanceFactor = Math.min(message.content.length / 250, 2.5); // Increased max boost based on length
+  position.y = (message.role === 'user' ? -3 : 3) + // Increased vertical separation between user/AI
+               (messageCount * 0.3) + // Increased rise with conversation
+               (importanceFactor * 1.2); // Increased height for important messages
   
   // Add subtle controlled variance to prevent perfect alignments
   // Use seeded randomness based on message content for consistency
