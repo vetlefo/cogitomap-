@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initMemgraph } from "./db/memgraphClient";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,17 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    // Initialize Memgraph connection
+    log("Initializing Memgraph connection...", "server-startup");
+    await initMemgraph();
+    log("Memgraph initialized successfully", "server-startup");
+  } catch (error) {
+    log(`Error initializing Memgraph: ${error instanceof Error ? error.message : String(error)}`, "server-startup-error");
+    // Continue even if Memgraph fails, as the app can still function with limited capabilities
+    console.error("Memgraph initialization failed. Some graph functionality may be unavailable.");
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -66,4 +78,24 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Handle graceful shutdown
+  const gracefulShutdown = async () => {
+    log("Shutting down server...", "server-shutdown");
+    
+    try {
+      // Close Memgraph connection
+      const { closeMemgraph } = await import("./db/memgraphClient");
+      await closeMemgraph();
+      log("Closed Memgraph connection", "server-shutdown");
+    } catch (error) {
+      log(`Error closing Memgraph: ${error}`, "server-shutdown-error");
+    }
+    
+    process.exit(0);
+  };
+
+  // Listen for termination signals
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 })();
