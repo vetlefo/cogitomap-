@@ -27,15 +27,15 @@ function blendColors(color1: number, color2: number, ratio: number): number {
 }
 
 // Create shared geometries that persist for the entire application
-// This prevents unnecessary recreation and disposal of geometries
+// Using simplified, abstract, low-poly geometries for better performance
 const sharedGeometries = {
-  'user_message': new THREE.SphereGeometry(1.1, 16, 16),
-  'ai_message': new THREE.SphereGeometry(1.15, 16, 16),
-  'topic': new THREE.IcosahedronGeometry(1.2, 0),
-  'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),
-  'summary': new THREE.DodecahedronGeometry(1.25, 0),
-  'question': new THREE.OctahedronGeometry(1.3, 0),
-  'default': new THREE.SphereGeometry(1.1, 12, 12)
+  'user_message': new THREE.OctahedronGeometry(1.0, 0), // Diamond shape (level 0 = low poly)
+  'ai_message': new THREE.TetrahedronGeometry(1.0, 0), // Pyramid shape (lowest poly count)
+  'topic': new THREE.IcosahedronGeometry(1.0, 0), // Low-poly icosahedron
+  'entity': new THREE.BoxGeometry(0.9, 0.9, 0.9), // Simple cube
+  'summary': new THREE.DodecahedronGeometry(1.0, 0), // Low-poly dodecahedron
+  'question': new THREE.OctahedronGeometry(1.0, 0), // Diamond shape
+  'default': new THREE.TetrahedronGeometry(1.0, 0) // Fallback to simplest shape
 };
 
 interface ContextBubbleProps {
@@ -336,51 +336,56 @@ export default function ContextBubble({
 
   return (
     <group ref={groupRef}>
-      {/* Outer glow sphere - reduced scale and opacity for less dominating effect */}
+      {/* Wireframe glow effect - minimal and abstract */}
       <mesh
         ref={glowRef}
         scale={scale * (1 + node.importance * 0.3) + 0.2}
       >
-        <sphereGeometry args={[1, 16, 16]} />
+        {/* Use octahedron (diamond) shape for all glows */}
+        <octahedronGeometry args={[1, 0]} />
         <meshBasicMaterial
           color={new THREE.Color(color)}
+          wireframe={true}
           transparent={true}
-          opacity={0.08}
+          opacity={0.15}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
       
-      {/* Main bubble - use shared geometries */}
+      {/* Main node geometry - use shared simplified geometries */}
       <mesh
         ref={meshRef}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         onClick={handleClick}
-        scale={scale * (1 + node.importance * 0.5)}
+        scale={scale * (1 + node.importance * 0.4)}
       >
         {/* Use the shared geometries */}
         <primitive object={getNodeGeometry()} attach="geometry" />
         <meshStandardMaterial
           color={new THREE.Color(color)}
           emissive={new THREE.Color(color)}
-          emissiveIntensity={emissiveIntensity * 1.5}
-          metalness={active ? 0.85 : 0.7}
-          roughness={active ? 0.1 : 0.15}
+          emissiveIntensity={emissiveIntensity * 0.8}
+          metalness={active ? 0.85 : 0.5}
+          roughness={active ? 0.1 : 0.2}
           transparent
-          opacity={0.98}
+          opacity={0.9}
+          wireframe={node.type === 'entity' || node.importance < 0.4}
         />
       </mesh>
       
-      {/* Particle effect around important nodes */}
-      {node.importance > 0.6 && (
-        <Sphere args={[1.5, 8, 8]} scale={scale * (1 + node.importance * 0.4)}>
+      {/* Thin line effect for edges of important nodes - enhance abstract look */}
+      {node.importance > 0.5 && (
+        <mesh scale={scale * (1 + node.importance * 0.5) + 0.05}>
+          <primitive object={getNodeGeometry()} attach="geometry" />
           <meshBasicMaterial
             color={new THREE.Color(color)}
-            wireframe
-            transparent
-            opacity={0.1}
+            wireframe={true}
+            transparent={true}
+            opacity={0.2}
+            blending={THREE.AdditiveBlending}
           />
-        </Sphere>
+        </mesh>
       )}
       
       {/* Enhanced text label with keywords and metadata */}
