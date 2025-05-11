@@ -2,7 +2,6 @@
 
 CogitoMap is a cutting-edge 3D interactive visualization platform that transforms AI conversations into immersive, navigable knowledge graphs. The application uses a distinctive cyberpunk design language to represent conversation nodes as interactive bubbles and visualize the connections between different pieces of information.
 
-![CogitoMap](client/public/screenshot.png)
 
 ## Key Features
 
