@@ -215,36 +215,111 @@ export default function SceneManager() {
     // They'll be rendered with the "second opinion" color scheme
   };
   
+  // Create background Knowledge Nodes representing unexplored/potential topics
+  const BackgroundKnowledgeNodes = () => {
+    // Generate deterministic pseudo-random positions for background knowledge nodes
+    // Using deterministic randomness ensures consistent positions between renders
+    const generateBackgroundNodes = () => {
+      const count = 2000; // Fewer than stars for better performance
+      const nodes = [];
+      const seed = 42; // Fixed seed for deterministic randomness
+      
+      // Simple deterministic random number generator
+      const randomFromSeed = (seed: number, index: number) => {
+        return ((seed * 9301 + 49297) * index) % 233280 / 233280;
+      };
+      
+      // Generate node properties with various node types
+      const nodeTypes = ['topic', 'entity', 'concept', 'idea', 'question'];
+      const nodeColors = [0x00aaff, 0xaa44cc, 0x00ff99, 0xff8800, 0xff4444];
+      
+      for (let i = 0; i < count; i++) {
+        // Use deterministic randomness for position
+        const distance = 80 + randomFromSeed(seed, i * 3) * 120; // Place nodes between 80-200 units away
+        const theta = randomFromSeed(seed, i * 3 + 1) * Math.PI * 2;
+        const phi = randomFromSeed(seed, i * 3 + 2) * Math.PI;
+        
+        // Convert spherical to cartesian coordinates for even distribution
+        const x = distance * Math.sin(phi) * Math.cos(theta);
+        const y = distance * Math.sin(phi) * Math.sin(theta);
+        const z = distance * Math.cos(phi);
+        
+        // Randomly select node type and color
+        const typeIndex = Math.floor(randomFromSeed(seed, i * 7) * nodeTypes.length);
+        const type = nodeTypes[typeIndex];
+        const color = nodeColors[typeIndex];
+        
+        // Size based on "importance" (smaller for background nodes)
+        const size = 0.05 + randomFromSeed(seed, i * 5) * 0.15;
+        
+        nodes.push({
+          position: [x, y, z],
+          type,
+          color,
+          size,
+        });
+      }
+      
+      return nodes;
+    };
+    
+    // Generate nodes once and memoize
+    const backgroundNodes = useRef(generateBackgroundNodes());
+    
+    return (
+      <>
+        {backgroundNodes.current.map((node, index) => (
+          <mesh 
+            key={`bg-node-${index}`} 
+            position={node.position as [number, number, number]}
+            scale={node.size}
+          >
+            {/* Use very low-poly geometries for performance */}
+            {node.type === 'topic' ? (
+              <icosahedronGeometry args={[1, 0]} /> // 0 = low detail
+            ) : node.type === 'entity' ? (
+              <boxGeometry args={[1, 1, 1]} />
+            ) : node.type === 'concept' ? (
+              <sphereGeometry args={[1, 6, 6]} /> // Low segment count
+            ) : node.type === 'idea' ? (
+              <octahedronGeometry args={[1, 0]} /> // 0 = low detail
+            ) : (
+              <tetrahedronGeometry args={[1, 0]} /> // 0 = low detail
+            )}
+            <meshBasicMaterial // Use Basic material instead of Standard for better performance
+              color={node.color}
+              transparent
+              opacity={0.15 + Math.random() * 0.1} // Subtle visibility
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        ))}
+      </>
+    );
+  };
+  
   return (
     <>
-      {/* Add stars for cosmic background effect */}
-      <Stars 
-        radius={100} 
-        depth={50} 
-        count={5000} 
-        factor={4} 
-        saturation={0.5} 
-        fade 
-        speed={1} 
-      />
+      {/* Replace Stars with Background Knowledge Nodes */}
+      <BackgroundKnowledgeNodes />
       
-      {/* Add sparkles for atmospheric glow */}
+      {/* Keep minimal sparkles for atmosphere */}
       <Sparkles 
-        count={200}
+        count={100} // Reduced count
         scale={[60, 60, 60]}
-        size={1.5} 
-        speed={0.3} 
-        opacity={0.2} 
+        size={1.0} // Smaller size 
+        speed={0.2} // Slower animation
+        opacity={0.1} // More subtle
         color="#00ffff" 
       />
       
       {/* Add volumetric light beam */}
       <mesh position={[0, 30, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.5, 15, 50, 32, 1, true]} />
+        <cylinderGeometry args={[0.5, 15, 50, 16, 1, true]} /> {/* Reduced segments */}
         <meshBasicMaterial 
           color="#00aaff" 
           transparent 
-          opacity={0.15} 
+          opacity={0.12} // Slightly less opaque
           side={THREE.DoubleSide} 
           blending={THREE.AdditiveBlending}
         />
