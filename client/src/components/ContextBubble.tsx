@@ -26,6 +26,18 @@ function blendColors(color1: number, color2: number, ratio: number): number {
   return (r << 16) + (g << 8) + b;
 }
 
+// Create shared geometries that persist for the entire application
+// This prevents unnecessary recreation and disposal of geometries
+const sharedGeometries = {
+  'user_message': new THREE.SphereGeometry(1.1, 16, 16),
+  'ai_message': new THREE.SphereGeometry(1.15, 16, 16),
+  'topic': new THREE.IcosahedronGeometry(1.2, 0),
+  'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),
+  'summary': new THREE.DodecahedronGeometry(1.25, 0),
+  'question': new THREE.OctahedronGeometry(1.3, 0),
+  'default': new THREE.SphereGeometry(1.1, 12, 12)
+};
+
 interface ContextBubbleProps {
   node: BubbleNode;
   onClick?: (node: BubbleNode) => void;
@@ -34,20 +46,13 @@ interface ContextBubbleProps {
   source?: string; // The source window/conversation ID for "second opinion" feature
 }
 
-// Create a function component with static properties
-function ContextBubble({ 
+export default function ContextBubble({ 
   node, 
   onClick,
   pulsate = true, 
   scale = 1,
   source = 'main'
 }: ContextBubbleProps) {
-  // Static property for shared geometries to prevent disposal
-  // @ts-ignore
-  if (!ContextBubble.sharedGeometries) {
-    // @ts-ignore
-    ContextBubble.sharedGeometries = null;
-  }
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
@@ -323,39 +328,10 @@ function ContextBubble({
     }
   };
 
-  // Pre-computed shared geometries for better performance
-  const geometries = useRef<Record<string, THREE.BufferGeometry>>({});
-  
-  // Initialize shared geometries once - using static variables so they persist
-  // This is critical for performance and to prevent nodes from disappearing
-  useEffect(() => {
-    if (!ContextBubble.sharedGeometries) {
-      // Create static shared geometries once for all nodes
-      ContextBubble.sharedGeometries = {
-        'user_message': new THREE.SphereGeometry(1.1, 16, 16),
-        'ai_message': new THREE.SphereGeometry(1.15, 16, 16),
-        'topic': new THREE.IcosahedronGeometry(1.2, 0),
-        'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),
-        'summary': new THREE.DodecahedronGeometry(1.25, 0),
-        'question': new THREE.OctahedronGeometry(1.3, 0),
-        'default': new THREE.SphereGeometry(1.1, 12, 12)
-      };
-      console.log('Created shared geometries for all nodes');
-    }
-    
-    // Reference the shared geometries
-    geometries.current = ContextBubble.sharedGeometries;
-    
-    // No cleanup - shared geometries persist for application lifetime
-    return () => {
-      console.log(`Node ${node.id} unmounted, keeping shared geometries`);
-    };
-  }, [node.id]);
-  
   // Get the appropriate geometry for this node type
   const getNodeGeometry = () => {
-    const geometryKey = node.type in geometries.current ? node.type : 'default';
-    return geometries.current[geometryKey];
+    const geometryKey = node.type in sharedGeometries ? node.type : 'default';
+    return sharedGeometries[geometryKey];
   };
 
   return (
@@ -374,104 +350,26 @@ function ContextBubble({
         />
       </mesh>
       
-      {/* Main bubble - use basic geometries based on node type */}
-      {node.type === 'user_message' ? (
-        <mesh
-          ref={meshRef}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-          onClick={handleClick}
-          scale={scale * (1 + node.importance * 0.5)}
-        >
-          <sphereGeometry args={[1.1, 16, 16]} />
-          <meshStandardMaterial
-            color={new THREE.Color(color)}
-            emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5}
-            metalness={active ? 0.85 : 0.7}
-            roughness={active ? 0.1 : 0.15}
-            transparent
-            opacity={0.98}
-          />
-        </mesh>
-      ) : node.type === 'ai_message' ? (
-        <mesh
-          ref={meshRef}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-          onClick={handleClick}
-          scale={scale * (1 + node.importance * 0.5)}
-        >
-          <sphereGeometry args={[1.15, 16, 16]} />
-          <meshStandardMaterial
-            color={new THREE.Color(color)}
-            emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5}
-            metalness={active ? 0.85 : 0.7}
-            roughness={active ? 0.1 : 0.15}
-            transparent
-            opacity={0.98}
-          />
-        </mesh>
-      ) : node.type === 'topic' ? (
-        <mesh
-          ref={meshRef}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-          onClick={handleClick}
-          scale={scale * (1 + node.importance * 0.5)}
-        >
-          <icosahedronGeometry args={[1.2, 0]} />
-          <meshStandardMaterial
-            color={new THREE.Color(color)}
-            emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5}
-            metalness={active ? 0.85 : 0.7}
-            roughness={active ? 0.1 : 0.15}
-            transparent
-            opacity={0.98}
-          />
-        </mesh>
-      ) : node.type === 'entity' ? (
-        <mesh
-          ref={meshRef}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-          onClick={handleClick}
-          scale={scale * (1 + node.importance * 0.5)}
-        >
-          <boxGeometry args={[1.5, 1.5, 1.5]} />
-          <meshStandardMaterial
-            color={new THREE.Color(color)}
-            emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5}
-            metalness={active ? 0.85 : 0.7}
-            roughness={active ? 0.1 : 0.15}
-            transparent
-            opacity={0.98}
-          />
-        </mesh>
-      ) : (
-        // Default for any other node type
-        <mesh
-          ref={meshRef}
-          onPointerOver={() => setHovered(true)}
-          onPointerOut={() => setHovered(false)}
-          onClick={handleClick}
-          scale={scale * (1 + node.importance * 0.5)}
-        >
-          <sphereGeometry args={[1.1, 12, 12]} />
-          <meshStandardMaterial
-            color={new THREE.Color(color)}
-            emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5}
-            metalness={active ? 0.85 : 0.7}
-            roughness={active ? 0.1 : 0.15}
-            transparent
-            opacity={0.98}
-          />
-        </mesh>
-      )}
+      {/* Main bubble - use shared geometries */}
+      <mesh
+        ref={meshRef}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        onClick={handleClick}
+        scale={scale * (1 + node.importance * 0.5)}
+      >
+        {/* Use the shared geometries */}
+        <primitive object={getNodeGeometry()} attach="geometry" />
+        <meshStandardMaterial
+          color={new THREE.Color(color)}
+          emissive={new THREE.Color(color)}
+          emissiveIntensity={emissiveIntensity * 1.5}
+          metalness={active ? 0.85 : 0.7}
+          roughness={active ? 0.1 : 0.15}
+          transparent
+          opacity={0.98}
+        />
+      </mesh>
       
       {/* Particle effect around important nodes */}
       {node.importance > 0.6 && (
