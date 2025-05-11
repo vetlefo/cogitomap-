@@ -6,8 +6,9 @@
 
 import { log } from "../vite";
 
-// Default embedding dimensions for OpenAI ada-002
-const EMBEDDING_DIMENSIONS = 1536;
+// Embedding model configuration
+const EMBEDDING_MODEL = "text-embedding-3-small"; // Using the newer, more efficient model
+const DEFAULT_DIMENSIONS = 768; // Using optimized dimensions (reduced from 1536)
 
 // Reduced dimensions for 3D visualization
 const VISUALIZATION_DIMENSIONS = 3;
@@ -17,13 +18,30 @@ const VISUALIZATION_DIMENSIONS = 3;
  * @param text The text to generate an embedding for
  * @returns A promise resolving to the embedding vector
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+/**
+ * Generate an embedding vector for text content using OpenAI's embedding API
+ * 
+ * @param text The text to generate an embedding for
+ * @param dimensions Optional parameter to control embedding dimensions
+ * @returns A promise resolving to the embedding vector
+ */
+export async function generateEmbedding(
+  text: string, 
+  dimensions: number = DEFAULT_DIMENSIONS
+): Promise<number[]> {
   try {
     // Check if we have API key
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       log("No OpenAI API key found, using fallback embedding", "embedding-service");
       return generateFallbackEmbedding(text);
+    }
+
+    // Normalize text by removing newlines and excessive spaces
+    const normalizedText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!normalizedText) {
+      log("Empty text provided for embedding, using fallback", "embedding-service");
+      return generateFallbackEmbedding("");
     }
 
     // Call OpenAI API for embedding
@@ -34,8 +52,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        input: text,
-        model: "text-embedding-ada-002"
+        input: normalizedText,
+        model: EMBEDDING_MODEL,
+        dimensions: dimensions,
+        encoding_format: "float"
       })
     });
 
@@ -46,6 +66,13 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     }
 
     const data = await response.json();
+    
+    if (!data.data || !data.data[0] || !data.data[0].embedding) {
+      log("Invalid response format from OpenAI API", "embedding-service");
+      return generateFallbackEmbedding(text);
+    }
+    
+    log(`Generated embedding with dimensions: ${data.data[0].embedding.length}`, "embedding-service-debug");
     return data.data[0].embedding;
   } catch (error) {
     log(`Error generating embedding: ${error}`, "embedding-service");
@@ -199,11 +226,12 @@ export function calculateSimilarity(embedA: number[], embedB: number[]): number 
  * Generate a deterministic fallback embedding from text
  * This is used when the OpenAI API is not available
  * @param text The text to generate a fallback embedding for
+ * @param dimensions The dimensions for the generated embedding
  * @returns A deterministic embedding vector of the expected dimensionality
  */
-function generateFallbackEmbedding(text: string): number[] {
+function generateFallbackEmbedding(text: string, dimensions: number = DEFAULT_DIMENSIONS): number[] {
   // Initialize embedding with zeros
-  const embedding = new Array(EMBEDDING_DIMENSIONS).fill(0);
+  const embedding = new Array(dimensions).fill(0);
   
   // Normalize text
   const normalizedText = text.toLowerCase().trim();
@@ -211,7 +239,7 @@ function generateFallbackEmbedding(text: string): number[] {
   // Generate a deterministic hash-based embedding
   for (let i = 0; i < normalizedText.length; i++) {
     const charCode = normalizedText.charCodeAt(i);
-    const position = (charCode * 17) % EMBEDDING_DIMENSIONS;
+    const position = (charCode * 17) % dimensions;
     
     // Vary the values based on character and position
     embedding[position] += (charCode / 255) * (i % 2 === 0 ? 1 : -1) * 0.01;
