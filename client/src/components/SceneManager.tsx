@@ -234,7 +234,7 @@ export default function SceneManager() {
       const nodeColors = [0x00aaff, 0xaa44cc, 0x00ff99];
       
       // Pre-compute geometries to share across nodes (huge performance boost)
-      const sharedGeometry = {
+      const sharedGeometry: Record<string, THREE.BufferGeometry> = {
         topic: new THREE.IcosahedronGeometry(1, 0), // 0 = lowest detail
         entity: new THREE.BoxGeometry(1, 1, 1),
         concept: new THREE.SphereGeometry(1, 4, 4) // Extremely low segment count
@@ -280,13 +280,15 @@ export default function SceneManager() {
     const backgroundData = useRef(generateBackgroundNodes());
     
     // Create a single material for each color to reduce draw calls
-    const materials = useRef({});
+    const materials = useRef<Record<string, THREE.Material>>({});
     
     // Initialize shared materials
     useEffect(() => {
       const colors = [0x00aaff, 0xaa44cc, 0x00ff99];
       colors.forEach(color => {
-        materials.current[color] = new THREE.MeshBasicMaterial({
+        // Store with string key for type safety
+        const colorKey = color.toString();
+        materials.current[colorKey] = new THREE.MeshBasicMaterial({
           color,
           transparent: true,
           opacity: 0.12, // Lower opacity
@@ -296,10 +298,10 @@ export default function SceneManager() {
       
       // Cleanup
       return () => {
-        Object.values(materials.current).forEach((material: any) => {
+        Object.values(materials.current).forEach((material) => {
           material.dispose();
         });
-        Object.values(backgroundData.current.sharedGeometry).forEach((geometry: any) => {
+        Object.values(backgroundData.current.sharedGeometry).forEach((geometry) => {
           geometry.dispose();
         });
       };
@@ -307,15 +309,29 @@ export default function SceneManager() {
     
     return (
       <>
-        {backgroundData.current.nodes.map((node, index) => (
-          <mesh 
-            key={`bg-node-${index}`} 
-            position={node.position as [number, number, number]}
-            scale={node.size}
-            geometry={backgroundData.current.sharedGeometry[node.type]}
-            material={materials.current[node.color]}
-          />
-        ))}
+        {backgroundData.current.nodes.map((node, index) => {
+          // Get material with proper type safety (string key)
+          const colorKey = node.color.toString();
+          const nodeMaterial = materials.current[colorKey];
+          
+          // Get geometry with proper type checking
+          const geometryType = node.type as keyof typeof backgroundData.current.sharedGeometry;
+          const nodeGeometry = backgroundData.current.sharedGeometry[geometryType];
+          
+          // Only render if we have valid geometry and material
+          if (!nodeGeometry || !nodeMaterial) return null;
+          
+          return (
+            <mesh 
+              key={`bg-node-${index}`} 
+              position={node.position as [number, number, number]}
+              scale={node.size}
+            >
+              <primitive object={nodeGeometry} attach="geometry" />
+              <primitive object={nodeMaterial} attach="material" />
+            </mesh>
+          );
+        })}
       </>
     );
   };

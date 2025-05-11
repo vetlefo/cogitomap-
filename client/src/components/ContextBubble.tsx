@@ -316,25 +316,34 @@ export default function ContextBubble({
     }
   };
 
-  // Determine which 3D geometry to use based on node type
-  // Enhanced with larger, more distinct shapes
+  // Pre-computed shared geometries for better performance
+  const geometries = useRef<Record<string, THREE.BufferGeometry>>({});
+  
+  // Initialize shared geometries once
+  useEffect(() => {
+    // Create geometries with optimized polygon counts
+    geometries.current = {
+      'user_message': new THREE.SphereGeometry(1.1, 16, 16), // Reduced from 36,36
+      'ai_message': new THREE.SphereGeometry(1.15, 16, 16),  // Reduced from 38,38
+      'topic': new THREE.IcosahedronGeometry(1.2, 0),        // Reduced from detail 1 to 0
+      'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),        // Box is already efficient
+      'summary': new THREE.DodecahedronGeometry(1.25, 0),    // Already at detail 0
+      'question': new THREE.OctahedronGeometry(1.3, 0),      // Already at detail 0
+      'default': new THREE.SphereGeometry(1.1, 12, 12)       // Fallback geometry
+    };
+    
+    // Cleanup on unmount
+    return () => {
+      Object.values(geometries.current).forEach(geometry => {
+        geometry.dispose();
+      });
+    };
+  }, []);
+  
+  // Get the appropriate geometry for this node type
   const getNodeGeometry = () => {
-    switch (node.type) {
-      case 'user_message':
-        return <sphereGeometry args={[1.1, 36, 36]} />; // Larger, smoother sphere
-      case 'ai_message':
-        return <sphereGeometry args={[1.15, 38, 38]} />; // Slightly larger sphere for AI messages
-      case 'topic':
-        return <icosahedronGeometry args={[1.2, 1]} />; // Larger icosahedron
-      case 'entity':
-        return <boxGeometry args={[1.5, 1.5, 1.5]} />; // Larger cube
-      case 'summary':
-        return <dodecahedronGeometry args={[1.25, 0]} />; // Larger dodecahedron
-      case 'question':
-        return <octahedronGeometry args={[1.3, 0]} />; // Larger octahedron
-      default:
-        return <sphereGeometry args={[1.1, 32, 32]} />; // Fallback geometry
-    }
+    const geometryKey = node.type in geometries.current ? node.type : 'default';
+    return geometries.current[geometryKey];
   };
 
   return (
@@ -363,7 +372,7 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          {getNodeGeometry()}
+          <primitive object={getNodeGeometry()} attach="geometry" />
           <MeshWobbleMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
@@ -385,7 +394,7 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          {getNodeGeometry()}
+          <primitive object={getNodeGeometry()} attach="geometry" />
           <MeshDistortMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
