@@ -103,6 +103,18 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
         const targetData = nodeDataMap[edge.target];
         
         if (sourceData && targetData) {
+          // Additional validation for position properties
+          if (!sourceData.position || !targetData.position || 
+              typeof sourceData.position.x !== 'number' || 
+              typeof sourceData.position.y !== 'number' || 
+              typeof sourceData.position.z !== 'number' ||
+              typeof targetData.position.x !== 'number' ||
+              typeof targetData.position.y !== 'number' ||
+              typeof targetData.position.z !== 'number') {
+            console.warn(`Invalid position data for edge ${edge.source} -> ${edge.target}, skipping`);
+            return; // Skip this edge
+          }
+            
           const sourcePos = sourceData.position;
           const targetPos = targetData.position;
           
@@ -131,38 +143,43 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
             points = topicPoints;
           }
           
-          // For curved connections, generate a slight arc
-          // Only for non-direct conversation flows (semantic & topic connections)
-          if (edge.strength < 0.8) {
-            // Calculate midpoint with slight upward curve
-            const midX = (sourcePos.x + targetPos.x) / 2;
-            const midY = (sourcePos.y + targetPos.y) / 2 + 
-                         Math.min(
-                           Math.sqrt(
-                             Math.pow(targetPos.x - sourcePos.x, 2) + 
-                             Math.pow(targetPos.z - sourcePos.z, 2)
-                           ) * 0.15,
-                           1.5
-                         ); // Arc height based on horizontal distance
-            const midZ = (sourcePos.z + targetPos.z) / 2;
-            
-            // First segment
-            points.push(
-              sourcePos.x, sourcePos.y, sourcePos.z,
-              midX, midY, midZ
-            );
-            
-            // Second segment
-            points.push(
-              midX, midY, midZ,
-              targetPos.x, targetPos.y, targetPos.z
-            );
-          } else {
-            // Direct line for conversation flows
-            points.push(
-              sourcePos.x, sourcePos.y, sourcePos.z,
-              targetPos.x, targetPos.y, targetPos.z
-            );
+          try {
+            // For curved connections, generate a slight arc
+            // Only for non-direct conversation flows (semantic & topic connections)
+            if (edge.strength < 0.8) {
+              // Calculate midpoint with slight upward curve
+              const midX = (sourcePos.x + targetPos.x) / 2;
+              const midY = (sourcePos.y + targetPos.y) / 2 + 
+                          Math.min(
+                            Math.sqrt(
+                              Math.pow(targetPos.x - sourcePos.x, 2) + 
+                              Math.pow(targetPos.z - sourcePos.z, 2)
+                            ) * 0.15,
+                            1.5
+                          ); // Arc height based on horizontal distance
+              const midZ = (sourcePos.z + targetPos.z) / 2;
+              
+              // First segment
+              points.push(
+                sourcePos.x, sourcePos.y, sourcePos.z,
+                midX, midY, midZ
+              );
+              
+              // Second segment
+              points.push(
+                midX, midY, midZ,
+                targetPos.x, targetPos.y, targetPos.z
+              );
+            } else {
+              // Direct line for conversation flows
+              points.push(
+                sourcePos.x, sourcePos.y, sourcePos.z,
+                targetPos.x, targetPos.y, targetPos.z
+              );
+            }
+          } catch (err) {
+            console.error('Error processing edge geometry:', err);
+            // Skip this edge if there's an error
           }
         }
       });
