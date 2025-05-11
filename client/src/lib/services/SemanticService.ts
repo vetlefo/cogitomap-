@@ -8,6 +8,7 @@ interface SemanticAnalysisOptions {
   minSimilarity?: number;
   maxRelationsPerNode?: number;
   nodeTypes?: string[];
+  persistToDatabase?: boolean;
 }
 
 interface SemanticAnalysisResponse {
@@ -15,6 +16,7 @@ interface SemanticAnalysisResponse {
   relationshipsFound: number;
   edgesCreated: number;
   edges: Edge[];
+  persistedToDatabase?: boolean;
 }
 
 /**
@@ -35,6 +37,10 @@ export async function runSemanticAnalysis(options: SemanticAnalysisOptions = {})
     
     if (options.nodeTypes && options.nodeTypes.length > 0) {
       params.append('nodeTypes', options.nodeTypes.join(','));
+    }
+    
+    if (options.persistToDatabase !== undefined) {
+      params.append('persistToDatabase', options.persistToDatabase.toString());
     }
     
     const url = `/api/graph/semantic-analysis?${params.toString()}`;
