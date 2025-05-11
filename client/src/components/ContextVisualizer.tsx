@@ -67,121 +67,50 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
   // Update edge connections with enhanced visuals and meaningful representations
   useEffect(() => {
     if (edges.length > 0) {
-      // Create a lookup map for node positions and metadata by ID
-      const nodeDataMap = nodes.reduce((acc, node) => {
-        acc[node.id] = {
-          position: node.position,
-          type: node.type,
-          importance: node.importance
-        };
-        return acc;
-      }, {} as Record<string, { 
-        position: { x: number; y: number; z: number }; 
-        type: string;
-        importance: number;
-      }>);
+      // Create a simple lookup map for node positions by ID
+      const nodePositions = new Map<string, THREE.Vector3>();
       
-      // Create separate materials and geometries for different connection types:
-      // 1. Conversation flow (direct Q&A pairs)
-      // 2. Semantic similarity (concept relationships)
-      // 3. Topic similarity (thematic connections)
-      // 4. Second opinion connections (added feature)
-      const conversationPoints: number[] = [];
-      const semanticPoints: number[] = [];
-      const topicPoints: number[] = [];
-      const secondOpinionPoints: number[] = [];  // New array for second opinion connections
-      
-      // Color values for different connection types
-      const conversationColor = new THREE.Color(0x00dbff); // Bright cyan
-      const semanticColor = new THREE.Color(0x00acff);     // Mid blue
-      const topicColor = new THREE.Color(0x007aff);        // Deep blue
-      const secondOpinionColor = new THREE.Color(0xff00ff); // Magenta for second opinions
-      
-      // Process each edge
-      edges.forEach(edge => {
-        const sourceData = nodeDataMap[edge.source];
-        const targetData = nodeDataMap[edge.target];
-        
-        if (sourceData && targetData) {
-          // Additional validation for position properties
-          if (!sourceData.position || !targetData.position || 
-              typeof sourceData.position.x !== 'number' || 
-              typeof sourceData.position.y !== 'number' || 
-              typeof sourceData.position.z !== 'number' ||
-              typeof targetData.position.x !== 'number' ||
-              typeof targetData.position.y !== 'number' ||
-              typeof targetData.position.z !== 'number') {
-            console.warn(`Invalid position data for edge ${edge.source} -> ${edge.target}, skipping`);
-            return; // Skip this edge
-          }
-            
-          const sourcePos = sourceData.position;
-          const targetPos = targetData.position;
-          
-          // Check if either source or target is from a second opinion source
-          const sourceNodeId = edge.source;
-          const targetNodeId = edge.target;
-          const isSourceSecondOpinion = opinionSources[sourceNodeId] && opinionSources[sourceNodeId] !== 'main';
-          const isTargetSecondOpinion = opinionSources[targetNodeId] && opinionSources[targetNodeId] !== 'main';
-          const isSecondOpinionEdge = isSourceSecondOpinion || isTargetSecondOpinion;
-          
-          // Determine connection type based on edge metadata
-          // High strength (0.8-1.0) = direct conversation flow
-          // Medium strength (0.4-0.7) = semantic relationship
-          // Low strength (0.1-0.3) = topic similarity
-          // Any second opinion edges go to the special category
-          let points: number[];
-          
-          if (isSecondOpinionEdge) {
-            // Second opinions always use the distinct second opinion points
-            points = secondOpinionPoints;
-          } else if (edge.strength >= 0.8) {
-            points = conversationPoints;
-          } else if (edge.strength >= 0.4) {
-            points = semanticPoints;
-          } else {
-            points = topicPoints;
-          }
-          
-          try {
-            // For curved connections, generate a slight arc
-            // Only for non-direct conversation flows (semantic & topic connections)
-            if (edge.strength < 0.8) {
-              // Calculate midpoint with slight upward curve
-              const midX = (sourcePos.x + targetPos.x) / 2;
-              const midY = (sourcePos.y + targetPos.y) / 2 + 
-                          Math.min(
-                            Math.sqrt(
-                              Math.pow(targetPos.x - sourcePos.x, 2) + 
-                              Math.pow(targetPos.z - sourcePos.z, 2)
-                            ) * 0.15,
-                            1.5
-                          ); // Arc height based on horizontal distance
-              const midZ = (sourcePos.z + targetPos.z) / 2;
-              
-              // First segment
-              points.push(
-                sourcePos.x, sourcePos.y, sourcePos.z,
-                midX, midY, midZ
-              );
-              
-              // Second segment
-              points.push(
-                midX, midY, midZ,
-                targetPos.x, targetPos.y, targetPos.z
-              );
-            } else {
-              // Direct line for conversation flows
-              points.push(
-                sourcePos.x, sourcePos.y, sourcePos.z,
-                targetPos.x, targetPos.y, targetPos.z
-              );
-            }
-          } catch (err) {
-            console.error('Error processing edge geometry:', err);
-            // Skip this edge if there's an error
-          }
+      // Collect valid nodes only once
+      nodes.forEach(node => {
+        if (node && node.position && 
+            typeof node.position.x === 'number' && 
+            typeof node.position.y === 'number' && 
+            typeof node.position.z === 'number') {
+          nodePositions.set(node.id, new THREE.Vector3(
+            node.position.x,
+            node.position.y,
+            node.position.z
+          ));
         }
+      });
+      
+      // Simplified: just two types of connection points for better performance
+      // 1. Primary connections (most important, more visible)
+      // 2. Secondary connections (less important, less visible)
+      const primaryPoints: number[] = [];
+      const secondaryPoints: number[] = [];
+      
+      // Simpler colors
+      const primaryColor = new THREE.Color(0x00dbff);   // Bright cyan 
+      const secondaryColor = new THREE.Color(0x0066aa); // Darker blue
+      
+      // Process only valid edges
+      edges.forEach(edge => {
+        const sourcePos = nodePositions.get(edge.source);
+        const targetPos = nodePositions.get(edge.target);
+        
+        // Skip if either node is missing
+        if (!sourcePos || !targetPos) return;
+        
+        // Simplify categorization - just primary vs secondary
+        // More important edges (higher strength) go to primary
+        const points = edge.strength >= 0.6 ? primaryPoints : secondaryPoints;
+        
+        // Use straight lines for all connections (much better performance)
+        points.push(
+          sourcePos.x, sourcePos.y, sourcePos.z,
+          targetPos.x, targetPos.y, targetPos.z
+        );
       });
       
       // Clean up old edge lines
@@ -211,96 +140,44 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       // Create a group to hold all the different line types
       const linesGroup = new THREE.Group();
       
-      // Create conversational flow lines (bright, thick)
-      if (conversationPoints.length > 0) {
-        const convGeometry = new THREE.BufferGeometry();
-        convGeometry.setAttribute(
+      // Create primary connection lines (bright, more opaque)
+      if (primaryPoints.length > 0) {
+        const primaryGeometry = new THREE.BufferGeometry();
+        primaryGeometry.setAttribute(
           'position', 
-          new THREE.Float32BufferAttribute(conversationPoints, 3)
+          new THREE.Float32BufferAttribute(primaryPoints, 3)
         );
         
-        const convMaterial = new THREE.LineBasicMaterial({ 
-          color: conversationColor,
+        const primaryMaterial = new THREE.LineBasicMaterial({ 
+          color: primaryColor,
           transparent: true,
           opacity: 0.8,
+          linewidth: 1, // Note: linewidth has no effect in WebGL, but kept for clarity
+          blending: THREE.AdditiveBlending
+        });
+        
+        const primaryLines = new THREE.LineSegments(primaryGeometry, primaryMaterial);
+        linesGroup.add(primaryLines);
+      }
+      
+      // Create secondary connection lines (darker, more transparent)
+      if (secondaryPoints.length > 0) {
+        const secondaryGeometry = new THREE.BufferGeometry();
+        secondaryGeometry.setAttribute(
+          'position', 
+          new THREE.Float32BufferAttribute(secondaryPoints, 3)
+        );
+        
+        const secondaryMaterial = new THREE.LineBasicMaterial({ 
+          color: secondaryColor,
+          transparent: true,
+          opacity: 0.5,
           linewidth: 1,
           blending: THREE.AdditiveBlending
         });
         
-        const convLines = new THREE.LineSegments(convGeometry, convMaterial);
-        linesGroup.add(convLines);
-      }
-      
-      // Create semantic relationship lines (medium brightness/thickness)
-      if (semanticPoints.length > 0) {
-        const semGeometry = new THREE.BufferGeometry();
-        semGeometry.setAttribute(
-          'position', 
-          new THREE.Float32BufferAttribute(semanticPoints, 3)
-        );
-        
-        const semMaterial = new THREE.LineBasicMaterial({ 
-          color: semanticColor,
-          transparent: true,
-          opacity: 0.6,
-          linewidth: 1,
-          blending: THREE.AdditiveBlending
-        });
-        
-        const semLines = new THREE.LineSegments(semGeometry, semMaterial);
-        linesGroup.add(semLines);
-      }
-      
-      // Create topic similarity lines (subtle, thin)
-      if (topicPoints.length > 0) {
-        const topicGeometry = new THREE.BufferGeometry();
-        topicGeometry.setAttribute(
-          'position', 
-          new THREE.Float32BufferAttribute(topicPoints, 3)
-        );
-        
-        const topicMaterial = new THREE.LineBasicMaterial({ 
-          color: topicColor,
-          transparent: true,
-          opacity: 0.4,
-          linewidth: 1,
-          blending: THREE.AdditiveBlending
-        });
-        
-        const topicLines = new THREE.LineSegments(topicGeometry, topicMaterial);
-        linesGroup.add(topicLines);
-      }
-      
-      // Create second opinion connections (bright, dashed, distinctive)
-      if (secondOpinionPoints.length > 0) {
-        const secondOpinionGeometry = new THREE.BufferGeometry();
-        secondOpinionGeometry.setAttribute(
-          'position', 
-          new THREE.Float32BufferAttribute(secondOpinionPoints, 3)
-        );
-        
-        // Create a dashed line material for second opinions to make them stand out
-        const secondOpinionMaterial = new THREE.LineDashedMaterial({ 
-          color: secondOpinionColor,
-          transparent: true,
-          opacity: 0.8,
-          linewidth: 2,   // Thicker lines
-          scale: 1,       // Scale of the dashes
-          dashSize: 3,    // Length of the dashes
-          gapSize: 1,     // Length of the gaps
-          blending: THREE.AdditiveBlending
-        });
-        
-        const secondOpinionLines = new THREE.LineSegments(secondOpinionGeometry, secondOpinionMaterial);
-        
-        // Need to compute line distances for dashed lines to work
-        secondOpinionLines.computeLineDistances();
-        
-        // Add to scene
-        secondOpinionLines.userData.isSecondOpinion = true; // Mark for special animations
-        linesGroup.add(secondOpinionLines);
-        
-        console.log("Added second opinion connections:", secondOpinionPoints.length / 6, "edges");
+        const secondaryLines = new THREE.LineSegments(secondaryGeometry, secondaryMaterial);
+        linesGroup.add(secondaryLines);
       }
       
       // Store the group in our ref

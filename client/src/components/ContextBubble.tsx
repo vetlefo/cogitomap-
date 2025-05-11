@@ -362,9 +362,8 @@ export default function ContextBubble({
         />
       </mesh>
       
-      {/* Main bubble - choose material based on node type */}
-      {node.type === 'user_message' || node.type === 'question' ? (
-        // User messages and questions use MeshWobbleMaterial for a more organic feel
+      {/* Main bubble - use basic geometries based on node type */}
+      {node.type === 'user_message' ? (
         <mesh
           ref={meshRef}
           onPointerOver={() => setHovered(true)}
@@ -372,21 +371,76 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          <primitive object={getNodeGeometry()} attach="geometry" />
-          <MeshWobbleMaterial
+          <sphereGeometry args={[1.1, 16, 16]} />
+          <meshStandardMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5} // Increased emission for more visibility
-            metalness={active ? 0.85 : 0.7}  // Increased metalness for better reflection
-            roughness={active ? 0.1 : 0.15}  // Decreased roughness for shinier appearance
-            factor={0.15} // Reduced wobble amount for more stability
-            speed={0.4}  // Slightly reduced wobble speed
+            emissiveIntensity={emissiveIntensity * 1.5}
+            metalness={active ? 0.85 : 0.7}
+            roughness={active ? 0.1 : 0.15}
             transparent
-            opacity={0.98} // Increased opacity
+            opacity={0.98}
+          />
+        </mesh>
+      ) : node.type === 'ai_message' ? (
+        <mesh
+          ref={meshRef}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          onClick={handleClick}
+          scale={scale * (1 + node.importance * 0.5)}
+        >
+          <sphereGeometry args={[1.15, 16, 16]} />
+          <meshStandardMaterial
+            color={new THREE.Color(color)}
+            emissive={new THREE.Color(color)}
+            emissiveIntensity={emissiveIntensity * 1.5}
+            metalness={active ? 0.85 : 0.7}
+            roughness={active ? 0.1 : 0.15}
+            transparent
+            opacity={0.98}
+          />
+        </mesh>
+      ) : node.type === 'topic' ? (
+        <mesh
+          ref={meshRef}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          onClick={handleClick}
+          scale={scale * (1 + node.importance * 0.5)}
+        >
+          <icosahedronGeometry args={[1.2, 0]} />
+          <meshStandardMaterial
+            color={new THREE.Color(color)}
+            emissive={new THREE.Color(color)}
+            emissiveIntensity={emissiveIntensity * 1.5}
+            metalness={active ? 0.85 : 0.7}
+            roughness={active ? 0.1 : 0.15}
+            transparent
+            opacity={0.98}
+          />
+        </mesh>
+      ) : node.type === 'entity' ? (
+        <mesh
+          ref={meshRef}
+          onPointerOver={() => setHovered(true)}
+          onPointerOut={() => setHovered(false)}
+          onClick={handleClick}
+          scale={scale * (1 + node.importance * 0.5)}
+        >
+          <boxGeometry args={[1.5, 1.5, 1.5]} />
+          <meshStandardMaterial
+            color={new THREE.Color(color)}
+            emissive={new THREE.Color(color)}
+            emissiveIntensity={emissiveIntensity * 1.5}
+            metalness={active ? 0.85 : 0.7}
+            roughness={active ? 0.1 : 0.15}
+            transparent
+            opacity={0.98}
           />
         </mesh>
       ) : (
-        // Other nodes use MeshDistortMaterial for a more technical, fluid look
+        // Default for any other node type
         <mesh
           ref={meshRef}
           onPointerOver={() => setHovered(true)}
@@ -394,17 +448,15 @@ export default function ContextBubble({
           onClick={handleClick}
           scale={scale * (1 + node.importance * 0.5)}
         >
-          <primitive object={getNodeGeometry()} attach="geometry" />
-          <MeshDistortMaterial
+          <sphereGeometry args={[1.1, 12, 12]} />
+          <meshStandardMaterial
             color={new THREE.Color(color)}
             emissive={new THREE.Color(color)}
-            emissiveIntensity={emissiveIntensity * 1.5} // Increased emission for visibility
-            metalness={active ? 0.85 : 0.7} // Increased metalness
-            roughness={active ? 0.1 : 0.15} // Decreased roughness for shininess
-            distort={0.2} // Reduced distortion for more clarity
-            speed={1.5} // Slower distortion for better visibility
+            emissiveIntensity={emissiveIntensity * 1.5}
+            metalness={active ? 0.85 : 0.7}
+            roughness={active ? 0.1 : 0.15}
             transparent
-            opacity={0.98} // Increased opacity
+            opacity={0.98}
           />
         </mesh>
       )}
