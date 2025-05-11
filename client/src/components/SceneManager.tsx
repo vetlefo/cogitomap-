@@ -29,9 +29,9 @@ export default function SceneManager() {
   
   // Create an enhanced grid for visual reference
   useEffect(() => {
-    // Create cyberpunk style grid with more divisions for detail
-    const gridSize = 60;
-    const gridDivisions = 60;
+    // Create cyberpunk style grid with expanded size for wider visualization
+    const gridSize = 150; // Increased from 60 to 150
+    const gridDivisions = 80; // Increased from 60 to 80
     const gridHelper = new THREE.GridHelper(
       gridSize, 
       gridDivisions,
@@ -58,8 +58,8 @@ export default function SceneManager() {
     
     scene.add(gridHelper);
     
-    // Add atmospheric fog for depth and cyberpunk feel (softer now)
-    scene.fog = new THREE.FogExp2(0x000814, 0.02);
+    // Add lighter atmospheric fog for better long-distance visibility
+    scene.fog = new THREE.FogExp2(0x000814, 0.008); // Reduced from 0.02 to 0.008
     
     // Cleanup on unmount
     return () => {

@@ -115,7 +115,7 @@ function App() {
     <div className="app-container">
       <div id="visualization-container">
         <Canvas
-          camera={{ position: [0, 0, 15], fov: 60 }}
+          camera={{ position: [0, 0, 50], fov: 60 }}
           gl={{ antialias: true }}
         >
           <color attach="background" args={["#000"]} />
@@ -125,8 +125,10 @@ function App() {
             <ContextVisualizer showDrones={showDrones} />
           </Suspense>
           <OrbitControls 
-            minDistance={5}
-            maxDistance={50}
+            minDistance={10}
+            maxDistance={150}
+            enableDamping={true}
+            dampingFactor={0.1}
           />
         </Canvas>
       </div>

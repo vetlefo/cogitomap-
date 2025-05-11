@@ -512,9 +512,10 @@ function calculatePosition(
                      (message.content.charCodeAt(0) || 0) +
                      (message.content.charCodeAt(message.content.length - 1) || 0);
   
-  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 1.5;
-  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 1.0;
-  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 1.5;
+  // Significantly increased variance to prevent node overlapping
+  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 4.0; // Increased from 1.5 to 4.0
+  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 2.5; // Increased from 1.0 to 2.5
+  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 4.0; // Increased from 1.5 to 4.0
   
   position.x += varianceX;
   position.y += varianceY;
