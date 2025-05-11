@@ -610,18 +610,21 @@ canvas {
 .top-cockpit-panel {
   position: fixed;
   top: 0;
+  left: 0;
   right: 0;
   z-index: 20;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: center;
   padding: 0;
-  width: 250px;
-  /* No transform property that hides the panel */
-  background: linear-gradient(90deg, rgba(4, 11, 22, 0.8) 0%, rgba(6, 18, 34, 0.9) 100%);
+  height: 45px;
+  background: linear-gradient(180deg, 
+    rgba(4, 15, 30, 0.9) 0%, 
+    rgba(6, 20, 40, 0.8) 100%
+  );
   backdrop-filter: blur(8px);
-  border-left: 1px solid rgba(30, 120, 180, 0.3);
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
-  height: 100vh;
+  border-bottom: 1px solid rgba(30, 120, 180, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
 
@@ -671,24 +674,28 @@ canvas {
 }
 
 .cockpit-auth-container {
-  padding: 20px 15px 15px;
+  padding: 0 20px;
   position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .cockpit-auth-container::before {
   content: 'SYSTEM ACCESS';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 5px 0;
-  font-size: 10px;
-  letter-spacing: 2px;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  font-size: 8px;
+  letter-spacing: 1px;
   text-align: center;
-  background: rgba(0, 40, 80, 0.5);
+  background: rgba(0, 40, 80, 0.6);
   color: rgba(0, 210, 255, 0.8);
   font-weight: 500;
-  border-bottom: 1px solid rgba(0, 120, 180, 0.2);
+  border-radius: 2px;
+  z-index: 1;
 }
 
 .cockpit-auth-container::after {
@@ -708,27 +715,29 @@ canvas {
 }
 
 .cockpit-model-selector {
-  padding: 30px 15px 15px;
+  padding: 0 20px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  height: 100%;
   position: relative;
+  margin-left: 20px;
 }
 
 .cockpit-model-selector::before {
   content: 'NEURAL ENGINE';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 5px 0;
-  font-size: 10px;
-  letter-spacing: 2px;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  font-size: 8px;
+  letter-spacing: 1px;
   text-align: center;
-  background: rgba(0, 40, 80, 0.5);
+  background: rgba(0, 40, 80, 0.6);
   color: rgba(0, 210, 255, 0.8);
   font-weight: 500;
-  border-bottom: 1px solid rgba(0, 120, 180, 0.2);
+  border-radius: 2px;
+  z-index: 1;
 }
 
 .cockpit-model-selector select,
