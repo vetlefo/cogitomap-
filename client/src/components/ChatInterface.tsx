@@ -61,7 +61,9 @@ export default function ChatInterface({
       // Add all new nodes from the analysis
       welcomeAnalysis.newNodes.forEach(node => addNode(node));
       // Add all new edges from the analysis
-      welcomeAnalysis.newEdges.forEach(edge => addEdge(edge));
+      welcomeAnalysis.newEdges.forEach(edge => 
+        addEdge(edge.source, edge.target, edge.relationship || 'mentions', edge.strength)
+      );
       
       // Save mapping of message index to node IDs
       const nodeIds = welcomeAnalysis.newNodes.map(node => node.id);
@@ -196,9 +198,10 @@ export default function ChatInterface({
         addNode(node);
       });
       
-      // Add all edges from the assistant analysis
+      // Add all edges from the assistant analysis  
       assistantAnalysis.newEdges.forEach(edge => {
-        addEdge(edge);
+        // Pass individual properties instead of the whole edge object
+        addEdge(edge.source, edge.target, edge.relationship || 'mentions', edge.strength);
       });
       
       // Store mapping of assistant message index to node IDs

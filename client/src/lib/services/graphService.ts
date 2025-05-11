@@ -105,7 +105,7 @@ export class GraphService {
   /**
    * Create a new edge
    */
-  static async createEdge(source: string, target: string, relationship: string, strength: number = 0.5): Promise<Edge> {
+  static async createEdge(source: string | { id: string }, target: string | { id: string }, relationship: string, strength: number = 0.5): Promise<Edge> {
     // Ensure source and target are strings, not objects
     const sourceId = typeof source === 'object' && source !== null ? source.id : source;
     const targetId = typeof target === 'object' && target !== null ? target.id : target;
