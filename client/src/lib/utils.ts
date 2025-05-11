@@ -1,4 +1,13 @@
 import { NodeType } from '../types';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/**
+ * Combine class names with tailwind support
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 /**
  * Generate a hash code from a string
@@ -70,4 +79,23 @@ export function formatTimestamp(timestamp: number): string {
   if (minutes > 0) return `${minutes}m ago`;
   if (seconds > 10) return `${seconds}s ago`;
   return 'just now';
+}
+
+/**
+ * Get an item from localStorage with safety for non-browser environments
+ */
+export function getLocalStorage(key: string, defaultValue: string = ''): string {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return defaultValue;
+  }
+  return localStorage.getItem(key) || defaultValue;
+}
+
+/**
+ * Set an item in localStorage with safety for non-browser environments
+ */
+export function setLocalStorage(key: string, value: string): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.setItem(key, value);
+  }
 }

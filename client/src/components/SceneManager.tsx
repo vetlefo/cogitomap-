@@ -157,8 +157,19 @@ export default function SceneManager() {
   // Adjust camera based on nodes with smoother transitions
   useEffect(() => {
     if (nodes.length > 0) {
-      // Calculate the center of all nodes
-      const center = nodes.reduce(
+      // Calculate the center of all nodes, ensuring position data is valid
+      const validNodes = nodes.filter(node => 
+        node && node.position && typeof node.position.x === 'number' && 
+        typeof node.position.y === 'number' && typeof node.position.z === 'number'
+      );
+      
+      // If no valid nodes, use a default position
+      if (validNodes.length === 0) {
+        console.warn('No nodes with valid position data found');
+        return; // Skip camera adjustment
+      }
+      
+      const center = validNodes.reduce(
         (acc, node) => {
           acc.x += node.position.x;
           acc.y += node.position.y;
@@ -168,9 +179,9 @@ export default function SceneManager() {
         { x: 0, y: 0, z: 0 }
       );
       
-      center.x /= nodes.length;
-      center.y /= nodes.length;
-      center.z /= nodes.length;
+      center.x /= validNodes.length;
+      center.y /= validNodes.length;
+      center.z /= validNodes.length;
       
       // Smoothly move camera to look at the center
       const targetPosition = new THREE.Vector3(center.x, center.y, center.z);
