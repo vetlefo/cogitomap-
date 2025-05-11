@@ -17,6 +17,11 @@ import {
 } from "./db/graphService";
 import { generateEmbedding, embedding3DPosition } from "./services/embeddingService";
 import { analyzeSemanticRelationships, createSemanticEdges } from "./services/semanticService";
+import { 
+  extractKeywordsHandler, 
+  findRelationshipsHandler, 
+  runSemanticAnalysisHandler 
+} from "./api/semanticAnalysis";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -341,7 +346,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/graph/node/:id/neighbors', getNodeNeighborsHandler);
   app.get('/api/graph/subgraph/:id', getSubgraphHandler);
   
-  // Semantic analysis endpoints
+  // New one-shot semantic analysis endpoints
+  app.post('/api/semantic/keywords', extractKeywordsHandler);
+  app.post('/api/semantic/relationships', findRelationshipsHandler);
+  app.post('/api/semantic/analyze', runSemanticAnalysisHandler);
+  
+  // Legacy semantic analysis endpoint
   app.post('/api/graph/semantic-analysis', async (req, res) => {
     try {
       const options = {
