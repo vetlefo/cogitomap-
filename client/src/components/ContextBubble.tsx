@@ -34,13 +34,20 @@ interface ContextBubbleProps {
   source?: string; // The source window/conversation ID for "second opinion" feature
 }
 
-export default function ContextBubble({ 
+// Create a function component with static properties
+function ContextBubble({ 
   node, 
   onClick,
   pulsate = true, 
   scale = 1,
   source = 'main'
 }: ContextBubbleProps) {
+  // Static property for shared geometries to prevent disposal
+  // @ts-ignore
+  if (!ContextBubble.sharedGeometries) {
+    // @ts-ignore
+    ContextBubble.sharedGeometries = null;
+  }
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
@@ -319,26 +326,31 @@ export default function ContextBubble({
   // Pre-computed shared geometries for better performance
   const geometries = useRef<Record<string, THREE.BufferGeometry>>({});
   
-  // Initialize shared geometries once
+  // Initialize shared geometries once - using static variables so they persist
+  // This is critical for performance and to prevent nodes from disappearing
   useEffect(() => {
-    // Create geometries with optimized polygon counts
-    geometries.current = {
-      'user_message': new THREE.SphereGeometry(1.1, 16, 16), // Reduced from 36,36
-      'ai_message': new THREE.SphereGeometry(1.15, 16, 16),  // Reduced from 38,38
-      'topic': new THREE.IcosahedronGeometry(1.2, 0),        // Reduced from detail 1 to 0
-      'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),        // Box is already efficient
-      'summary': new THREE.DodecahedronGeometry(1.25, 0),    // Already at detail 0
-      'question': new THREE.OctahedronGeometry(1.3, 0),      // Already at detail 0
-      'default': new THREE.SphereGeometry(1.1, 12, 12)       // Fallback geometry
-    };
+    if (!ContextBubble.sharedGeometries) {
+      // Create static shared geometries once for all nodes
+      ContextBubble.sharedGeometries = {
+        'user_message': new THREE.SphereGeometry(1.1, 16, 16),
+        'ai_message': new THREE.SphereGeometry(1.15, 16, 16),
+        'topic': new THREE.IcosahedronGeometry(1.2, 0),
+        'entity': new THREE.BoxGeometry(1.5, 1.5, 1.5),
+        'summary': new THREE.DodecahedronGeometry(1.25, 0),
+        'question': new THREE.OctahedronGeometry(1.3, 0),
+        'default': new THREE.SphereGeometry(1.1, 12, 12)
+      };
+      console.log('Created shared geometries for all nodes');
+    }
     
-    // Cleanup on unmount
+    // Reference the shared geometries
+    geometries.current = ContextBubble.sharedGeometries;
+    
+    // No cleanup - shared geometries persist for application lifetime
     return () => {
-      Object.values(geometries.current).forEach(geometry => {
-        geometry.dispose();
-      });
+      console.log(`Node ${node.id} unmounted, keeping shared geometries`);
     };
-  }, []);
+  }, [node.id]);
   
   // Get the appropriate geometry for this node type
   const getNodeGeometry = () => {
