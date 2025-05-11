@@ -74,6 +74,17 @@ export function AgentDrone({
     // Select current target node
     const targetIdx = targetIndexRef.current % nodes.length;
     const targetNode = nodes[targetIdx];
+    
+    // Validate node has valid position data
+    if (!targetNode.position || 
+        typeof targetNode.position.x !== 'number' || 
+        typeof targetNode.position.y !== 'number' || 
+        typeof targetNode.position.z !== 'number') {
+      console.warn(`Invalid position data for node ${targetNode.id}, using default position`);
+      // Use a default position if the node doesn't have valid position data
+      return;
+    }
+    
     const targetPos = new THREE.Vector3(
       targetNode.position.x,
       targetNode.position.y,

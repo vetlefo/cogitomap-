@@ -452,13 +452,27 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       {edgeLinesRef.current && <primitive object={edgeLinesRef.current} />}
       
       {/* Render agent drones */}
-      {showDrones && nodes.length > 0 && (
-        <>
-          <AgentDrone startPosition={[5, 0, 5]} nodes={nodes} />
-          <AgentDrone startPosition={[-5, 3, -5]} nodes={nodes} />
-          <AgentDrone startPosition={[0, -5, 8]} nodes={nodes} />
-        </>
-      )}
+      {showDrones && nodes.length > 0 && (() => {
+        // Filter nodes to ensure they all have valid position data
+        const validNodes = nodes.filter(node => 
+          node && node.position && 
+          typeof node.position.x === 'number' && 
+          typeof node.position.y === 'number' && 
+          typeof node.position.z === 'number'
+        );
+        
+        // Only render drones if we have enough valid nodes
+        if (validNodes.length > 1) {
+          return (
+            <>
+              <AgentDrone startPosition={[5, 0, 5]} nodes={validNodes} color="#00eeff" />
+              <AgentDrone startPosition={[-5, 3, -5]} nodes={validNodes} color="#ff00aa" />
+              <AgentDrone startPosition={[0, -5, 8]} nodes={validNodes} color="#ffaa00" />
+            </>
+          );
+        }
+        return null;
+      })()}
       
       {/* Display database connection status */}
       {nodes.length > 0 && (
