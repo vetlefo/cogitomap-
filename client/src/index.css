@@ -764,7 +764,7 @@ canvas {
 /* Multi-select Mode Indicator */
 .mode-indicator {
   position: fixed;
-  top: 16px;
+  top: 15px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -774,6 +774,31 @@ canvas {
   pointer-events: none;
 }
 
+/* Additional visual effects for glow and scanlines */
+.mode-indicator::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -40%;
+  right: -40%;
+  bottom: -40%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(40, 120, 255, 0.05) 0%,
+    rgba(10, 40, 120, 0.03) 40%,
+    rgba(0, 0, 40, 0) 80%
+  );
+  filter: blur(15px);
+  opacity: 0.7;
+  z-index: -2;
+  animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(0.96); }
+  50% { opacity: 0.7; transform: scale(1.04); }
+}
+
 .mode-indicator-pulse {
   position: absolute;
   top: 0;
@@ -781,8 +806,14 @@ canvas {
   right: 0;
   bottom: 0;
   border-radius: 4px;
-  background: rgba(0, 40, 100, 0.1);
-  animation: pulsate 2s infinite;
+  background: linear-gradient(90deg, 
+    rgba(0, 30, 90, 0),
+    rgba(0, 40, 120, 0.1) 20%, 
+    rgba(0, 60, 180, 0.15) 50%,
+    rgba(0, 40, 120, 0.1) 80%,
+    rgba(0, 30, 90, 0)
+  );
+  animation: pulsate 3s infinite;
   z-index: -1;
   filter: blur(5px);
 }
@@ -794,45 +825,83 @@ canvas {
 }
 
 .mode-indicator-content {
-  background: linear-gradient(180deg, 
-    rgba(15, 30, 60, 0.85), 
-    rgba(25, 40, 80, 0.85)
+  background: linear-gradient(to bottom, 
+    rgba(5, 20, 45, 0.8) 0%,
+    rgba(10, 30, 65, 0.85) 40%,
+    rgba(15, 35, 75, 0.9) 60%,
+    rgba(10, 25, 55, 0.85) 100%
   );
-  border: 1px solid rgba(60, 130, 240, 0.4);
-  border-radius: 4px;
-  padding: 6px 12px;
+  border: 1px solid rgba(60, 140, 255, 0.35);
+  border-radius: 3px;
+  padding: 5px 12px;
   display: flex;
   align-items: center;
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3), 0 0 8px rgba(20, 100, 220, 0.4);
-  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.3),
+    0 0 15px rgba(0, 60, 220, 0.15),
+    inset 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scanline effect */
+.mode-indicator-content::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(120, 220, 255, 0.15),
+    transparent
+  );
+  transform: skewX(-25deg);
+  animation: scan 2.5s infinite 1s;
+}
+
+@keyframes scan {
+  0% { left: -50%; }
+  100% { left: 150%; }
 }
 
 .mode-icon {
-  font-size: 16px;
-  color: rgba(80, 180, 255, 0.9);
+  font-size: 14px;
+  color: rgba(100, 200, 255, 0.95);
   margin-right: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: rgba(0, 30, 60, 0.6);
-  border: 1px solid rgba(40, 120, 220, 0.4);
-  text-shadow: 0 0 5px rgba(0, 140, 255, 0.5);
+  background: rgba(0, 30, 60, 0.7);
+  border: 1px solid rgba(60, 140, 255, 0.4);
+  text-shadow: 0 0 5px rgba(0, 160, 255, 0.7);
+  box-shadow: 
+    0 0 6px rgba(0, 120, 255, 0.4),
+    inset 0 0 3px rgba(0, 120, 255, 0.2);
 }
 
 .mode-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: rgba(120, 210, 255, 0.9);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  color: rgba(140, 220, 255, 0.95);
   margin-right: 12px;
-  text-shadow: 0 0 8px rgba(0, 150, 255, 0.5);
+  text-shadow: 0 0 6px rgba(0, 160, 255, 0.5);
+  font-family: 'Inter', sans-serif;
 }
 
 .mode-hint {
-  font-size: 11px;
-  color: rgba(180, 230, 255, 0.7);
+  font-size: 10px;
+  color: rgba(180, 230, 255, 0.8);
   font-weight: 400;
+  padding-left: 2px;
+  border-left: 1px solid rgba(80, 160, 255, 0.4);
+  padding-left: 12px;
+  position: relative;
 }
