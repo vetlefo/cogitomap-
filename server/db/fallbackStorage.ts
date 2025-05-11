@@ -4,7 +4,7 @@
  */
 
 import { log } from "../vite";
-import type { BubbleNode, Edge } from "../../client/src/types";
+import type { BubbleNode, Edge, RelationshipType } from "../../client/src/types";
 
 // In-memory storage for graph data
 class FallbackGraphStorage {
@@ -40,11 +40,14 @@ class FallbackGraphStorage {
     // Generate an edge ID if not provided
     const edgeId = `edge-${Date.now()}-${this.edgeCounter++}`;
     
+    // Ensure relationship is a valid RelationshipType
+    const relationshipType = relationship as RelationshipType;
+    
     const edge: Edge = {
       id: edgeId,
       source,
       target,
-      relationship: relationship as any, // Cast to the proper type
+      relationship: relationshipType,
       strength: properties.strength || 0.5,
       ...properties
     };
@@ -78,7 +81,7 @@ class FallbackGraphStorage {
       if (targetNode) {
         neighbors.push({
           node: targetNode,
-          relationship: edge.relationship
+          relationship: String(edge.relationship) // Explicitly convert to string
         });
       }
     }
@@ -93,7 +96,7 @@ class FallbackGraphStorage {
         // Use the inverse relationship name or prepend "from_" to indicate direction
         neighbors.push({
           node: sourceNode,
-          relationship: `from_${edge.relationship}`
+          relationship: `from_${String(edge.relationship)}`
         });
       }
     }
