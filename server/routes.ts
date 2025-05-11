@@ -175,8 +175,34 @@ async function createEdgeHandler(req: Request, res: Response) {
 }
 
 
+// Get graph database status
+async function getGraphStatusHandler(req: Request, res: Response) {
+  try {
+    const stats = await getGraphStats();
+    res.json({
+      connected: !stats.usingFallback,
+      nodeCount: stats.nodeCount,
+      edgeCount: stats.edgeCount,
+      storageMode: stats.usingFallback ? 'in-memory fallback' : 'persistent graph database',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    log(`Error getting graph status: ${error}`, 'api-graph-error');
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      connected: false,
+      storageMode: 'error'
+    });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chat', handleLLMRequest);
+
+  // Graph database endpoints
+  app.post('/api/graph/node', createNodeHandler);
+  app.post('/api/graph/edge', createEdgeHandler);
+  app.get('/api/graph/status', getGraphStatusHandler);
 
   app.post('/api/validate-key', async (req, res) => {
     const { apiKey, provider = 'openai' } = req.body;
@@ -261,13 +287,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/login', loginHandler);
   app.get('/api/auth/logout', logoutHandler);
   app.get('/api/protected', requireAuth, (req, res) => res.json({ message: 'This is a protected route', user: req.user }));
-
-  // ---- New Graph API Endpoints ----
-  app.post('/api/graph/node', createNodeHandler);
-  app.post('/api/graph/edge', createEdgeHandler);
-  // app.get('/api/graph/node/:id', getNodeHandler);
-  // app.get('/api/graph/neighbors/:id', getNeighborsHandler);
-  // app.post('/api/graph/search', searchGraphHandler);
 
   const httpServer = createServer(app);
   return httpServer;

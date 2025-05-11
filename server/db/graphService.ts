@@ -219,9 +219,19 @@ export async function getGraphStats(): Promise<{ nodeCount: number, edgeCount: n
       const nodeResult = await runMemgraphQuery(nodeCountQuery);
       const edgeResult = await runMemgraphQuery(edgeCountQuery);
       
+      // Get raw values - neo4j integers might be returned as either Numbers or special Integer objects
+      const nodeCountRaw = nodeResult.records[0].get('nodeCount');
+      const edgeCountRaw = edgeResult.records[0].get('edgeCount');
+      
+      // Convert to regular numbers safely
+      const nodeCount = typeof nodeCountRaw.toNumber === 'function' ? 
+        nodeCountRaw.toNumber() : Number(nodeCountRaw);
+      const edgeCount = typeof edgeCountRaw.toNumber === 'function' ? 
+        edgeCountRaw.toNumber() : Number(edgeCountRaw);
+      
       return {
-        nodeCount: nodeResult.records[0].get('nodeCount').toNumber(),
-        edgeCount: edgeResult.records[0].get('edgeCount').toNumber(),
+        nodeCount,
+        edgeCount,
         usingFallback: false
       };
     } catch (error) {
