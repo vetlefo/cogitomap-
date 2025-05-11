@@ -78,20 +78,34 @@ async function createNodeHandler(req: Request, res: Response) {
             log(`Metadata for node ${nodeData.id} is not a parsable JSON string nor an object. Storing as is.`, 'api-graph');
         }
     }
+    
+    try {
+      const query = `CREATE (n:${nodeLabel} $props) RETURN n`;
+      const params = { props: propertiesToSave };
 
-    const query = `CREATE (n:${nodeLabel} $props) RETURN n`;
-    const params = { props: propertiesToSave };
+      log(`Executing Cypher: ${query} with params: ${JSON.stringify(params)}`, 'api-graph-debug');
+      const result = await runMemgraphQuery(query, params);
 
-    log(`Executing Cypher: ${query} with params: ${JSON.stringify(params)}`, 'api-graph-debug');
-    const result = await runMemgraphQuery(query, params);
-
-    if (result.records.length > 0 && result.records[0].get('n')) {
-      const createdNodeProperties = result.records[0].get('n').properties;
-      log(`Node created successfully: ${createdNodeProperties.id} of type ${nodeLabel}`, 'api-graph');
-      res.status(201).json(createdNodeProperties);
-    } else {
-      log(`Node creation in Memgraph failed, no record returned for type ${nodeLabel} with id ${nodeData.id}. Query: ${query}, Params: ${JSON.stringify(params)}`, 'api-graph-error');
-      res.status(500).json({ message: "Node creation failed in database, no record returned" });
+      if (result.records.length > 0 && result.records[0].get('n')) {
+        const createdNodeProperties = result.records[0].get('n').properties;
+        log(`Node created successfully: ${createdNodeProperties.id} of type ${nodeLabel}`, 'api-graph');
+        res.status(201).json(createdNodeProperties);
+      } else {
+        log(`Node creation in Memgraph failed, no record returned for type ${nodeLabel} with id ${nodeData.id}. Query: ${query}, Params: ${JSON.stringify(params)}`, 'api-graph-error');
+        res.status(500).json({ message: "Node creation failed in database, no record returned" });
+      }
+    } catch (dbError) {
+      // Check if this is a connection error
+      if (dbError instanceof Error && dbError.message.includes("Memgraph connection not available")) {
+        log(`Memgraph unavailable, returning node data without persistence: ${nodeData.id}`, 'api-graph');
+        // Return the node data as if it were saved, with a warning
+        return res.status(202).json({ 
+          ...nodeData, 
+          _warning: "Database connection unavailable. Node data returned but not persisted to graph database."
+        });
+      }
+      // Other database errors
+      throw dbError; // Re-throw to be caught by the outer catch block
     }
   } catch (error) {
     log(`Error in createNodeHandler: ${error instanceof Error ? error.message : String(error)}`, 'api-graph-error');
@@ -114,33 +128,50 @@ async function createEdgeHandler(req: Request, res: Response) {
     const edgeData: EdgeInput = validationResult.data;
     const { source: sourceId, target: targetId, relationship: relationshipType, ...edgeProps } = edgeData;
 
-    const query = `
-      MATCH (sourceNode {id: $sourceId}), (targetNode {id: $targetId})
-      CREATE (sourceNode)-[r:${relationshipType} $props]->(targetNode)
-      RETURN type(r) AS relationshipType, r.strength AS strength, startNode(r).id AS source, endNode(r).id AS target
-    `;
-    const params = {
-      sourceId,
-      targetId,
-      props: Object.keys(edgeProps).length > 0 ? edgeProps : {},
-    };
-
-    log(`Executing Cypher: ${query.replace(/\s+/g, ' ').trim()} with params: ${JSON.stringify(params)}`, 'api-graph-debug');
-    const result = await runMemgraphQuery(query, params);
-
-    if (result.records.length > 0) {
-      const createdRel = result.records[0];
-      const responseData = {
-        relationshipType: createdRel.get('relationshipType'),
-        strength: createdRel.get('strength'),
-        source: createdRel.get('source'),
-        target: createdRel.get('target'),
+    try {
+      const query = `
+        MATCH (sourceNode {id: $sourceId}), (targetNode {id: $targetId})
+        CREATE (sourceNode)-[r:${relationshipType} $props]->(targetNode)
+        RETURN type(r) AS relationshipType, r.strength AS strength, startNode(r).id AS source, endNode(r).id AS target
+      `;
+      const params = {
+        sourceId,
+        targetId,
+        props: Object.keys(edgeProps).length > 0 ? edgeProps : {},
       };
-      log(`Edge created: ${JSON.stringify(responseData)}`, 'api-graph');
-      res.status(201).json(responseData);
-    } else {
-      log(`Edge creation failed: Source or Target node not found, or relationship not created. sourceId: ${sourceId}, targetId: ${targetId}, type: ${relationshipType}`, 'api-graph-error');
-      res.status(404).json({ message: "Edge creation failed: Source or Target node not found, or relationship couldn't be established." });
+
+      log(`Executing Cypher: ${query.replace(/\s+/g, ' ').trim()} with params: ${JSON.stringify(params)}`, 'api-graph-debug');
+      const result = await runMemgraphQuery(query, params);
+
+      if (result.records.length > 0) {
+        const createdRel = result.records[0];
+        const responseData = {
+          relationshipType: createdRel.get('relationshipType'),
+          strength: createdRel.get('strength'),
+          source: createdRel.get('source'),
+          target: createdRel.get('target'),
+        };
+        log(`Edge created: ${JSON.stringify(responseData)}`, 'api-graph');
+        res.status(201).json(responseData);
+      } else {
+        log(`Edge creation failed: Source or Target node not found, or relationship not created. sourceId: ${sourceId}, targetId: ${targetId}, type: ${relationshipType}`, 'api-graph-error');
+        res.status(404).json({ message: "Edge creation failed: Source or Target node not found, or relationship couldn't be established." });
+      }
+    } catch (dbError) {
+      // Check if this is a connection error
+      if (dbError instanceof Error && dbError.message.includes("Memgraph connection not available")) {
+        log(`Memgraph unavailable, returning edge data without persistence: ${sourceId} -> ${targetId}`, 'api-graph');
+        // Return the edge data as if it were saved, with a warning
+        return res.status(202).json({ 
+          source: sourceId,
+          target: targetId,
+          relationshipType,
+          ...edgeProps,
+          _warning: "Database connection unavailable. Edge data returned but not persisted to graph database."
+        });
+      }
+      // Other database errors
+      throw dbError; // Re-throw to be caught by the outer catch block
     }
   } catch (error) {
     log(`Error in createEdgeHandler: ${error instanceof Error ? error.message : String(error)}`, 'api-graph-error');
