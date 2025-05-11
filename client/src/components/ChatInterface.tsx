@@ -133,7 +133,8 @@ export default function ChatInterface({
       
       // Add all edges from the analysis
       userAnalysis.newEdges.forEach(edge => {
-        addEdge(edge);
+        // Pass individual properties instead of the whole edge object
+        addEdge(edge.source, edge.target, edge.relationship || 'mentions', edge.strength);
       });
       
       // Store mapping of message index to node IDs for bi-directional selection
