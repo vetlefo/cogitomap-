@@ -106,12 +106,19 @@ export class GraphService {
    * Create a new edge
    */
   static async createEdge(source: string, target: string, relationship: string, strength: number = 0.5): Promise<Edge> {
+    // Ensure source and target are strings, not objects
+    const sourceId = typeof source === 'object' && source !== null ? source.id : source;
+    const targetId = typeof target === 'object' && target !== null ? target.id : target;
+    
+    // Make sure all required fields are strings and correctly formatted
     const edge = {
-      source,
-      target,
+      source: sourceId,
+      target: targetId,
       relationship,
       strength
     };
+    
+    console.log('Creating edge with data:', edge);
     const response = await apiRequest('POST', '/api/graph/edge', edge);
     return await response.json();
   }
