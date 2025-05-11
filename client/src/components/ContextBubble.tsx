@@ -27,15 +27,15 @@ function blendColors(color1: number, color2: number, ratio: number): number {
 }
 
 // Create shared geometries that persist for the entire application
-// Using simplified, abstract, low-poly geometries for better performance
+// Using even more minimal abstract geometric shapes - all wireframe style
 const sharedGeometries = {
-  'user_message': new THREE.OctahedronGeometry(1.0, 0), // Diamond shape (level 0 = low poly)
-  'ai_message': new THREE.TetrahedronGeometry(1.0, 0), // Pyramid shape (lowest poly count)
-  'topic': new THREE.IcosahedronGeometry(1.0, 0), // Low-poly icosahedron
-  'entity': new THREE.BoxGeometry(0.9, 0.9, 0.9), // Simple cube
-  'summary': new THREE.DodecahedronGeometry(1.0, 0), // Low-poly dodecahedron
-  'question': new THREE.OctahedronGeometry(1.0, 0), // Diamond shape
-  'default': new THREE.TetrahedronGeometry(1.0, 0) // Fallback to simplest shape
+  'user_message': new THREE.OctahedronGeometry(1.0, 0), // Diamond shape (octahedron)
+  'ai_message': new THREE.OctahedronGeometry(1.0, 0), // Same diamond shape for consistency 
+  'topic': new THREE.OctahedronGeometry(1.0, 0), // Keep octahedron for everything
+  'entity': new THREE.OctahedronGeometry(1.0, 0), // Diamond for everything
+  'summary': new THREE.OctahedronGeometry(1.0, 0), // Diamond for everything
+  'question': new THREE.OctahedronGeometry(1.0, 0), // Diamond for everything
+  'default': new THREE.OctahedronGeometry(1.0, 0) // Diamond for everything
 };
 
 interface ContextBubbleProps {
@@ -336,53 +336,50 @@ export default function ContextBubble({
 
   return (
     <group ref={groupRef}>
-      {/* Wireframe glow effect - minimal and abstract */}
+      {/* Outer wireframe glow - slightly larger than main shape */}
       <mesh
         ref={glowRef}
         scale={scale * (1 + node.importance * 0.3) + 0.2}
       >
-        {/* Use octahedron (diamond) shape for all glows */}
+        {/* Use octahedron (diamond) shape for glow too */}
         <octahedronGeometry args={[1, 0]} />
         <meshBasicMaterial
           color={new THREE.Color(color)}
           wireframe={true}
           transparent={true}
-          opacity={0.15}
+          opacity={0.12}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
       
-      {/* Main node geometry - use shared simplified geometries */}
+      {/* Main node geometry - diamond shape with wireframe */}
       <mesh
         ref={meshRef}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         onClick={handleClick}
-        scale={scale * (1 + node.importance * 0.4)}
+        scale={scale * (1 + node.importance * 0.3)}
       >
-        {/* Use the shared geometries */}
+        {/* Use the shared geometries - all octahedron diamonds */}
         <primitive object={getNodeGeometry()} attach="geometry" />
-        <meshStandardMaterial
+        <meshBasicMaterial
           color={new THREE.Color(color)}
-          emissive={new THREE.Color(color)}
-          emissiveIntensity={emissiveIntensity * 0.8}
-          metalness={active ? 0.85 : 0.5}
-          roughness={active ? 0.1 : 0.2}
+          wireframe={true}
           transparent
-          opacity={0.9}
-          wireframe={node.type === 'entity' || node.importance < 0.4}
+          opacity={0.85}
+          blending={THREE.AdditiveBlending}
         />
       </mesh>
       
-      {/* Thin line effect for edges of important nodes - enhance abstract look */}
-      {node.importance > 0.5 && (
-        <mesh scale={scale * (1 + node.importance * 0.5) + 0.05}>
-          <primitive object={getNodeGeometry()} attach="geometry" />
+      {/* Very subtle secondary wireframe for important nodes */}
+      {node.importance > 0.7 && (
+        <mesh scale={scale * (1 + node.importance * 0.6)}>
+          <octahedronGeometry args={[1, 0]} />
           <meshBasicMaterial
             color={new THREE.Color(color)}
             wireframe={true}
             transparent={true}
-            opacity={0.2}
+            opacity={0.08}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

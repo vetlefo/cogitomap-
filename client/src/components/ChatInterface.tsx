@@ -242,8 +242,37 @@ export default function ChatInterface({
     }
   };
 
+  // Reset conversation function
+  const handleNewConversation = () => {
+    // Confirm with user before clearing
+    if (messages.length > 1 && window.confirm('Start a new conversation? This will clear the current chat.')) {
+      setMessages([{ 
+        role: 'assistant', 
+        content: 'Welcome! I\'ll help you visualize our conversation as a 3D knowledge graph.' 
+      }]);
+      // Optional: Clear the graph visualization too
+      clearAll();
+    } else if (messages.length <= 1) {
+      // If conversation is already empty-ish, no need to confirm
+      setMessages([{ 
+        role: 'assistant', 
+        content: 'Welcome! I\'ll help you visualize our conversation as a 3D knowledge graph.' 
+      }]);
+      clearAll();
+    }
+  };
+
   return (
     <div id="chat-interface" className={visible ? '' : 'hidden'}>
+      <button 
+        className="new-conversation-btn"
+        onClick={handleNewConversation}
+        title="Start a new conversation"
+      >
+        <span className="new-conversation-icon">+</span>
+        <span>New Chat</span>
+      </button>
+
       <div id="chat-messages">
         {!isAuthenticated && (
           <a 
