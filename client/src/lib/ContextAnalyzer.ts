@@ -400,39 +400,53 @@ function extractKeywords(content: string): string[] {
 
 /**
  * Helper function to calculate position offset for topic nodes
- * Radically increased spacing for an extremely spread out visualization
+ * More reasonable spacing for better visualization
  */
 function calculateTopicOffset(index: number, totalTopics: number): { x: number; y: number; z: number } {
-  // Create a circular arrangement with massive spacing
+  // Create a more balanced arrangement pattern for topics
   const angle = (index / totalTopics) * Math.PI * 2;
-  const radius = 25 + (index * 2.0); // Dramatically increased radius (from 7 to 25)
+  const radius = 8 + (index * 0.8); // More reasonable radius
   
-  // Add random variations to prevent strict patterns
-  const variation = (Math.sin(index * 7919) * 0.5 + 0.5) * 8.0; // Seeded pseudo-random variation
+  // Use golden ratio for better distribution along spiral
+  const phi = (1 + Math.sqrt(5)) / 2;
+  const sphericalAngle = index * (2 * Math.PI / phi);
+  
+  // Calculate vertical distribution along a hemisphere
+  const yFactor = Math.sin(sphericalAngle) * 0.5 + 0.5; // 0 to 1
+  
+  // Add subtle variations to prevent perfect patterns
+  const variation = (Math.sin(index * 1237) * 0.5 + 0.5) * 2.0; // Smaller variation
   
   return {
     x: Math.cos(angle) * (radius + variation),
-    y: 5 + (index * 1.2) + (Math.cos(index * 193) * 3), // Much larger vertical spread with variation
+    y: 3 + (yFactor * 5), // More moderate vertical offset
     z: Math.sin(angle) * (radius + variation)
   };
 }
 
 /**
  * Helper function to calculate position offset for entity nodes
- * Completely redesigned for extreme spacing
+ * More balanced positioning for better visualization
  */
 function calculateEntityOffset(index: number, totalEntities: number): { x: number; y: number; z: number } {
-  // Create a different arrangement with massive spacing
-  const angle = (index / totalEntities) * Math.PI * 2; // Full circle now
-  const radius = 20 + (index * 1.5); // Dramatically increased (from 6 to 20)
+  // Create a more balanced distribution for entities
+  // Use a different pattern than topics to create visual distinction
   
-  // Add random variations to prevent strict patterns
-  const variation = (Math.cos(index * 3571) * 0.5 + 0.5) * 6.0; // Different seed from topics
+  // Use Fibonacci sphere distribution for better spacing
+  const phi = Math.PI * (3 - Math.sqrt(5)); // Golden angle in radians
+  const y = 1 - (index / Math.max(totalEntities - 1, 1)) * 2; // Range from 1 to -1
+  const radius = Math.sqrt(1 - y * y) * 8; // Base radius, more reasonable
+  
+  // Calculate angle based on golden ratio for better distribution
+  const theta = phi * index;
+  
+  // Add subtle variations based on index
+  const variation = (Math.cos(index * 1117) * 0.5 + 0.5) * 1.5; // Smaller variations
   
   return {
-    x: Math.cos(angle) * (radius + variation),
-    y: -8 - (index * 1.5) - (Math.sin(index * 271) * 4), // Much lower with variation
-    z: Math.sin(angle) * (radius + variation)
+    x: Math.cos(theta) * (radius + variation),
+    y: -4 + (y * 3), // Entities below the message node but not extreme
+    z: Math.sin(theta) * (radius + variation)
   };
 }
 
@@ -443,87 +457,150 @@ function calculatePosition(
   message: { role: string; content: string; keywords: string[] },
   existingNodes: BubbleNode[]
 ): { x: number; y: number; z: number } {
-  // Base position influenced by message role and content
-  // Significantly increased spacing between user and AI messages
-  let position = {
-    x: message.role === 'user' ? -15 : 15, // Increased from -6/6 to -15/15
-    y: 0,
-    z: 0
-  };
-  
-  // Create a more organized layout with increased spacing:
-  // - Arrange messages in wider chronological rings
-  // - Greater spatial distribution between semantic groups
-  // - User and AI messages form a well-separated conversational axis
+  // Create a more balanced, distributed layout:
+  // - Better spatial distribution based on message type and relationships
+  // - More even distribution across 3D space
+  // - Reasonable distances that allow for meaningful visualization
   
   // Determine message index based on existing nodes
   const messageCount = existingNodes.filter(n => 
     n.type === 'user_message' || n.type === 'ai_message'
   ).length;
   
-  const conversationProgress = Math.min(messageCount / 15, 1); // Scale factor, max at 15 messages
+  // Calculate conversational progress - more gradual scaling
+  const conversationProgress = Math.min(messageCount / 20, 1); // Scale factor, max at 20 messages
   
   // Create a pseudo-topic vector based on message keywords
-  const topicSeed = message.keywords.join('').length % 8; // 0-7 based on keywords
+  // Different approach - use all keywords to influence position
+  let keywordInfluence = { x: 0, y: 0, z: 0 };
   
-  // Calculate main conversation angle - this creates a spiral effect
-  const angle = (messageCount * 0.4 + topicSeed * 0.3) % (Math.PI * 2);
+  if (message.keywords && message.keywords.length > 0) {
+    // Generate a more nuanced positional influence from keywords
+    // We'll use character codes to create a vector
+    message.keywords.forEach((keyword, idx) => {
+      if (keyword.length > 0) {
+        // Use character codes to create a direction vector
+        const firstChar = keyword.charCodeAt(0);
+        const lastChar = keyword.charCodeAt(keyword.length - 1);
+        const middleChar = keyword.charCodeAt(Math.floor(keyword.length / 2)) || 0;
+        
+        // Create normalized vector components (-1 to 1 range)
+        const xInfluence = (firstChar % 10) / 5 - 1;
+        const yInfluence = (middleChar % 10) / 5 - 1;
+        const zInfluence = (lastChar % 10) / 5 - 1;
+        
+        // Weight by keyword position - earlier keywords are more important
+        const keywordWeight = 1 - (idx / message.keywords.length * 0.5);
+        
+        keywordInfluence.x += xInfluence * keywordWeight;
+        keywordInfluence.y += yInfluence * keywordWeight;
+        keywordInfluence.z += zInfluence * keywordWeight;
+      }
+    });
+    
+    // Normalize influence to avoid extremes
+    const magnitude = Math.sqrt(
+      keywordInfluence.x * keywordInfluence.x + 
+      keywordInfluence.y * keywordInfluence.y + 
+      keywordInfluence.z * keywordInfluence.z
+    );
+    
+    if (magnitude > 0) {
+      keywordInfluence.x = keywordInfluence.x / magnitude * 5; // More reasonable scale
+      keywordInfluence.y = keywordInfluence.y / magnitude * 5;
+      keywordInfluence.z = keywordInfluence.z / magnitude * 5;
+    }
+  }
   
-  // Calculate radial distance - extremely increased spacing
-  // with massive minimum distance to eliminate any possibility of cluttering
-  const baseRadius = 30 + (conversationProgress * 40); // Dramatically increased from 10+15 to 30+40
+  // Start with role-based separation that's more moderate
+  let position = {
+    x: message.role === 'user' ? -8 : 8, // More moderate than previous -15/15
+    y: message.role === 'user' ? -2 : 2, // Slight vertical separation
+    z: 0
+  };
   
-  // Messages are positioned on a spiral pattern - users on negative X half, AI on positive X half
-  // But with semi-random placement within their domain to create clusters
-  let radius = baseRadius;
+  // Find recent nodes for continuity in the conversation
+  let relatedNodePosition = null;
+  let relationshipStrength = 0;
   
-  // Find the most recent node for continuity in the conversation
   if (messageCount > 0 && existingNodes.length > 0) {
-    // Get most recent message node
+    // Get most recent message nodes
     const recentMessageNodes = existingNodes
       .filter(n => n.type === 'user_message' || n.type === 'ai_message')
-      .sort((a, b) => b.id.localeCompare(a.id)); // Simple timestamp-based sort
-      
+      .sort((a, b) => b.id.localeCompare(a.id)) // Sort by ID (timestamp)
+      .slice(0, 3); // Look at last 3 messages for context
+    
     if (recentMessageNodes.length > 0) {
-      const prevNode = recentMessageNodes[0];
-      
-      // Check if this message is semantically related to the previous one
-      const isPrevMsgSameTopic = message.keywords.some(keyword => 
-        prevNode.keywords?.some(k => 
-          k.includes(keyword) || keyword.includes(k)
-        )
-      );
-      
-      // Related messages have moderate spacing, unrelated messages much further apart
-      radius = isPrevMsgSameTopic ? baseRadius * 0.8 : baseRadius * 1.4; // Increased spread between topic groups
-      
-      // Direct responses maintain some proximity to questions but with more room
-      if (message.role === 'assistant' && prevNode.type === 'user_message') {
-        radius *= 0.85; // Increased from 0.8 for slightly more spacing
+      // Check for semantic relationships with recent messages
+      for (const recentNode of recentMessageNodes) {
+        if (!recentNode.keywords || recentNode.keywords.length === 0) continue;
+        
+        // Calculate semantic overlap
+        const sharedKeywords = message.keywords.filter(keyword => 
+          recentNode.keywords?.some(k => 
+            k.includes(keyword) || keyword.includes(k)
+          )
+        );
+        
+        // If we have meaningful overlap, position near that node
+        if (sharedKeywords.length > 0) {
+          const similarity = sharedKeywords.length / 
+            Math.max(message.keywords.length, recentNode.keywords.length);
+          
+          // Only use if similarity is significant
+          if (similarity > 0.2) {
+            relatedNodePosition = recentNode.position;
+            relationshipStrength = similarity;
+            break;
+          }
+        }
+        
+        // Special case for direct Q&A pairs
+        if (message.role === 'assistant' && recentNode.type === 'user_message' &&
+            recentNode === recentMessageNodes[0]) { // Most recent message is a user message
+          relatedNodePosition = recentNode.position;
+          relationshipStrength = 0.7; // Strong relationship for Q&A
+          break;
+        }
       }
     }
   }
   
-  // Apply trigonometric positioning for the spiral pattern with greater spacing
-  position.x = (message.role === 'user' ? -1.2 : 1.2) * Math.cos(angle) * radius; // Increased role multiplier
-  position.z = Math.sin(angle) * radius;
+  // Balance between role-based position and relationship-based position
+  if (relatedNodePosition && relationshipStrength > 0) {
+    // Apply relationship influence: stronger relationships = closer nodes
+    // But maintain some role-based separation
+    const roleInfluence = 1 - relationshipStrength * 0.6;
+    const relationInfluence = relationshipStrength * 0.6;
+    
+    position.x = position.x * roleInfluence + relatedNodePosition.x * relationInfluence;
+    position.y = position.y * roleInfluence + relatedNodePosition.y * relationInfluence;
+    position.z = position.z * roleInfluence + relatedNodePosition.z * relationInfluence;
+  }
   
-  // Enhanced Y-position for better vertical distribution
-  const importanceFactor = Math.min(message.content.length / 250, 2.5); // Increased max boost based on length
-  position.y = (message.role === 'user' ? -3 : 3) + // Increased vertical separation between user/AI
-               (messageCount * 0.3) + // Increased rise with conversation
-               (importanceFactor * 1.2); // Increased height for important messages
+  // Apply positional influence from keywords - this creates topic-based clustering
+  position.x += keywordInfluence.x;
+  position.y += keywordInfluence.y;
+  position.z += keywordInfluence.z;
   
-  // Add subtle controlled variance to prevent perfect alignments
-  // Use seeded randomness based on message content for consistency
+  // Add subtle trajectory based on conversation flow (spiral outward, but gentler)
+  const angle = messageCount * 0.2; // Slower rotation
+  const radius = 5 + conversationProgress * 10; // More moderate radius growth
+  
+  // Apply spiral trajectory as additional influence
+  position.x += Math.cos(angle) * radius * 0.3; // Partial influence
+  position.z += Math.sin(angle) * radius * 0.3;
+  
+  // Apply a moderate amount of variance to prevent exact overlaps
+  // But much less extreme than before
   const contentHash = message.content.length + 
                      (message.content.charCodeAt(0) || 0) +
                      (message.content.charCodeAt(message.content.length - 1) || 0);
   
-  // Extreme variance to ensure wide distribution and prevent any overlap
-  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 15.0; // Dramatically increased from 4.0 to 15.0
-  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 10.0; // Dramatically increased from 2.5 to 10.0
-  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 15.0; // Dramatically increased from 4.0 to 15.0
+  // More reasonable variance values
+  const varianceX = (((contentHash * 13) % 100) / 100 - 0.5) * 3.0; // Reduced from 15.0 to 3.0
+  const varianceY = (((contentHash * 17) % 100) / 100 - 0.5) * 2.0; // Reduced from 10.0 to 2.0
+  const varianceZ = (((contentHash * 19) % 100) / 100 - 0.5) * 3.0; // Reduced from 15.0 to 3.0
   
   position.x += varianceX;
   position.y += varianceY;
