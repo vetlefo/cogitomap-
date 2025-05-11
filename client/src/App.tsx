@@ -9,6 +9,7 @@ import SelectedNodesPanel from "./components/SelectedNodesPanel";
 import NodePanelToggle from "./components/NodePanelToggle";
 import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
+import SemanticAnalysisButton from "./components/SemanticAnalysisButton";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useKeyboardState } from "./hooks/useKeyboardState";
@@ -186,6 +187,7 @@ function App() {
         >
           {apiKeys.openai === 'env-variable' ? '🔑 API Key (Env)' : 'Set API Key'}
         </button>
+        <SemanticAnalysisButton />
       </div>
       
       {/* Multi-select mode indicator */}
