@@ -350,18 +350,6 @@ export default function SceneManager() {
         opacity={0.1} // More subtle
         color="#00ffff" 
       />
-      
-      {/* Add volumetric light beam */}
-      <mesh position={[0, 30, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.5, 15, 50, 16, 1, true]} /> {/* Reduced segments */}
-        <meshBasicMaterial 
-          color="#00aaff" 
-          transparent 
-          opacity={0.12} // Slightly less opaque
-          side={THREE.DoubleSide} 
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
     </>
   );
 }

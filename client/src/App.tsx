@@ -58,8 +58,6 @@ function App() {
     fetchAvailableModels();
   }, []);
   
-  // Audio functionality has been removed
-  
   const toggleUI = () => setShowChat(!showChat);
   const toggleDrones = () => setShowDrones(!showDrones);
   
@@ -134,20 +132,22 @@ function App() {
         </Canvas>
       </div>
 
-      {/* Model Selector - visible in the top-right corner */}
-      <div style={{ position: 'fixed', top: '20px', right: '20px', width: '250px', zIndex: 3 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+      {/* Top Info Panel - minimized version of the model selector & auth */}
+      <div className="top-cockpit-panel">
+        <div className="cockpit-auth-container">
           <AuthButton />
         </div>
-        <ModelSelector 
-          onProviderChange={(provider) => {
-            // Check if we need to show the API key modal for this provider
-            if (!apiKeys[provider]) {
-              setProvider(provider);
-              setShowApiKeyModal(true);
-            }
-          }}
-        />
+        <div className="cockpit-model-selector">
+          <ModelSelector 
+            onProviderChange={(provider) => {
+              // Check if we need to show the API key modal for this provider
+              if (!apiKeys[provider]) {
+                setProvider(provider);
+                setShowApiKeyModal(true);
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* Chat Interface */}
