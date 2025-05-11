@@ -19,6 +19,8 @@ export interface BubbleNode {
   // Additional fields from structured output
   sentiment?: 'positive' | 'negative' | 'neutral';
   metadata?: Record<string, any>; // For extra info like entity type (PERSON, ORG)
+  // Semantic embedding vector
+  embedding_vector?: number[]; // Embedding vector for semantic similarity and positioning
 }
 
 // Connection between nodes

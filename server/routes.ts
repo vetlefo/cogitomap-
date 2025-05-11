@@ -15,6 +15,7 @@ import {
   getAllEdges,
   getSubgraph
 } from "./db/graphService";
+import { generateEmbedding, embedding3DPosition } from "./services/embeddingService";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
