@@ -197,6 +197,16 @@ export default function ContextBubble({
   // Bubble position with organic wobble
   useFrame((state) => {
     if (!groupRef.current) return;
+    
+    // Validate that node has a valid position before accessing properties
+    if (!node.position || typeof node.position.x !== 'number' || 
+        typeof node.position.y !== 'number' || typeof node.position.z !== 'number') {
+      console.warn(`Node ${node.id} has invalid position data, using default position`);
+      // Use a default position if the node doesn't have valid position data
+      groupRef.current.position.set(0, 0, 0);
+      return;
+    }
+    
     const t = state.clock.getElapsedTime();
     const wobble = wobbleOffset.current;
     
