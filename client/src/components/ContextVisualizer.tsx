@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Html } from '@react-three/drei';
 import ContextBubble from './ContextBubble';
 import SceneManager from './SceneManager';
 import { useVisualization } from '../lib/stores/useVisualization';
@@ -33,17 +34,18 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       console.error('Failed to load initial graph data:', error);
     });
     
-    // Set up periodic sync (every 30 seconds)
-    const syncInterval = setInterval(() => {
-      console.log('ContextVisualizer - Syncing with graph database');
-      syncWithDatabase().catch(error => {
-        console.error('Failed to sync with graph database:', error);
-      });
-    }, 30000);
+    // DISABLE periodic sync temporarily to debug disappearing nodes
+    // const syncInterval = setInterval(() => {
+    //   console.log('ContextVisualizer - Syncing with graph database');
+    //   syncWithDatabase().catch(error => {
+    //     console.error('Failed to sync with graph database:', error);
+    //   });
+    // }, 30000);
     
     // Clean up on unmount
     return () => {
-      clearInterval(syncInterval);
+      // clearInterval(syncInterval);
+      console.log('ContextVisualizer - Unmounting, cleaning up timers');
     };
   }, [loadInitialData, syncWithDatabase]);
   
@@ -330,10 +332,22 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       
       {/* Display database connection status */}
       {nodes.length > 0 && (
-        <mesh position={[-10, -8, 0]} scale={0.5}>
-          <sphereGeometry args={[0.5, 16, 16]} />
-          <meshStandardMaterial color="#00ff44" emissive="#00ff44" emissiveIntensity={0.5} />
-        </mesh>
+        <group>
+          {/* Connection status indicator */}
+          <mesh position={[-10, -8, 0]} scale={0.5}>
+            <sphereGeometry args={[0.5, 16, 16]} />
+            <meshStandardMaterial color="#00ff44" emissive="#00ff44" emissiveIntensity={0.5} />
+          </mesh>
+          
+          {/* Debug info - node count */}
+          <mesh position={[-9, -8, 0]}>
+            <Html>
+              <div style={{ color: 'white', fontSize: '0.8rem', background: 'rgba(0,0,0,0.5)', padding: '3px' }}>
+                {nodes.length} nodes
+              </div>
+            </Html>
+          </mesh>
+        </group>
       )}
     </>
   );

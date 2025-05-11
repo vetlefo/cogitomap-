@@ -88,12 +88,55 @@ export const useVisualization = create<VisualizationState>((set, get) => ({
       
       console.log(`Loaded ${nodesResponse.nodes.length} nodes and ${edgesResponse.edges.length} edges`);
       
-      set({ 
-        nodes: nodesResponse.nodes, 
-        edges: edgesResponse.edges,
-        isLoading: false,
-        lastSyncTime: Date.now()
-      });
+      // Debug the issue with disappearing nodes
+      console.log("Initial load received nodes:", nodesResponse.nodes.length);
+      console.log("Initial node types:", nodesResponse.nodes.map(n => n.type).join(', '));
+      
+      if (nodesResponse.nodes.length === 0) {
+        console.warn("WARNING: Received zero nodes from initial load");
+      }
+      
+      // Update local state with new data - but keep any existing nodes
+      const currentNodes = get().nodes;
+      
+      if (currentNodes.length > 0) {
+        console.log("Merging with existing", currentNodes.length, "nodes");
+        
+        // Use same logic as syncWithDatabase
+        const newNodesMap = new Map();
+        
+        // Index incoming nodes by ID
+        nodesResponse.nodes.forEach(node => {
+          newNodesMap.set(node.id, node);
+        });
+        
+        // Keep existing nodes if they're not in the new set
+        currentNodes.forEach(node => {
+          if (!newNodesMap.has(node.id)) {
+            newNodesMap.set(node.id, node);
+            console.log(`Keeping local node ${node.id} that wasn't in DB response`);
+          }
+        });
+        
+        // Convert map back to array
+        const mergedNodes = Array.from(newNodesMap.values());
+        console.log("Merged nodes total:", mergedNodes.length);
+        
+        set({ 
+          nodes: mergedNodes, 
+          edges: edgesResponse.edges,
+          isLoading: false,
+          lastSyncTime: Date.now()
+        });
+      } else {
+        // No existing nodes, just use the new ones
+        set({ 
+          nodes: nodesResponse.nodes, 
+          edges: edgesResponse.edges,
+          isLoading: false,
+          lastSyncTime: Date.now()
+        });
+      }
     } catch (error) {
       console.error('Error loading initial graph data:', error);
       set({ 
@@ -115,9 +158,35 @@ export const useVisualization = create<VisualizationState>((set, get) => ({
       const nodesResponse = await GraphService.getNodes();
       const edgesResponse = await GraphService.getEdges();
       
-      // Update local state with new data
+      // Debug the issue with disappearing nodes
+      console.log("Sync received nodes:", nodesResponse.nodes.length);
+      console.log("Current local nodes:", get().nodes.length);
+        
+      // Instead of replacing nodes, merge them with existing nodes
+      // This ensures we don't lose local nodes during sync
+      const currentNodes = get().nodes;
+      const newNodesMap = new Map();
+      
+      // Index incoming nodes by ID
+      nodesResponse.nodes.forEach(node => {
+        newNodesMap.set(node.id, node);
+      });
+      
+      // Keep existing nodes if they're not in the new set
+      currentNodes.forEach(node => {
+        if (!newNodesMap.has(node.id)) {
+          newNodesMap.set(node.id, node);
+          console.log(`Keeping local node ${node.id} that wasn't in sync response`);
+        }
+      });
+      
+      // Convert map back to array
+      const mergedNodes = Array.from(newNodesMap.values());
+      console.log("Merged nodes count:", mergedNodes.length);
+      
+      // Update state with merged nodes
       set({ 
-        nodes: nodesResponse.nodes, 
+        nodes: mergedNodes, 
         edges: edgesResponse.edges,
         isLoading: false,
         lastSyncTime: Date.now()
