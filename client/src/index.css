@@ -936,3 +936,122 @@ canvas {
   padding-left: 12px;
   position: relative;
 }
+
+/* Model selector styling for horizontal layout */
+.model-selector-container {
+  position: relative;
+  min-width: 150px;
+  margin-left: 15px;
+}
+
+.model-selector {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  background-color: rgba(0, 30, 60, 0.5);
+  border: 1px solid rgba(0, 160, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 28px;
+}
+
+.model-selector:hover {
+  border-color: rgba(0, 160, 255, 0.5);
+  background-color: rgba(0, 40, 80, 0.6);
+}
+
+.current-model {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.provider-label {
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(150, 210, 255, 0.9);
+  letter-spacing: 1px;
+}
+
+.key-status {
+  margin-left: 5px;
+  font-size: 9px;
+}
+
+.key-status.has-key {
+  color: #0f0;
+}
+
+.key-status.no-key {
+  color: #f55;
+}
+
+.model-name {
+  font-size: 11px;
+  color: rgba(200, 240, 255, 0.9);
+}
+
+.dropdown-arrow {
+  font-size: 8px;
+  color: rgba(120, 200, 255, 0.7);
+}
+
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 220px;
+  background-color: rgba(5, 20, 40, 0.95);
+  border: 1px solid rgba(0, 160, 255, 0.4);
+  border-radius: 4px;
+  z-index: 1000;
+  margin-top: 5px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3), 0 0 10px rgba(0, 100, 255, 0.2);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.provider-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(0, 100, 180, 0.3);
+}
+
+.provider-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.provider-tab.active {
+  background-color: rgba(0, 40, 80, 0.3);
+}
+
+.model-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.model-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  border-left: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.model-option:hover {
+  background-color: rgba(0, 40, 80, 0.3);
+}
+
+.model-option.selected {
+  background-color: rgba(0, 60, 100, 0.3);
+}
