@@ -175,6 +175,29 @@ canvas {
   }
 }
 
+/* Parallel window styling for improved positioning and resize capabilities */
+.parallel-window {
+  position: fixed;
+  top: 70px; /* Below the top bar */
+  right: 20px;
+  width: 380px;
+  height: calc(100% - 140px);
+  background-color: rgba(0, 15, 30, 0.85);
+  border: 1px solid rgba(0, 180, 255, 0.4);
+  border-radius: 6px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.3);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  resize: both; /* Allow resizing */
+  min-width: 300px;
+  min-height: 200px;
+  max-width: 600px;
+  max-height: calc(100vh - 100px);
+}
+
 /* Validation UI styling for second opinion nodes */
 .text-snippet {
   padding: 14px;
@@ -772,7 +795,7 @@ canvas {
 /* Multi-select Mode Indicator */
 .mode-indicator {
   position: fixed;
-  top: 15px;
+  top: 60px; /* Moved below the top bar */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;

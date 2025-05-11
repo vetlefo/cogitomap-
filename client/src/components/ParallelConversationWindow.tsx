@@ -427,22 +427,12 @@ export default function ParallelConversationWindow({
     <div 
       className="parallel-window"
       style={{
-        position: 'fixed',
         top: `${windowPosition.y}px`,
         left: `${windowPosition.x}px`,
-        width: `${windowSize.width}px`,
-        height: `${windowSize.height}px`,
-        backgroundColor: 'rgba(0, 15, 30, 0.85)',
         border: `1px solid ${currentProviderColor.border}`,
-        borderRadius: '6px',
-        zIndex: 4,
-        display: 'flex',
-        flexDirection: 'column',
         boxShadow: isNew 
           ? `0 0 40px ${currentProviderColor.border}88` 
           : `0 0 20px ${currentProviderColor.border}33`,
-        backdropFilter: 'blur(3px)',
-        overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'default',
         opacity: isNew ? 0.5 : 1,
         transform: isNew ? 'scale(0.95)' : 'scale(1)',
