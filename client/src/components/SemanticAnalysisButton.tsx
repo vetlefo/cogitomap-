@@ -39,7 +39,16 @@ export default function SemanticAnalysisButton({ className = '' }: SemanticAnaly
         persistToDatabase: parameters.persistToDatabase
       });
       
-      setResult(`Found ${response.relationshipsFound} semantic relationships, created ${response.edgesCreated} edges.`);
+      // Create a more detailed result message
+      let resultMessage = `Found ${response.relationshipsFound} semantic relationships`;
+      
+      if (response.persistedToDatabase) {
+        resultMessage += `, created ${response.edgesCreated} edges in the database.`;
+      } else {
+        resultMessage += ` (in-memory only, not persisted to database).`;
+      }
+      
+      setResult(resultMessage);
       
       // Sync with database to get the new edges
       await syncWithDatabase();
@@ -63,7 +72,7 @@ export default function SemanticAnalysisButton({ className = '' }: SemanticAnaly
       <button 
         onClick={startAnalysis}
         disabled={isAnalyzing}
-        className="py-1 px-3 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[200px]"
+        className="py-1 px-3 bg-gradient-to-r from-indigo-700 to-purple-900 hover:from-indigo-800 hover:to-purple-950 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[200px] shadow-md border border-indigo-500"
       >
         {isAnalyzing ? (
           <span className="flex items-center">
@@ -78,33 +87,33 @@ export default function SemanticAnalysisButton({ className = '' }: SemanticAnaly
       
       {/* Confirmation Dialog */}
       {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-navy-900 border border-blue-500 text-white p-6 rounded-lg w-96 shadow-lg">
-            <h3 className="text-xl font-semibold mb-4 text-blue-300">Confirm Semantic Analysis</h3>
-            <p className="mb-4">This will analyze the nodes to find semantic relationships between topics, entities, and summaries.</p>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-purple-500 text-white p-6 rounded-lg w-96 shadow-xl">
+            <h3 className="text-xl font-semibold mb-4 text-purple-300">Confirm Semantic Analysis</h3>
+            <p className="mb-4 text-gray-200">This will analyze the nodes to find semantic relationships between topics, entities, and summaries.</p>
             
-            <div className="mb-4">
-              <label className="flex items-center space-x-2 text-blue-200">
+            <div className="mb-6 mt-4 bg-gray-800 p-3 rounded border border-gray-700">
+              <label className="flex items-center space-x-2 text-gray-200">
                 <input 
                   type="checkbox" 
                   checked={parameters.persistToDatabase} 
                   onChange={handlePersistChange}
-                  className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                  className="form-checkbox h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
                 />
                 <span>Persist to database (not just in-memory)</span>
               </label>
             </div>
             
-            <div className="flex justify-between space-x-2">
+            <div className="flex justify-between space-x-4">
               <button 
                 onClick={cancelAnalysis}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors shadow-md"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleAnalysis}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded transition-colors shadow-md"
               >
                 Run Analysis
               </button>
@@ -115,8 +124,20 @@ export default function SemanticAnalysisButton({ className = '' }: SemanticAnaly
       
       {/* Results Panel */}
       {result && (
-        <div className="mt-2 text-sm bg-navy-800 text-blue-200 p-3 rounded-md border border-blue-500 shadow-md">
-          {result}
+        <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 min-w-[300px] max-w-md text-sm bg-navy-900 text-white p-4 rounded-md border border-purple-500 shadow-lg z-30 transition-all duration-300 ease-in-out">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-purple-300 mb-1">Semantic Analysis Results</h3>
+              <div className="text-gray-200">
+                {result}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

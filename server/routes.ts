@@ -352,24 +352,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : ['topic', 'entity', 'summary']
       };
       
-      log(`Running semantic analysis with options: ${JSON.stringify(options)}`, 'api-graph-debug');
+      // Handle persistence option
+      const persistToDatabase = req.query.persistToDatabase === 'true';
+      
+      log(`Running semantic analysis with options: ${JSON.stringify(options)}, persistToDatabase: ${persistToDatabase}`, 'api-graph-debug');
       
       const relations = await analyzeSemanticRelationships(options);
       
       if (relations.length === 0) {
         return res.json({
           message: "No semantic relationships found",
-          relations: []
+          relationshipsFound: 0,
+          edgesCreated: 0,
+          persistedToDatabase: false
         });
       }
       
-      // Create edges for these relationships
+      // For in-memory only analysis, don't create persistent edges
+      if (!persistToDatabase) {
+        log(`Semantic analysis complete. Found ${relations.length} relationships, but not persisting to database.`, 'api-graph-debug');
+        // Just return the relations without creating edges
+        return res.json({
+          message: `Found ${relations.length} semantic relationships (not persisted to database)`,
+          relationshipsFound: relations.length,
+          edgesCreated: 0, 
+          persistedToDatabase: false,
+          relations: relations.map(r => ({
+            source: r.source.id,
+            target: r.target.id,
+            type: r.type,
+            similarity: r.similarity
+          }))
+        });
+      }
+      
+      // Create edges for these relationships in the database
       const createdEdges = await createSemanticEdges(relations);
       
       res.json({
         message: `Created ${createdEdges.length} semantic edges from ${relations.length} relationships`,
         relationshipsFound: relations.length,
         edgesCreated: createdEdges.length,
+        persistedToDatabase: true,
         edges: createdEdges
       });
     } catch (error) {
