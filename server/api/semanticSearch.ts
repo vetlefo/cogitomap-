@@ -73,7 +73,8 @@ semanticSearchRouter.post('/search', async (req, res) => {
       log(`Performing direct vector search with ${vectorIndex}`, 'semantic-search');
 
       // Perform vector search
-      const vectorResults = await vectorSearch(
+      // Forward to the fallbackStorage if we're in fallback mode
+      const vectorResults = await fallbackStorage.vectorSearch(
         embedding,
         minSimilarity,
         limit,
@@ -216,7 +217,7 @@ semanticSearchRouter.post('/search', async (req, res) => {
       results: finalResults
     });
   } catch (error) {
-    log(`Semantic search error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search', 'error');
+    log(`Semantic search error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search-error');
     return res.status(500).json({
       error: 'Failed to perform semantic search',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -245,7 +246,7 @@ semanticSearchRouter.get('/node-count', async (req, res) => {
     
     return res.status(200).json(typeCounts);
   } catch (error) {
-    log(`Node count error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search', 'error');
+    log(`Node count error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search-error');
     return res.status(500).json({
       error: 'Failed to get node counts',
       details: error instanceof Error ? error.message : 'Unknown error'
