@@ -1,90 +1,131 @@
-import React, { useState } from 'react';
-import SemanticSearchBar from './SemanticSearchBar';
-import { toast } from 'sonner';
-
 /**
  * Special component to test semantic search functionality
  * with predefined examples that demonstrate vector similarity and text search
  */
+import { useState } from 'react';
+import { BubbleNode } from '../types';
+import '../styles/cyberpunk.css';
+
 interface SemanticSearchTesterProps {
   onClose: () => void;
 }
 
+interface TestScenario {
+  name: string;
+  description: string;
+  query: string;
+  queryType: 'text' | 'vector';
+  options?: {
+    minSimilarity?: number;
+    limit?: number;
+    includeRelated?: boolean;
+    maxHops?: number;
+    nodeTypes?: string[];
+  };
+}
+
 export default function SemanticSearchTester({ onClose }: SemanticSearchTesterProps) {
-  const [results, setResults] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [testName, setTestName] = useState<string | null>(null);
-  const [isUpdatingEmbeddings, setIsUpdatingEmbeddings] = useState(false);
-  const [embeddingUpdateStats, setEmbeddingUpdateStats] = useState<{updated: number, total: number} | null>(null);
-  
-  // Sample test queries that demonstrate different aspects of semantic search
-  const testQueries = [
-    { 
-      name: "Country Search", 
-      query: "countries with large geographical distances", 
-      options: { useEmbedding: true, includeRelated: true } 
+  const [loading, setLoading] = useState<boolean>(false);
+  const [results, setResults] = useState<BubbleNode[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<TestScenario | null>(null);
+  const [updatingEmbeddings, setUpdatingEmbeddings] = useState<boolean>(false);
+  const [updateStats, setUpdateStats] = useState<{
+    total: number;
+    updated: number;
+    skipped: number;
+    failed?: number;
+  } | null>(null);
+
+  // Predefined test scenarios
+  const testScenarios: TestScenario[] = [
+    {
+      name: 'Topic Analysis',
+      description: 'Find nodes related to data analysis and processing concepts',
+      query: 'data analysis processing algorithms',
+      queryType: 'vector',
+      options: {
+        minSimilarity: 0.6,
+        includeRelated: true,
+        maxHops: 2
+      }
     },
-    { 
-      name: "Topic Analysis", 
-      query: "What are topics of interest", 
-      options: { useEmbedding: true, includeRelated: true } 
+    {
+      name: 'Country Search',
+      description: 'Find knowledge about countries and geographic locations',
+      query: 'countries geographic locations capitals',
+      queryType: 'vector',
+      options: {
+        minSimilarity: 0.65,
+        nodeTypes: ['topic', 'entity'],
+        includeRelated: true
+      }
     },
-    { 
-      name: "Concept Relationships", 
-      query: "how are topics connected", 
-      options: { useEmbedding: true, includeRelated: true } 
+    {
+      name: 'Concept Relationships',
+      description: 'Explore relationships between AI concepts',
+      query: 'artificial intelligence machine learning neural networks',
+      queryType: 'vector',
+      options: {
+        minSimilarity: 0.7,
+        limit: 15,
+        includeRelated: true,
+        maxHops: 3
+      }
     }
   ];
-  
-  const handleRunTest = async (test: typeof testQueries[0]) => {
-    setIsLoading(true);
-    setTestName(test.name);
+
+  const runSearch = async (scenario: TestScenario) => {
+    setSelectedScenario(scenario);
+    setLoading(true);
+    setError(null);
     setResults([]);
-    
+
     try {
-      // Make semantic search API request
-      const response = await fetch('/api/semantic/search', {
+      const endpoint = scenario.queryType === 'text' 
+        ? '/api/search/text' 
+        : '/api/search/semantic';
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          query: test.query,
-          useEmbedding: test.options.useEmbedding,
-          includeRelated: test.options.includeRelated,
-          maxResults: 10,
-          minSimilarity: 0.5
+          query: scenario.query,
+          ...scenario.options
         })
       });
-      
+
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Search failed: ${errorText}`);
       }
-      
+
       const data = await response.json();
-      setResults(data.results || []);
       
-      if (data.results && data.results.length > 0) {
-        toast.success(`Found ${data.results.length} results for "${test.query}"`);
+      if (data.results && Array.isArray(data.results)) {
+        setResults(data.results);
       } else {
-        toast.info(`No results found for "${test.query}". Try adding more content to the graph.`);
+        setResults([]);
       }
-    } catch (error) {
-      console.error("Error running semantic search test:", error);
-      toast.error("Error running semantic search test");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      console.error('Search error:', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-  
+
   /**
    * Update embeddings for existing nodes in the database
    * This is useful for fixing nodes that were created without embeddings
    */
   const updateEmbeddings = async () => {
-    setIsUpdatingEmbeddings(true);
-    setEmbeddingUpdateStats(null);
-    
+    setUpdatingEmbeddings(true);
+    setUpdateStats(null);
+    setError(null);
+
     try {
       const response = await fetch('/api/semantic/update-embeddings', {
         method: 'POST',
@@ -92,126 +133,118 @@ export default function SemanticSearchTester({ onClose }: SemanticSearchTesterPr
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Embedding update failed: ${errorText}`);
       }
-      
+
       const data = await response.json();
+      console.log('Embedding update result:', data);
       
-      if (data.success) {
-        setEmbeddingUpdateStats({
-          updated: data.updated,
-          total: data.total
-        });
-        
-        toast.success(`Updated embeddings for ${data.updated} out of ${data.total} nodes`);
-      } else {
-        toast.error(`Failed to update embeddings: ${data.message}`);
+      if (data.stats) {
+        setUpdateStats(data.stats);
       }
-    } catch (error) {
-      console.error("Error updating embeddings:", error);
-      toast.error("Error updating embeddings");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      console.error('Embedding update error:', err);
     } finally {
-      setIsUpdatingEmbeddings(false);
+      setUpdatingEmbeddings(false);
     }
   };
-  
+
   return (
-    <div className="semantic-search-panel test-panel">
-      <div className="panel-header">
-        <h3>Semantic Search Test Scenarios</h3>
+    <div className="semantic-search-tester">
+      <div className="tester-header">
+        <h2>Semantic Search Testing</h2>
         <button className="close-button" onClick={onClose}>×</button>
       </div>
-      
-      <div className="panel-content">
-        <div className="description">
-          <p>
-            These test scenarios demonstrate how semantic search can find related content 
-            even when exact keywords don't match. Choose a test to run:
-          </p>
-        </div>
+
+      <div className="admin-actions">
+        <button 
+          className={`update-embeddings-button ${updatingEmbeddings ? 'updating' : ''}`}
+          onClick={updateEmbeddings}
+          disabled={updatingEmbeddings}
+        >
+          {updatingEmbeddings && <span className="updating-spinner"></span>}
+          {updatingEmbeddings ? 'Updating Embeddings...' : 'Update Node Embeddings'}
+        </button>
         
-        <div className="test-buttons">
-          {testQueries.map(test => (
-            <button
-              key={test.name}
-              className={`test-button ${testName === test.name ? 'active' : ''}`}
-              onClick={() => handleRunTest(test)}
-              disabled={isLoading}
+        {updateStats && (
+          <div className="update-stats">
+            Updated {updateStats.updated} nodes 
+            (Skipped: {updateStats.skipped}, 
+            Failed: {updateStats.failed || 0}, 
+            Total: {updateStats.total})
+          </div>
+        )}
+      </div>
+
+      <div className="scenarios-container">
+        <h3>Test Scenarios</h3>
+        <div className="scenario-list">
+          {testScenarios.map((scenario) => (
+            <div 
+              key={scenario.name}
+              className={`scenario-card ${selectedScenario?.name === scenario.name ? 'selected' : ''}`}
+              onClick={() => runSearch(scenario)}
             >
-              {test.name}
-            </button>
+              <div className="scenario-title">{scenario.name}</div>
+              <div className="scenario-description">{scenario.description}</div>
+              <div className="scenario-details">
+                <span className="scenario-query">"{scenario.query}"</span>
+                <span className={`scenario-type ${scenario.queryType}`}>
+                  {scenario.queryType === 'vector' ? 'Vector Search' : 'Text Search'}
+                </span>
+              </div>
+            </div>
           ))}
         </div>
+      </div>
+
+      <div className="results-container">
+        <h3>
+          Search Results 
+          {selectedScenario && <span> for "{selectedScenario.name}"</span>}
+          {loading && <span className="loading-indicator"> (Loading...)</span>}
+        </h3>
         
-        <div className="separator"></div>
+        {error && (
+          <div className="error-message">
+            Error: {error}
+          </div>
+        )}
         
-        <div className="admin-actions">
-          <button
-            className={`update-embeddings-button ${isUpdatingEmbeddings ? 'updating' : ''}`}
-            onClick={updateEmbeddings}
-            disabled={isUpdatingEmbeddings}
-          >
-            {isUpdatingEmbeddings ? (
-              <>
-                <span className="updating-spinner"></span>
-                Updating Embeddings...
-              </>
-            ) : (
-              <>Update Node Embeddings</>
-            )}
-          </button>
-          
-          {embeddingUpdateStats && (
-            <div className="update-stats">
-              Updated {embeddingUpdateStats.updated} out of {embeddingUpdateStats.total} nodes with embeddings
-            </div>
-          )}
-        </div>
-        
-        <div className="separator"></div>
-        
-        <div className="search-container">
-          <SemanticSearchBar 
-            className="test-search-bar"
-            onSearchResults={setResults}
-            placeholder="Or try your own search query..."
-          />
-        </div>
-        
-        <div className="separator"></div>
-        
-        <div className="results-container">
-          <h4>
-            {isLoading ? 'Searching...' : 
-             results.length > 0 ? `Found ${results.length} results:` : 'No results found'}
-          </h4>
-          
-          {results.length > 0 ? (
-            <div className="results-list">
-              {results.map((result, index) => (
-                <div key={index} className="result-item">
-                  <div className="result-header">
-                    <span className="result-type">{result.type}</span>
-                    <span className="result-score">Similarity: {(result.similarity * 100).toFixed(1)}%</span>
+        {results.length === 0 && !loading && !error ? (
+          <div className="no-results">
+            <p>No results found. This could be because:</p>
+            <ul>
+              <li>There are no nodes in the database that match the query</li>
+              <li>The similarity threshold is too high</li>
+              <li>Nodes don't have proper embedding vectors</li>
+            </ul>
+            <p>Try using the "Update Node Embeddings" button above to fix nodes missing embeddings.</p>
+          </div>
+        ) : (
+          <div className="result-list">
+            {results.map((result) => (
+              <div key={result.id} className="result-card">
+                <div className="result-type">{result.type}</div>
+                <div className="result-content">{result.content}</div>
+                {result.similarity !== undefined && (
+                  <div className="result-similarity">
+                    Similarity: {(result.similarity * 100).toFixed(1)}%
                   </div>
-                  <div className="result-content">{result.content}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="no-results">
-              {isLoading ? (
-                <div className="loading-indicator">Searching database...</div>
-              ) : (
-                <div className="help-text">
-                  {testName ? `No results found for the "${testName}" test.` : "Select a test scenario or try a search query."}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                )}
+                {result.isDirectMatch !== undefined && (
+                  <div className={`result-match ${result.isDirectMatch ? 'direct' : 'related'}`}>
+                    {result.isDirectMatch ? 'Direct Match' : 'Related Node'}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

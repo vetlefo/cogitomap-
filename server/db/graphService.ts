@@ -80,7 +80,7 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
   
   // Fallback implementation
   log(`Creating node with fallback: ${node.id}`, "graph-service");
-  return fallbackStorage.createNode(node);
+  return fallbackStorage.addNode(node);
 }
 
 /**
@@ -140,7 +140,7 @@ export async function createEdge(
         source: sourceId,
         target: targetId,
         strength: properties.strength || 0.7,
-        relationship,
+        relationship: relationship as any, // Cast to allow any relationship type
         ...properties
       };
       
@@ -155,7 +155,7 @@ export async function createEdge(
   
   // Fallback implementation
   log(`Creating edge with fallback: ${edgeId}`, "graph-service");
-  return fallbackStorage.createEdge(sourceId, targetId, relationship, properties);
+  return fallbackStorage.addEdge(sourceId, targetId, relationship, properties);
 }
 
 /**
@@ -189,7 +189,8 @@ export async function getNode(id: string): Promise<BubbleNode | null> {
   }
   
   // Fallback implementation
-  return fallbackStorage.getNode(id);
+  const node = fallbackStorage.getNode(id);
+  return node || null;
 }
 
 /**
