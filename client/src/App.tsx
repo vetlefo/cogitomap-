@@ -10,6 +10,7 @@ import NodePanelToggle from "./components/NodePanelToggle";
 import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
 import SemanticAnalysisButton from "./components/SemanticAnalysisButton";
+import SemanticSearch from "./components/SemanticSearch";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useKeyboardState } from "./hooks/useKeyboardState";
@@ -21,6 +22,7 @@ function App() {
   const [showChat, setShowChat] = useState(true);
   const [showDrones, setShowDrones] = useState(true);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showSemanticSearch, setShowSemanticSearch] = useState(false);
   const windowsManagerRef = useRef<ParallelWindowsManagerRef>(null);
   
   // Store conversation messages at the App level to share with semantic analysis
@@ -66,6 +68,7 @@ function App() {
   
   const toggleUI = () => setShowChat(!showChat);
   const toggleDrones = () => setShowDrones(!showDrones);
+  const toggleSemanticSearch = () => setShowSemanticSearch(!showSemanticSearch);
   
   const resetView = () => {
     // Reset camera position is handled by the OrbitControls reset method
@@ -195,6 +198,13 @@ function App() {
           onClick={handleOpenApiKeyModal}
         >
           <span className="control-icon">🔑</span> {apiKeys.openai === 'env-variable' ? 'API Key (Env)' : 'Set API Key'}
+        </button>
+        <button
+          id="semantic-search-button"
+          title="Search knowledge graph by meaning"
+          onClick={toggleSemanticSearch}
+        >
+          <span className="control-icon">🔍</span> Semantic Search
         </button>
         <SemanticAnalysisButton messages={messages} />
       </div>
