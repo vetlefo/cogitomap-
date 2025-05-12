@@ -40,16 +40,18 @@ const SemanticSearchResults: React.FC<SemanticSearchResultsProps> = ({
     );
   }
 
-  // Get result type emoji
-  const getTypeEmoji = (type: string): string => {
+  // Get result type icon with appropriate styling
+  const getTypeIcon = (type: string) => {
+    const iconStyle = { strokeWidth: 2 };
+    
     switch (type) {
-      case 'user_message': return '👤';
-      case 'ai_message': return '🤖';
-      case 'topic': return '📌';
-      case 'entity': return '📊';
-      case 'summary': return '📝';
-      case 'question': return '❓';
-      default: return '🔍';
+      case 'user_message': return <User size={18} style={iconStyle} className="text-blue-600 dark:text-blue-400" />;
+      case 'ai_message': return <Bot size={18} style={iconStyle} className="text-purple-600 dark:text-purple-400" />;
+      case 'topic': return <Pin size={18} style={iconStyle} className="text-red-600 dark:text-red-400" />;
+      case 'entity': return <BarChart2 size={18} style={iconStyle} className="text-green-600 dark:text-green-400" />;
+      case 'summary': return <FileText size={18} style={iconStyle} className="text-yellow-600 dark:text-yellow-400" />;
+      case 'question': return <HelpCircle size={18} style={iconStyle} className="text-orange-600 dark:text-orange-400" />;
+      default: return <Search size={18} style={iconStyle} className="text-gray-600 dark:text-gray-400" />;
     }
   };
 
@@ -82,8 +84,8 @@ const SemanticSearchResults: React.FC<SemanticSearchResultsProps> = ({
           >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2">
-                <span className="text-xl" role="img" aria-label={result.type}>
-                  {getTypeEmoji(result.type)}
+                <span className="text-xl" aria-label={result.type}>
+                  {getTypeIcon(result.type)}
                 </span>
                 <span className="font-medium text-sm capitalize">
                   {result.type.replace('_', ' ')}

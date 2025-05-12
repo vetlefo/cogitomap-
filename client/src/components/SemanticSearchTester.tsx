@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { CheckIcon, SearchIcon, SettingsIcon, RefreshCwIcon } from 'lucide-react';
+import { CheckIcon, SearchIcon, SettingsIcon, RefreshCwIcon, Pin, Diamond, User, Bot } from 'lucide-react';
 
 // Define test search scenarios
 interface SearchScenario {
@@ -421,10 +421,10 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-base flex items-center gap-2">
-                          {node.type === 'topic' && '📌 '}
-                          {node.type === 'entity' && '🔷 '}
-                          {node.type === 'user_message' && '👤 '}
-                          {node.type === 'ai_message' && '🤖 '}
+                          {node.type === 'topic' && <Pin size={16} className="inline mr-1 text-red-500" />}
+                          {node.type === 'entity' && <Diamond size={16} className="inline mr-1 text-blue-500" />}
+                          {node.type === 'user_message' && <User size={16} className="inline mr-1 text-gray-500" />}
+                          {node.type === 'ai_message' && <Bot size={16} className="inline mr-1 text-purple-500" />}
                           <span>
                             {node.title || node.content?.substring(0, 50) || 'Untitled'} 
                             {(node.title || node.content?.length > 50) && '...'}
