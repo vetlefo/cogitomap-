@@ -23,6 +23,7 @@ import {
   runSemanticAnalysisHandler,
   semanticSearchHandler
 } from "./api/semanticAnalysis";
+import { updateEmbeddingsHandler } from "./api/updateEmbeddings";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -500,6 +501,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/login', loginHandler);
   app.get('/api/auth/logout', logoutHandler);
   app.get('/api/protected', requireAuth, (req, res) => res.json({ message: 'This is a protected route', user: req.user }));
+  
+  // Route for updating embeddings on existing nodes
+  app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
 
   const httpServer = createServer(app);
   return httpServer;

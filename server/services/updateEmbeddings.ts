@@ -5,7 +5,20 @@
 
 import { log } from "../vite";
 import { MemgraphClient, configureMemgraphClient } from "./memgraphClient";
-import { BubbleNode } from "../../shared/types";
+// Define BubbleNode interface internally to avoid dependency issues
+interface BubbleNode {
+  id: string;
+  content: string;
+  type: string;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  importance: number;
+  keywords?: string[];
+  metadata?: Record<string, any>;
+}
 import { generateEmbedding } from "./embeddingService";
 import { storeNodeEmbedding } from "./mageVectorService";
 

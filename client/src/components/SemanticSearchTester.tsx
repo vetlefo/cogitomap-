@@ -14,6 +14,8 @@ export default function SemanticSearchTester({ onClose }: SemanticSearchTesterPr
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [testName, setTestName] = useState<string | null>(null);
+  const [isUpdatingEmbeddings, setIsUpdatingEmbeddings] = useState(false);
+  const [embeddingUpdateStats, setEmbeddingUpdateStats] = useState<{updated: number, total: number} | null>(null);
   
   // Sample test queries that demonstrate different aspects of semantic search
   const testQueries = [
@@ -72,6 +74,46 @@ export default function SemanticSearchTester({ onClose }: SemanticSearchTesterPr
       toast.error("Error running semantic search test");
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  /**
+   * Update embeddings for existing nodes in the database
+   * This is useful for fixing nodes that were created without embeddings
+   */
+  const updateEmbeddings = async () => {
+    setIsUpdatingEmbeddings(true);
+    setEmbeddingUpdateStats(null);
+    
+    try {
+      const response = await fetch('/api/semantic/update-embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setEmbeddingUpdateStats({
+          updated: data.updated,
+          total: data.total
+        });
+        
+        toast.success(`Updated embeddings for ${data.updated} out of ${data.total} nodes`);
+      } else {
+        toast.error(`Failed to update embeddings: ${data.message}`);
+      }
+    } catch (error) {
+      console.error("Error updating embeddings:", error);
+      toast.error("Error updating embeddings");
+    } finally {
+      setIsUpdatingEmbeddings(false);
     }
   };
   
