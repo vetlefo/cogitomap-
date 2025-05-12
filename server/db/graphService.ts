@@ -246,7 +246,7 @@ export async function getNodeNeighbors(nodeId: string): Promise<{ node: BubbleNo
 export async function getAllNodes(
   page: number = 0,
   pageSize: number = DEFAULT_PAGE_SIZE,
-  nodeType: string = 'all'
+  nodeType: string | null = 'all'
 ): Promise<{ nodes: BubbleNode[], total: number }> {
   // Ensure we've tested the connection
   if (!connectionTested) {
@@ -306,7 +306,7 @@ export async function getAllNodes(
 export async function getAllEdges(
   page: number = 0,
   pageSize: number = DEFAULT_PAGE_SIZE,
-  relationshipType: string = 'all'
+  relationshipType: string | null = 'all'
 ): Promise<{ edges: Edge[], total: number }> {
   // Ensure we've tested the connection
   if (!connectionTested) {

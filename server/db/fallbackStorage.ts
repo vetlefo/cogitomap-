@@ -249,7 +249,7 @@ class FallbackStorage {
   getNodesByType(
     page: number = 0, 
     pageSize: number = 50, 
-    nodeType: string = 'all'
+    nodeType: string | null = 'all'
   ): { nodes: BubbleNode[], total: number } {
     return this.getAllNodes(page, pageSize, nodeType);
   }
@@ -257,15 +257,24 @@ class FallbackStorage {
   getAllEdges(
     page: number = 0, 
     pageSize: number = 50, 
-    relationshipType: string = 'all'
+    relationshipType: string | null = 'all'
   ): { edges: Edge[], total: number } {
+    log(`getAllEdges called with page=${page}, pageSize=${pageSize}, relationshipType=${relationshipType}`, "fallback-storage-debug");
+    log(`Current edges in Map: ${this.edges.size}`, "fallback-storage-debug");
+    
     const edgeArray: Edge[] = [];
     this.edges.forEach(edge => edgeArray.push({...edge}));
     
-    // Filter by relationship type if specified
+    log(`Converted ${edgeArray.length} edges to array`, "fallback-storage-debug");
+    
+    // Filter by relationship type if specified - force to 'all' if null
+    const effectiveRelType = relationshipType === null ? 'all' : relationshipType;
+    log(`Using effective relationshipType: ${effectiveRelType}`, "fallback-storage-debug");
+    
     let filteredEdges = edgeArray;
-    if (relationshipType !== 'all') {
-      filteredEdges = filteredEdges.filter(edge => edge.relationship === relationshipType);
+    if (effectiveRelType !== 'all') {
+      filteredEdges = filteredEdges.filter(edge => edge.relationship === effectiveRelType);
+      log(`Filtered to ${filteredEdges.length} edges of type ${effectiveRelType}`, "fallback-storage-debug");
     }
     
     // Apply pagination
@@ -275,6 +284,7 @@ class FallbackStorage {
     
     const edges = filteredEdges.slice(start, end);
     
+    log(`Returning ${edges.length} edges after pagination (total: ${total})`, "fallback-storage-debug");
     return { edges, total };
   }
   
@@ -282,7 +292,7 @@ class FallbackStorage {
   getEdgesByRelationship(
     page: number = 0, 
     pageSize: number = 50, 
-    relationshipType: string = 'all'
+    relationshipType: string | null = 'all'
   ): { edges: Edge[], total: number } {
     return this.getAllEdges(page, pageSize, relationshipType);
   }
