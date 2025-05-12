@@ -5,10 +5,14 @@
  */
 
 import { log } from "../vite";
+import seedrandom from "seedrandom";
 
 // Embedding model configuration
 const EMBEDDING_MODEL = "text-embedding-3-small"; // Using the newer, more efficient model
 const DEFAULT_DIMENSIONS = 768; // Using optimized dimensions (reduced from 1536)
+
+// Optional storage dimension (for smaller vectors in Memgraph)
+const STORAGE_DIMENSIONS = 384; // Further reduced for efficient storage
 
 // Reduced dimensions for 3D visualization
 const VISUALIZATION_DIMENSIONS = 3;
@@ -72,8 +76,15 @@ export async function generateEmbedding(
       return generateFallbackEmbedding(text);
     }
     
-    log(`Generated embedding with dimensions: ${data.data[0].embedding.length}`, "embedding-service-debug");
-    return data.data[0].embedding;
+    const embedding = data.data[0].embedding;
+    log(`Generated embedding with dimensions: ${embedding.length}`, "embedding-service-debug");
+    
+    // Return either full embedding or storage-optimized version based on dimensions parameter
+    if (dimensions === STORAGE_DIMENSIONS) {
+      return prepareEmbeddingForStorage(embedding, STORAGE_DIMENSIONS);
+    }
+    
+    return embedding;
   } catch (error) {
     log(`Error generating embedding: ${error}`, "embedding-service");
     return generateFallbackEmbedding(text);
@@ -82,15 +93,23 @@ export async function generateEmbedding(
 
 /**
  * Generate embeddings for multiple texts in a batch
+ * 
  * @param texts Array of texts to generate embeddings for
+ * @param dimensions Optional parameter to specify embedding dimensions (default: 768)
  * @returns Promise resolving to array of embedding vectors
  */
-export async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateBatchEmbeddings(
+  texts: string[], 
+  dimensions: number = DEFAULT_DIMENSIONS
+): Promise<number[][]> {
   try {
     // Filter out empty strings
-    const nonEmptyTexts = texts.filter(text => text.trim().length > 0);
+    const nonEmptyTexts = texts
+      .filter(text => text && text.trim().length > 0)
+      .map(text => text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
     
     if (nonEmptyTexts.length === 0) {
+      log("No valid texts provided for batch embedding", "embedding-service");
       return [];
     }
 
@@ -98,7 +117,7 @@ export async function generateBatchEmbeddings(texts: string[]): Promise<number[]
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       log("No OpenAI API key found, using fallback embeddings for batch", "embedding-service");
-      return Promise.all(nonEmptyTexts.map(generateFallbackEmbedding));
+      return Promise.all(nonEmptyTexts.map(text => generateFallbackEmbedding(text, dimensions)));
     }
 
     // Call OpenAI API for embeddings
@@ -110,27 +129,43 @@ export async function generateBatchEmbeddings(texts: string[]): Promise<number[]
       },
       body: JSON.stringify({
         input: nonEmptyTexts,
-        model: "text-embedding-ada-002"
+        model: EMBEDDING_MODEL,
+        dimensions: dimensions,
+        encoding_format: "float"
       })
     });
 
     if (!response.ok) {
       const error = await response.text();
       log(`OpenAI batch embedding API error: ${error}`, "embedding-service");
-      return Promise.all(nonEmptyTexts.map(generateFallbackEmbedding));
+      return Promise.all(nonEmptyTexts.map(text => generateFallbackEmbedding(text, dimensions)));
     }
 
     const data = await response.json();
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      log("Invalid response format from OpenAI API for batch embeddings", "embedding-service");
+      return Promise.all(nonEmptyTexts.map(text => generateFallbackEmbedding(text, dimensions)));
+    }
     
     // Sort the embeddings by index to maintain order
     const sortedEmbeddings = data.data
       .sort((a: any, b: any) => a.index - b.index)
       .map((item: any) => item.embedding);
-      
+    
+    log(`Generated batch embeddings with dimensions: ${sortedEmbeddings[0]?.length || dimensions}`, "embedding-service-debug");
+    
+    // Apply storage optimizations if requested
+    if (dimensions === STORAGE_DIMENSIONS) {
+      return sortedEmbeddings.map(embedding => 
+        prepareEmbeddingForStorage(embedding, STORAGE_DIMENSIONS)
+      );
+    }
+    
     return sortedEmbeddings;
   } catch (error) {
     log(`Error generating batch embeddings: ${error}`, "embedding-service");
-    return Promise.all(texts.map(generateFallbackEmbedding));
+    return Promise.all(texts.map(text => generateFallbackEmbedding(text, dimensions)));
   }
 }
 
@@ -183,7 +218,36 @@ export function embedding3DPosition(embedding: number[]): { x: number, y: number
 }
 
 /**
+ * Normalize a vector to unit length (L2 normalization)
+ * This is important for consistent similarity calculations
+ * 
+ * @param vector The vector to normalize
+ * @returns Normalized vector with unit length
+ */
+export function normalizeVector(vector: number[]): number[] {
+  if (!vector || vector.length === 0) {
+    return vector;
+  }
+  
+  // Calculate magnitude (L2 norm)
+  let magnitude = 0;
+  for (let i = 0; i < vector.length; i++) {
+    magnitude += vector[i] * vector[i];
+  }
+  magnitude = Math.sqrt(magnitude);
+  
+  // Avoid division by zero
+  if (magnitude === 0) {
+    return vector;
+  }
+  
+  // Normalize vector
+  return vector.map(value => value / magnitude);
+}
+
+/**
  * Calculate cosine similarity between two embedding vectors
+ * 
  * @param embedA First embedding vector
  * @param embedB Second embedding vector
  * @returns Similarity score between 0 and 1
@@ -223,6 +287,113 @@ export function calculateSimilarity(embedA: number[], embedB: number[]): number 
 }
 
 /**
+ * Find similar content by semantic similarity using embeddings
+ *
+ * @param queryEmbedding Embedding vector for the search query
+ * @param embeddings Array of embeddings to search through
+ * @param threshold Minimum similarity threshold (0-1)
+ * @param limit Maximum number of results to return
+ * @returns Array of indices and their similarity scores, sorted by similarity
+ */
+export function findSimilarEmbeddings(
+  queryEmbedding: number[],
+  embeddings: number[][],
+  threshold: number = 0.7,
+  limit: number = 5
+): Array<{ index: number; similarity: number }> {
+  if (!queryEmbedding || !embeddings || embeddings.length === 0) {
+    return [];
+  }
+
+  // Calculate similarities and collect indices
+  const similarities = embeddings.map((embedding, index) => ({
+    index,
+    similarity: calculateSimilarity(queryEmbedding, embedding)
+  }));
+
+  // Filter by threshold and sort by similarity (descending)
+  return similarities
+    .filter(item => item.similarity >= threshold)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+}
+
+/**
+ * Prepare embedding for storage in Memgraph
+ * 
+ * @param embedding The embedding vector to prepare
+ * @param truncateDimensions Optional number of dimensions to truncate to
+ * @returns Normalized and potentially truncated embedding ready for storage
+ */
+export function prepareEmbeddingForStorage(
+  embedding: number[],
+  truncateDimensions?: number
+): number[] {
+  if (!embedding || embedding.length === 0) {
+    return [];
+  }
+  
+  // Truncate if requested
+  let processedEmbedding = embedding;
+  if (truncateDimensions && truncateDimensions < embedding.length) {
+    processedEmbedding = embedding.slice(0, truncateDimensions);
+  }
+  
+  // Always normalize before storage
+  return normalizeVector(processedEmbedding);
+}
+
+/**
+ * Generates a Cypher query for Memgraph to find semantically similar nodes
+ * using cosine similarity on embeddings
+ * 
+ * @param queryEmbedding The embedding vector to search with
+ * @param nodeTypes Optional array of node types to filter by (e.g., ['topic', 'entity'])
+ * @param similarityThreshold Minimum similarity threshold (0-1)
+ * @param limit Maximum number of results to return
+ * @returns Cypher query string for finding similar nodes
+ */
+export function buildSemanticSearchQuery(
+  queryEmbedding: number[],
+  nodeTypes?: string[],
+  similarityThreshold: number = 0.7,
+  limit: number = 5
+): { query: string; params: any } {
+  // Normalize the query embedding to ensure consistent similarity
+  const normalizedEmbedding = normalizeVector(queryEmbedding);
+  
+  // Create type filter
+  let typeFilter = '';
+  if (nodeTypes && nodeTypes.length > 0) {
+    const typeList = nodeTypes.map(t => `'${t}'`).join(', ');
+    typeFilter = `WHERE n.type IN [${typeList}]`;
+  }
+  
+  // Build the Cypher query for semantic search
+  // This uses vector operations available in Memgraph
+  const query = `
+    MATCH (n)
+    ${typeFilter}
+    WHERE n.embedding IS NOT NULL
+    WITH n,
+      gds.similarity.cosine(n.embedding, $embedding) AS similarity
+    WHERE similarity >= $threshold
+    RETURN n, similarity
+    ORDER BY similarity DESC
+    LIMIT $limit
+  `;
+  
+  return {
+    query,
+    params: {
+      embedding: normalizedEmbedding,
+      threshold: similarityThreshold,
+      limit: limit
+    }
+  };
+}
+
+/**
  * Generate a deterministic fallback embedding from text
  * This is used when the OpenAI API is not available
  * @param text The text to generate a fallback embedding for
@@ -245,13 +416,6 @@ function generateFallbackEmbedding(text: string, dimensions: number = DEFAULT_DI
     embedding[position] += (charCode / 255) * (i % 2 === 0 ? 1 : -1) * 0.01;
   }
   
-  // Normalize the vector
-  const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-  if (magnitude > 0) {
-    for (let i = 0; i < embedding.length; i++) {
-      embedding[i] = embedding[i] / magnitude;
-    }
-  }
-  
-  return embedding;
+  // Return normalized vector
+  return normalizeVector(embedding);
 }
