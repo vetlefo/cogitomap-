@@ -9,8 +9,9 @@ import { log } from "../vite";
 import type { BubbleNode, Edge } from "../../client/src/types";
 
 // Track if we're in fallback mode
-let usingFallback = false;
-let connectionTested = false;
+// TEMPORARY DEBUG: Force using fallback storage
+let usingFallback = true;
+let connectionTested = true;
 
 // Constants for pagination defaults
 const DEFAULT_PAGE_SIZE = 50;
@@ -21,6 +22,7 @@ const MAX_PAGE_SIZE = 200;
  */
 export async function testMemgraphConnection(): Promise<boolean> {
   if (connectionTested) {
+    log(`Using fallback storage for graph operations: ${usingFallback}`, "graph-service-debug");
     return !usingFallback;
   }
   

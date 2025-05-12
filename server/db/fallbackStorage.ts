@@ -16,6 +16,18 @@ class FallbackStorage {
     log("Initializing fallback in-memory graph storage", "fallback-storage");
   }
   
+  // Debug methods
+  debug_getNodesSize(): number {
+    return this.nodes.size;
+  }
+  
+  debug_dumpNodes(): void {
+    log(`Current nodes in fallback storage: ${this.nodes.size}`, "fallback-storage-debug");
+    this.nodes.forEach((node, id) => {
+      log(`Node ${id}: ${node.type} - ${node.content?.substring(0, 30)}...`, "fallback-storage-debug");
+    });
+  }
+  
   // Node operations
   
   createNode(node: BubbleNode): BubbleNode {
@@ -201,13 +213,22 @@ class FallbackStorage {
     pageSize: number = 50, 
     nodeType: string = 'all'
   ): { nodes: BubbleNode[], total: number } {
+    log(`getAllNodes called with page=${page}, pageSize=${pageSize}, nodeType=${nodeType}`, "fallback-storage-debug");
+    log(`Current nodes in Map: ${this.nodes.size}`, "fallback-storage-debug");
+    
+    // Debug dump nodes
+    this.debug_dumpNodes();
+    
     const nodeArray: BubbleNode[] = [];
     this.nodes.forEach(node => nodeArray.push({...node}));
+    
+    log(`Converted ${nodeArray.length} nodes to array`, "fallback-storage-debug");
     
     // Filter by node type if specified
     let filteredNodes = nodeArray;
     if (nodeType !== 'all') {
       filteredNodes = filteredNodes.filter(node => node.type === nodeType);
+      log(`Filtered to ${filteredNodes.length} nodes of type ${nodeType}`, "fallback-storage-debug");
     }
     
     // Apply pagination
@@ -217,6 +238,7 @@ class FallbackStorage {
     
     const nodes = filteredNodes.slice(start, end);
     
+    log(`Returning ${nodes.length} nodes after pagination (total: ${total})`, "fallback-storage-debug");
     return { nodes, total };
   }
   
