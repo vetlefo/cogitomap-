@@ -125,25 +125,56 @@ export async function extractKeywordsFromConversation(messages: Message[]): Prom
       // Extract some basic default concepts from the messages
       const defaultKeywords = new Set<string>();
       
-      // Look through messages for some basic concepts
+      // Extract meaningful words from messages (more aggressive approach)
+      const allWords = new Set<string>();
+      const importantWords = new Set<string>();
+      
+      // Common stopwords to filter out
+      const stopwords = new Set([
+        'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 
+        'by', 'about', 'as', 'into', 'like', 'through', 'after', 'over', 'between',
+        'out', 'of', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+        'have', 'has', 'had', 'do', 'does', 'did', 'can', 'could', 'will', 'would',
+        'shall', 'should', 'may', 'might', 'must', 'that', 'which', 'who', 'whom',
+        'this', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
+        'me', 'him', 'her', 'us', 'them'
+      ]);
+      
+      // Collect words from all messages
       for (const msg of messages) {
-        if (msg.content.toLowerCase().includes('love')) defaultKeywords.add('love');
-        if (msg.content.toLowerCase().includes('knowledge')) defaultKeywords.add('knowledge');
-        if (msg.content.toLowerCase().includes('graph')) defaultKeywords.add('graph');
-        if (msg.content.toLowerCase().includes('visualization')) defaultKeywords.add('visualization');
-        if (msg.content.toLowerCase().includes('semantic')) defaultKeywords.add('semantic');
-        if (msg.content.toLowerCase().includes('data')) defaultKeywords.add('data');
-        if (msg.content.toLowerCase().includes('conversation')) defaultKeywords.add('conversation');
-        if (msg.content.toLowerCase().includes('analysis')) defaultKeywords.add('analysis');
-        if (msg.content.toLowerCase().includes('relationship')) defaultKeywords.add('relationship');
+        // Split into words, filter out stopwords, and keep words longer than 3 characters
+        const words = msg.content.toLowerCase()
+          .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+          .split(/\s+/)
+          .filter(word => !stopwords.has(word) && word.length > 3);
+        
+        words.forEach(word => allWords.add(word));
+        
+        // Also add explicit key concepts
+        if (msg.content.toLowerCase().includes('love')) importantWords.add('love');
+        if (msg.content.toLowerCase().includes('knowledge')) importantWords.add('knowledge');
+        if (msg.content.toLowerCase().includes('graph')) importantWords.add('graph');
+        if (msg.content.toLowerCase().includes('visualization')) importantWords.add('visualization');
+        if (msg.content.toLowerCase().includes('semantic')) importantWords.add('semantic');
+        if (msg.content.toLowerCase().includes('data')) importantWords.add('data');
+        if (msg.content.toLowerCase().includes('conversation')) importantWords.add('conversation');
+        if (msg.content.toLowerCase().includes('analysis')) importantWords.add('analysis');
+        if (msg.content.toLowerCase().includes('relationship')) importantWords.add('relationship');
       }
       
-      // If we have at least 3 keywords from defaults, use them
-      if (defaultKeywords.size >= 3) {
-        keywords = Array.from(defaultKeywords);
-        console.log('Using default keywords as fallback:', keywords);
-      } else {
-        // Last resort - hard-coded generic keywords for a basic visualization
+      // First use important words
+      if (importantWords.size >= 3) {
+        keywords = Array.from(importantWords);
+        console.log('Using important keywords as fallback:', keywords);
+      } 
+      // Then try using all extracted words
+      else if (allWords.size >= 3) {
+        // Take up to 10 keywords to avoid overwhelming the system
+        keywords = Array.from(allWords).slice(0, 10);
+        console.log('Using extracted words as fallback:', keywords);
+      }
+      // Last resort - hard-coded default keywords 
+      else {
         keywords = ['conversation', 'knowledge graph', 'visualization', 'semantic analysis', 'connection'];
         console.log('Using hard-coded fallback keywords:', keywords);
       }
@@ -236,15 +267,91 @@ export async function findSemanticRelationships(
         'content' in result.message && typeof result.message.content === 'string') {
       
       try {
-        // Extract JSON object from response
+        // Extract JSON object from response (more robust method)
+        let parsed: any = null;
+        
+        // Try several methods to extract valid JSON
+        
+        // Method 1: Regular expression to find JSON block
         const jsonMatch = result.message.content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+            console.log('Successfully parsed JSON with method 1');
+          } catch (jsonError) {
+            console.log('Failed to parse with method 1, trying method 2');
+          }
+        }
+        
+        // Method 2: Try to detect JSON with triple backticks markdown
+        if (!parsed) {
+          const codeBlockMatch = result.message.content.match(/```(?:json)?([\s\S]*?)```/);
+          if (codeBlockMatch && codeBlockMatch[1]) {
+            try {
+              parsed = JSON.parse(codeBlockMatch[1].trim());
+              console.log('Successfully parsed JSON with method 2');
+            } catch (jsonError) {
+              console.log('Failed to parse with method 2, trying method 3');
+            }
+          }
+        }
+        
+        // Method 3: Attempt to repair and extract JSON
+        if (!parsed) {
+          // Add fallback JSON creation based on keywords
+          console.log('Creating fallback semantic nodes from keywords');
           
+          // Generate a synthetic graph structure from keywords if real parsing failed
+          const concepts = keywords.map(keyword => ({
+            id: keyword.toLowerCase().replace(/\s+/g, '_'),
+            content: keyword,
+            type: 'topic',
+            importance: 6 + Math.floor(Math.random() * 4) // 6-9 importance
+          }));
+          
+          // Create connections between concepts
+          const conceptEdges = [];
+          if (concepts.length >= 2) {
+            // Connect each concept to at least one other
+            for (let i = 0; i < concepts.length; i++) {
+              const target = (i === concepts.length - 1) ? 0 : i + 1;
+              conceptEdges.push({
+                source: concepts[i].id,
+                target: concepts[target].id,
+                relationship: 'related_to',
+                strength: 6 + Math.floor(Math.random() * 4) // 6-9 strength
+              });
+            }
+            
+            // Add a few more random connections for richness
+            for (let i = 0; i < Math.min(concepts.length, 3); i++) {
+              const source = Math.floor(Math.random() * concepts.length);
+              let target = Math.floor(Math.random() * concepts.length);
+              if (target === source) target = (target + 1) % concepts.length;
+              
+              conceptEdges.push({
+                source: concepts[source].id,
+                target: concepts[target].id,
+                relationship: 'related_to',
+                strength: 6 + Math.floor(Math.random() * 4)
+              });
+            }
+          }
+          
+          parsed = {
+            nodes: concepts,
+            edges: conceptEdges,
+            summary: `This visualization shows relationships between ${keywords.join(', ')}.`
+          };
+          console.log('Created fallback semantic structure:', parsed);
+        }
+        
+        // Process the parsed data (either from JSON or fallback)
+        if (parsed) {
           // Map the parsed nodes to BubbleNode objects
           if (parsed.nodes && Array.isArray(parsed.nodes)) {
             nodes = parsed.nodes.map((node: any) => ({
-              id: `semantic-${node.id || node.content}`,
+              id: `semantic-${node.id || node.content.toLowerCase().replace(/\s+/g, '_')}`,
               content: node.content,
               type: node.type || 'topic',
               importance: node.importance || 5,
@@ -273,7 +380,49 @@ export async function findSemanticRelationships(
           }
         }
       } catch (e) {
-        console.error('Error parsing relationship analysis response:', e);
+        console.error('Error in relationship analysis processing:', e);
+        
+        // Last resort fallback - create basic semantic structure from keywords
+        if (keywords.length > 0) {
+          console.log('Using last-resort fallback to create semantic nodes');
+          
+          // Create a node for each keyword
+          nodes = keywords.map((keyword, index) => ({
+            id: `semantic-keyword-${index}`,
+            content: keyword,
+            type: 'topic',
+            importance: 7,
+            position: {
+              x: Math.random() * 10 - 5,
+              y: Math.random() * 10 - 5,
+              z: Math.random() * 10 - 5
+            }
+          }));
+          
+          // Create edges connecting keywords in sequence
+          if (nodes.length >= 2) {
+            for (let i = 0; i < nodes.length - 1; i++) {
+              edges.push({
+                id: `semantic-fallback-edge-${i}`,
+                source: nodes[i].id,
+                target: nodes[i+1].id,
+                relationship: 'related_to',
+                strength: 6
+              });
+            }
+            
+            // Connect last to first to make a loop
+            edges.push({
+              id: `semantic-fallback-edge-last`,
+              source: nodes[nodes.length-1].id,
+              target: nodes[0].id,
+              relationship: 'related_to',
+              strength: 5
+            });
+          }
+          
+          summary = `Basic visualization of key concepts: ${keywords.join(', ')}`;
+        }
       }
     }
     
