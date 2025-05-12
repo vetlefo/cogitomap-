@@ -123,7 +123,7 @@ async function listVectorIndices(): Promise<Array<{name: string, label: string, 
     `;
     
     const result = await memgraphClient.executeQuery(query);
-    return result.map(row => ({
+    return result.map((row: {name: string, label: string, property: string}) => ({
       name: row.name,
       label: row.label,
       property: row.property
@@ -202,7 +202,7 @@ export async function performVectorSearch(
     
     const result = await memgraphClient.executeQuery(query, { embedding: normalizedVector });
     
-    return result.map(row => ({
+    return result.map((row: {id: string, type: string, content: string, similarity: number}) => ({
       id: row.id,
       type: row.type,
       content: row.content,
@@ -312,7 +312,7 @@ export async function performSemanticGraphSearch(
     
     const result = await memgraphClient.executeQuery(query, { embedding: normalizedVector });
     
-    return result.map(row => ({
+    return result.map((row: {id: string, type: string, content: string, similarity: number, isDirectMatch: boolean}) => ({
       id: row.id,
       type: row.type,
       content: row.content,

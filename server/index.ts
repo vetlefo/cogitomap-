@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initMemgraph } from "./db/memgraphClient";
+import { initializeMageVectorService } from "./services/mageVectorService";
 
 const app = express();
 app.use(express.json());
@@ -43,6 +44,15 @@ app.use((req, res, next) => {
     log("Initializing Memgraph connection...", "server-startup");
     await initMemgraph();
     log("Memgraph initialized successfully", "server-startup");
+    
+    // Initialize MAGE vector service
+    log("Initializing MAGE vector service...", "server-startup");
+    const mageInitialized = await initializeMageVectorService();
+    if (mageInitialized) {
+      log("MAGE vector service initialized successfully", "server-startup");
+    } else {
+      log("MAGE vector service initialization failed, vector search capabilities may be limited", "server-startup-warning");
+    }
   } catch (error) {
     log(`Error initializing Memgraph: ${error instanceof Error ? error.message : String(error)}`, "server-startup-error");
     // Continue even if Memgraph fails, as the app can still function with limited capabilities
