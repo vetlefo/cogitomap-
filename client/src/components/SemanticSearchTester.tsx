@@ -124,11 +124,12 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
         body: JSON.stringify({
           query,
           nodeTypes: nodeTypes.length > 0 ? nodeTypes : undefined,
-          maxResults,
+          limit: maxResults,
           minSimilarity,
-          includeRelated,
+          expandGraphSearch: includeRelated,
           maxHops,
-          useEmbedding: true,
+          vectorSearch: true,
+          textSearch: true, // Enable text search as fallback
         }),
       });
       
@@ -439,7 +440,7 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
                             </Badge>
                           )}
                           <Badge variant="secondary" className="text-xs">
-                            {(node.similarity * 100).toFixed(1)}% match
+                            {node.similarity ? `${(node.similarity * 100).toFixed(1)}% match` : 'No score'}
                           </Badge>
                         </CardDescription>
                       </div>
