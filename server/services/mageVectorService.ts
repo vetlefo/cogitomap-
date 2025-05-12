@@ -71,11 +71,18 @@ export async function createVectorIndices(): Promise<void> {
   try {
     // Check if MAGE is loaded
     try {
-      await executeCustomQuery('CALL mg.load() YIELD *');
+      await executeCustomQuery('CALL mg.load("mage") YIELD *');
       log('MAGE is already loaded', 'mage-vector-service');
     } catch (error) {
       log(`Error loading MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
-      log('Attempting to continue anyway...', 'mage-vector-service');
+      // Try alternative loading method
+      try {
+        await executeCustomQuery('CALL mg.load_all() YIELD *');
+        log('MAGE loaded using alternative method', 'mage-vector-service');
+      } catch (alternativeError) {
+        log(`Alternative MAGE loading also failed: ${alternativeError instanceof Error ? alternativeError.message : String(alternativeError)}`, 'mage-vector-service-error');
+        log('Attempting to continue anyway...', 'mage-vector-service');
+      }
     }
     
     // Get existing vector indices

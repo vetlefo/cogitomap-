@@ -9,6 +9,7 @@ import { Message } from '../../client/src/types';
 import { BubbleNode, Edge } from '../../client/src/types';
 import { handleLLMRequest } from '../api/llm_router';
 import { createNode, createEdge } from '../db/graphService';
+import { generateEmbedding, embedding3DPosition } from '../services/embeddingService';
 
 /**
  * Extract keywords from a set of messages
@@ -350,12 +351,40 @@ export async function findSemanticRelationships(
         if (parsed) {
           // Map the parsed nodes to BubbleNode objects
           if (parsed.nodes && Array.isArray(parsed.nodes)) {
-            nodes = parsed.nodes.map((node: any) => ({
+            // First generate embeddings for all nodes
+            const nodeEmbeddingPromises = parsed.nodes.map(async (node: any) => {
+              try {
+                // Generate embedding for node content
+                const content = node.content || '';
+                const embedding = await generateEmbedding(content);
+                
+                // Use embedding to determine position
+                const position = embedding3DPosition(embedding);
+                
+                return {
+                  ...node,
+                  embedding_vector: embedding,
+                  calculatedPosition: position
+                };
+              } catch (error) {
+                console.error(`Error generating embedding for node: ${error}`);
+                return node;
+              }
+            });
+            
+            // Wait for all embeddings to be generated
+            const nodesWithEmbeddings = await Promise.all(nodeEmbeddingPromises);
+            
+            // Map to BubbleNode objects with embeddings and positions
+            nodes = nodesWithEmbeddings.map((node: any) => ({
               id: `semantic-${node.id || node.content.toLowerCase().replace(/\s+/g, '_')}`,
               content: node.content,
               type: node.type || 'topic',
               importance: node.importance || 5,
-              position: {
+              // Include the embedding vector for storage
+              embedding_vector: node.embedding_vector,
+              // Use embedding-derived position when available or random position
+              position: node.calculatedPosition || {
                 x: Math.random() * 10 - 5,
                 y: Math.random() * 10 - 5,
                 z: Math.random() * 10 - 5

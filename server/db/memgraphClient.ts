@@ -63,7 +63,7 @@ export async function initMemgraph(): Promise<void> {
 export async function runMemgraphQuery(
   query: string,
   params?: Record<string, any>,
-): Promise<Result> {
+): Promise<any> {
   if (!driver) {
     log(
       "Driver not initialized. Database operations will be unavailable.",
