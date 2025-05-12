@@ -192,27 +192,27 @@ function App() {
       <div id="controls">
         <div className="panel-header">NAVIGATION</div>
         <button id="toggle-ui" title="Show/Hide Chat UI" onClick={toggleUI}>
-          <span className="control-icon">⊙</span> Toggle Interface
+          <span className="control-icon"><Eye size={16} /></span> Toggle Interface
         </button>
         <button id="reset-view" title="Reset Camera View" onClick={resetView}>
-          <span className="control-icon">↻</span> Reset View
+          <span className="control-icon"><RotateCcw size={16} /></span> Reset View
         </button>
         <button id="toggle-drones" title="Show/Hide AI Drones" onClick={toggleDrones}>
-          <span className="control-icon">⚑</span> Toggle Drones
+          <span className="control-icon"><Flag size={16} /></span> Toggle Drones
         </button>
         <button 
           id="api-key-button" 
           title={apiKeys.openai === 'env-variable' ? "API key set via environment variable" : "Set API Key"} 
           onClick={handleOpenApiKeyModal}
         >
-          <span className="control-icon">🔑</span> {apiKeys.openai === 'env-variable' ? 'API Key (Env)' : 'Set API Key'}
+          <span className="control-icon"><Key size={16} /></span> {apiKeys.openai === 'env-variable' ? 'API Key (Env)' : 'Set API Key'}
         </button>
         <button
           id="semantic-search-button"
           title="Search knowledge graph by meaning"
           onClick={toggleSemanticSearch}
         >
-          <span className="control-icon">🔍</span> Semantic Search
+          <span className="control-icon"><Search size={16} /></span> Semantic Search
         </button>
         <SemanticAnalysisButton messages={messages} />
       </div>

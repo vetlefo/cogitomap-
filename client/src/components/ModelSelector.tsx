@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLLM, LLMProvider, ModelInfo, fetchAvailableModels } from '../lib/stores/useOpenAI';
+import { Key, Check, X } from 'lucide-react';
 
 interface ModelSelectorProps {
   onProviderChange?: (provider: LLMProvider) => void;
@@ -77,7 +78,7 @@ export default function ModelSelector({
           <div className="provider-label">
             {selectedProvider.toUpperCase()}
             <span className={`key-status ${providerHasKey(selectedProvider) ? 'has-key' : 'no-key'}`} title={isEnvironmentKey(selectedProvider) ? 'Using environment variable' : ''}>
-              {providerHasKey(selectedProvider) ? (isEnvironmentKey(selectedProvider) ? '🔑' : '✓') : '✗'}
+              {providerHasKey(selectedProvider) ? (isEnvironmentKey(selectedProvider) ? <Key size={14} /> : <Check size={14} />) : <X size={14} />}
             </span>
           </div>
           <div className="model-name">
@@ -107,7 +108,7 @@ export default function ModelSelector({
               >
                 {provider.toUpperCase()}
                 <span className={`key-status ${providerHasKey(provider as LLMProvider) ? 'has-key' : 'no-key'}`} title={isEnvironmentKey(provider as LLMProvider) ? 'Using environment variable' : ''}>
-                  {providerHasKey(provider as LLMProvider) ? (isEnvironmentKey(provider as LLMProvider) ? '🔑' : '✓') : '✗'}
+                  {providerHasKey(provider as LLMProvider) ? (isEnvironmentKey(provider as LLMProvider) ? <Key size={14} /> : <Check size={14} />) : <X size={14} />}
                 </span>
               </div>
             ))}
