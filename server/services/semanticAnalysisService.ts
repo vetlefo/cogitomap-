@@ -10,6 +10,15 @@ import { BubbleNode, Edge } from '../../client/src/types';
 import { handleLLMRequest } from '../api/llm_router';
 import { createNode, createEdge } from '../db/graphService';
 import { generateEmbedding, embedding3DPosition } from '../services/embeddingService';
+import { Response } from 'express';
+
+// Define a type that extends Response to include content property for type checking
+interface LLMResponse extends Response {
+  content?: string;
+  message?: {
+    content?: string;
+  };
+}
 
 /**
  * Extract keywords from a set of messages
@@ -54,16 +63,22 @@ export async function extractKeywordsFromConversation(messages: Message[]): Prom
       status: (_: number) => ({ json: (data: any) => data })
     } as any;
 
-    const result = await handleLLMRequest(mockRequest, mockResponse);
+    const result = await handleLLMRequest(mockRequest, mockResponse) as LLMResponse;
     
     // Parse the response, which should be a JSON array of strings
     let keywords: string[] = [];
     
-    if (result && typeof result === 'object' && 'message' in result && 
-        result.message && typeof result.message === 'object' && 
-        'content' in result.message && typeof result.message.content === 'string') {
-      
-      const content = result.message.content.trim();
+    // Handle different response formats - Express response or direct API response
+    const content = result && (
+      // Either result is a direct response with content property
+      (result.content) || 
+      // Or result has a message property (Express response)
+      (typeof result === 'object' && 'message' in result && result.message && typeof result.message === 'object' && 
+       'content' in result.message && result.message.content)
+    );
+    
+    if (content && typeof content === 'string') {
+      const trimmedContent = content.trim();
       console.log('Keyword extraction raw result:', content);
       
       try {
@@ -263,10 +278,16 @@ export async function findSemanticRelationships(
     let edges: Edge[] = [];
     let summary = '';
     
-    if (result && typeof result === 'object' && 'message' in result && 
-        result.message && typeof result.message === 'object' && 
-        'content' in result.message && typeof result.message.content === 'string') {
-      
+    // Handle different response formats - Express response or direct API response
+    const content = result && (
+      // Either result is a direct response with content property
+      (result.content) || 
+      // Or result has a message property (Express response)
+      (typeof result === 'object' && 'message' in result && result.message && typeof result.message === 'object' && 
+       'content' in result.message && result.message.content)
+    );
+    
+    if (content && typeof content === 'string') {
       try {
         // Extract JSON object from response (more robust method)
         let parsed: any = null;
@@ -274,7 +295,7 @@ export async function findSemanticRelationships(
         // Try several methods to extract valid JSON
         
         // Method 1: Regular expression to find JSON block
-        const jsonMatch = result.message.content.match(/\{[\s\S]*\}/);
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
             parsed = JSON.parse(jsonMatch[0]);
@@ -286,7 +307,7 @@ export async function findSemanticRelationships(
         
         // Method 2: Try to detect JSON with triple backticks markdown
         if (!parsed) {
-          const codeBlockMatch = result.message.content.match(/```(?:json)?([\s\S]*?)```/);
+          const codeBlockMatch = content.match(/```(?:json)?([\s\S]*?)```/);
           if (codeBlockMatch && codeBlockMatch[1]) {
             try {
               parsed = JSON.parse(codeBlockMatch[1].trim());
@@ -588,14 +609,25 @@ export async function createSummaryNode(
       status: (_: number) => ({ json: (data: any) => data })
     } as any;
 
-    const result = await handleLLMRequest(mockRequest, mockResponse);
+    const result = await handleLLMRequest(mockRequest, mockResponse) as LLMResponse;
     
-    if (result && result.message && result.message.content) {
+    // Handle different response formats - Express response or direct API response
+    const content = result && (
+      // Either result is a direct response with content property
+      (result.content) || 
+      // Or result has a message property (Express response)
+      (typeof result === 'object' && 'message' in result && result.message && typeof result.message === 'object' && 
+       'content' in result.message && result.message.content)
+    );
+    
+    if (content) {
       try {
         // Extract JSON object from response
-        const jsonMatch = result.message.content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
+        const jsonMatch = typeof content === 'string' ? content.match(/\{[\s\S]*\}/) : null;
+        const jsonContent = jsonMatch ? jsonMatch[0] : (typeof content === 'string' ? content : '{}');
+        
+        try {
+          const parsed = JSON.parse(jsonContent);
           
           // Create a summary node
           const summaryNode: BubbleNode = {
@@ -634,6 +666,9 @@ export async function createSummaryNode(
           }
           
           return createdNode;
+        } catch (parseError) {
+          console.error('Error parsing JSON content:', parseError);
+          return null;
         }
       } catch (e) {
         console.error('Error parsing summary response:', e);
