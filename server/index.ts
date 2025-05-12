@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initMemgraph } from "./db/memgraphClient";
-import { initializeMageVectorService } from "./services/mageVectorService";
+import { initMageVectorService } from "./services/mageVectorService";
 
 const app = express();
 app.use(express.json());
@@ -47,11 +47,12 @@ app.use((req, res, next) => {
     
     // Initialize MAGE vector service
     log("Initializing MAGE vector service...", "server-startup");
-    const mageInitialized = await initializeMageVectorService();
-    if (mageInitialized) {
+    try {
+      await initMageVectorService();
       log("MAGE vector service initialized successfully", "server-startup");
-    } else {
-      log("MAGE vector service initialization failed, vector search capabilities may be limited", "server-startup-warning");
+    } catch (error) {
+      log(`MAGE vector service initialization failed: ${error instanceof Error ? error.message : String(error)}`, "server-startup-warning");
+      log("Vector search capabilities may be limited", "server-startup-warning");
     }
   } catch (error) {
     log(`Error initializing Memgraph: ${error instanceof Error ? error.message : String(error)}`, "server-startup-error");

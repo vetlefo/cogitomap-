@@ -12,9 +12,8 @@ import {
 } from '../services/semanticAnalysisService';
 import { generateEmbedding } from '../services/embeddingService';
 import { 
-  performVectorSearch, 
-  performSemanticGraphSearch, 
-  initializeMageVectorService 
+  vectorSearch,
+  initMageVectorService 
 } from '../services/mageVectorService';
 import { Message } from '../../client/src/types';
 import { z } from 'zod';
@@ -206,10 +205,15 @@ export async function semanticSearchHandler(req: Request, res: Response) {
     
     // Initialize the MAGE vector service if using embeddings
     if (useEmbedding) {
-      await initializeMageVectorService();
+      try {
+        await initMageVectorService();
+      } catch (error) {
+        log(`Error initializing MAGE: ${error}`, "semantic-search-api-error");
+        // Continue anyway, as we'll use fallback storage
+      }
     }
     
-    let results;
+    let results: any[] = [];
     
     // If embeddings are requested, generate and use them
     if (useEmbedding) {
@@ -217,17 +221,16 @@ export async function semanticSearchHandler(req: Request, res: Response) {
         // Generate embedding for query
         const queryEmbedding = await generateEmbedding(query);
         
-        // Perform vector-based semantic search
-        results = await performSemanticGraphSearch(queryEmbedding, {
-          limit: maxResults,
+        // Perform vector-based semantic search using the new vectorSearch function
+        const directResults = await vectorSearch(
+          queryEmbedding,
           minSimilarity,
-          includeRelated,
-          maxHops,
-          nodeTypes,
-          requireKeywords
-        });
+          maxResults,
+          nodeTypes
+        );
         
-        log(`Found ${results.length} semantic matches using vector search`, "semantic-search-api");
+        results = directResults;
+        log(`Found ${directResults.length} semantic matches using vector search`, "semantic-search-api");
       } catch (error) {
         log(`Error in vector search, falling back to keyword search: ${error}`, "semantic-search-api-error");
         

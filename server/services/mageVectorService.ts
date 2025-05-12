@@ -1,294 +1,162 @@
 /**
- * MAGE Vector Service for Memgraph
- * Handles vector similarity search and operations using the Memgraph MAGE extension
+ * MAGE Vector Service
+ * Provides functions for working with the Memgraph MAGE vector similarity module
  */
-
-import { log } from "../vite";
-import { executeCustomQuery } from "../db/graphService";
-import { BubbleNode } from "../../client/src/types";
+import { executeCustomQuery } from '../db/graphService';
+import { log } from '../vite';
 
 /**
- * Initialize MAGE vector service and create necessary vector indices
+ * Perform vector search using Memgraph MAGE's vector similarity module
+ * 
+ * @param queryVector - The embedding vector to search with
+ * @param minSimilarity - Minimum similarity threshold (0-1)
+ * @param limit - Maximum number of results to return
+ * @param nodeTypes - Optional array of node types to limit search to
+ * @returns Array of nodes with similarity scores
  */
-export async function initializeMageVectorService() {
+export async function vectorSearch(
+  queryVector: number[],
+  minSimilarity: number = 0.65,
+  limit: number = 10,
+  nodeTypes: string[] = []
+): Promise<any[]> {
   try {
-    // First check if MAGE is loaded properly
-    await loadMageIfNeeded();
+    log(`Performing vector search with ${queryVector.length} dimension vector, min similarity: ${minSimilarity}`, 'mage-vector-service');
     
-    // Get existing vector indices
-    const indices = await getVectorIndices();
-    log(`Found ${indices.length} existing vector indices`, "mage-vector-service");
+    // Construct type filter if needed
+    const typeFilter = nodeTypes.length > 0 
+      ? `AND node.type IN $nodeTypes` 
+      : '';
     
-    // Create common vector indices if they don't exist already
-    
-    // General index for all node types
-    if (!indices.some(idx => idx.name === 'vector_idx_all')) {
-      await createVectorIndex('vector_idx_all', 'Node', 'embedding');
-    }
-    
-    // Index for message nodes
-    if (!indices.some(idx => idx.name === 'vector_idx_msg')) {
-      await createVectorIndex('vector_idx_msg', 'ai_message|user_message', 'embedding');
-    }
-    
-    // Index for topic nodes
-    if (!indices.some(idx => idx.name === 'vector_idx_topic')) {
-      await createVectorIndex('vector_idx_topic', 'topic', 'embedding');
-    }
-    
-    // Index for entity nodes
-    if (!indices.some(idx => idx.name === 'vector_idx_entity')) {
-      await createVectorIndex('vector_idx_entity', 'entity', 'embedding');
-    }
-    
-    log("MAGE vector service initialized successfully", "mage-vector-service");
-    return true;
-  } catch (error) {
-    log(`Error initializing MAGE vector service: ${error}`, "mage-vector-service-error");
-    return false;
-  }
-}
-
-/**
- * Load MAGE module if it's not already loaded
- */
-async function loadMageIfNeeded() {
-  try {
-    // First check if MAGE is loaded
-    const checkMageQuery = `CALL mg.load() YIELD *`;
-    
-    try {
-      await executeCustomQuery(checkMageQuery);
-      log("MAGE is already loaded", "mage-vector-service");
-    } catch (error) {
-      // If not loaded, attempt to load it
-      log("MAGE not loaded, attempting to load it now", "mage-vector-service");
-      
-      const loadMageQuery = `CALL mg.load()`;
-      await executeCustomQuery(loadMageQuery);
-      
-      log("MAGE loaded successfully", "mage-vector-service");
-    }
-    
-    return true;
-  } catch (error) {
-    log(`Error loading MAGE: ${error}`, "mage-vector-service-error");
-    throw new Error(`Failed to load MAGE module: ${error}`);
-  }
-}
-
-/**
- * Get existing vector indices from the database
- */
-async function getVectorIndices() {
-  try {
+    // Build and execute the query
     const query = `
-      CALL db.index.vector() 
-      YIELD index_name, index_label, property_name 
-      RETURN index_name AS name, index_label AS label, property_name AS property
+      CALL db.index.vector.queryNodes('vector_idx_all', $embedding, ${limit})
+      YIELD node, similarity
+      WHERE similarity >= ${minSimilarity} ${typeFilter}
+      RETURN node, similarity
+      ORDER BY similarity DESC
     `;
     
-    const results = await executeCustomQuery(query);
-    return results;
+    log(`Executing MAGE vector query: ${query}`, 'mage-vector-service');
+    
+    const results = await executeCustomQuery(query, {
+      embedding: queryVector,
+      nodeTypes
+    });
+    
+    // Process and transform the results
+    const processedResults = results.map((result: any) => {
+      const node = result.node?.properties || {};
+      return {
+        ...node,
+        similarity: result.similarity
+      };
+    });
+    
+    log(`Vector search returned ${processedResults.length} results`, 'mage-vector-service');
+    return processedResults;
   } catch (error) {
-    log(`Error getting vector indices: ${error}`, "mage-vector-service-error");
+    log(`Vector search error: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+    
+    // Return empty results in case of failure
     return [];
   }
 }
 
 /**
- * Create a vector index for a specific node label and property
+ * Create MAGE vector indices for different node types
+ * This ensures we have proper indices for vector similarity search
  */
-async function createVectorIndex(indexName: string, label: string, property: string) {
+export async function createVectorIndices(): Promise<void> {
   try {
-    const query = `
-      CREATE VECTOR INDEX ${indexName} ON :${label}(${property})
+    // Check if MAGE is loaded
+    try {
+      await executeCustomQuery('CALL mg.load() YIELD *');
+      log('MAGE is already loaded', 'mage-vector-service');
+    } catch (error) {
+      log(`Error loading MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+      log('Attempting to continue anyway...', 'mage-vector-service');
+    }
+    
+    // Get existing vector indices
+    const indices = await executeCustomQuery(`
+      CALL db.index.vector() 
+      YIELD index_name, index_label, property_name 
+      RETURN index_name AS name, index_label AS label, property_name AS property
+    `);
+    
+    log(`Found ${indices.length} existing vector indices`, 'mage-vector-service');
+    
+    // Initialize indices if they don't exist
+    const existingIndices = new Set(indices.map((idx: any) => idx.name));
+    
+    // Create general vector index for all nodes
+    if (!existingIndices.has('vector_idx_all')) {
+      await executeCustomQuery(`
+      CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
       WITH CONFIG {
         "dimension": 768,
         "capacity": 1024,
         "metric": "cos",
         "resize_coefficient": 2
       }
-    `;
-    
-    await executeCustomQuery(query);
-    log(`Created vector index: ${indexName} for label: ${label}`, "mage-vector-service");
-    return true;
-  } catch (error) {
-    log(`Error creating vector index ${indexName}: ${error}`, "mage-vector-service-error");
-    return false;
-  }
-}
-
-/**
- * Perform a vector similarity search using MAGE vector index
- * 
- * @param embedding The vector embedding to search with
- * @param indexName Optional specific index to use (defaults to all nodes)
- * @param limit Maximum number of results to return
- * @param minSimilarity Minimum similarity threshold (0-1)
- * @returns Array of matching nodes with similarity scores
- */
-export async function performVectorSearch(
-  embedding: number[],
-  indexName: string = 'vector_idx_all',
-  limit: number = 10,
-  minSimilarity: number = 0.5
-): Promise<BubbleNode[]> {
-  try {
-    if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
-      throw new Error("Invalid embedding vector provided");
+      `);
+      log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
     }
     
-    log(`Performing vector search with ${embedding.length} dimension vector, min similarity: ${minSimilarity}`, "mage-vector-service");
-    
-    // Vector search using MAGE
-    const query = `
-      CALL db.index.vector.queryNodes('${indexName}', $embedding, ${limit})
-      YIELD node, similarity
-      WHERE similarity >= ${minSimilarity}
-      RETURN node, similarity
-      ORDER BY similarity DESC
-    `;
-    
-    log(`Executing MAGE vector query: ${query}`, "mage-vector-service");
-    
-    const results = await executeCustomQuery(query, {
-      embedding
-    });
-    
-    log(`Vector search returned ${results.length} results`, "mage-vector-service");
-    
-    // Convert results to BubbleNode objects with similarity scores
-    return results.map((result: any) => {
-      const node = result.node.properties;
-      return {
-        ...node,
-        similarity: result.similarity,
-        isDirectMatch: true // Mark all vector search results as direct matches
-      } as BubbleNode & { similarity: number, isDirectMatch: boolean };
-    });
-  } catch (error) {
-    log(`Error in vector search: ${error}`, "mage-vector-service-error");
-    return [];
-  }
-}
-
-/**
- * Perform an advanced semantic search that includes graph traversal
- * This allows finding not just similar nodes, but related content through connections
- * 
- * @param embedding The vector embedding to search with
- * @param options Search options including node types, limits, etc.
- * @returns Array of nodes with similarity scores and direct/indirect flags
- */
-export async function performSemanticGraphSearch(
-  embedding: number[],
-  options: {
-    nodeTypes?: string[];
-    limit?: number;
-    minSimilarity?: number;
-    maxHops?: number;
-    includeRelated?: boolean;
-  } = {}
-): Promise<BubbleNode[]> {
-  const {
-    nodeTypes,
-    limit = 10,
-    minSimilarity = 0.5,
-    maxHops = 1,
-    includeRelated = true
-  } = options;
-  
-  try {
-    // First, find direct vector matches
-    let query = `
-      CALL db.index.vector.queryNodes('vector_idx_all', $embedding, $limit)
-      YIELD node, similarity
-      WHERE similarity >= $minSimilarity
-    `;
-    
-    // Add node type filter if specified
-    if (nodeTypes && nodeTypes.length > 0) {
-      const typeLabelsList = nodeTypes.map(t => `node:${t}`).join(' OR ');
-      query += `\nAND (${typeLabelsList})`;
-    }
-    
-    // Complete the query for direct matches
-    query += `
-      WITH node, similarity
-      RETURN node, similarity, true AS isDirectMatch
-      ORDER BY similarity DESC
-      LIMIT $limit
-    `;
-    
-    // Execute the query for direct matches
-    const results = await executeCustomQuery(query, {
-      embedding,
-      limit,
-      minSimilarity
-    });
-    
-    // Convert results to nodes with similarity and match type
-    const directMatches = results.map((result: any) => {
-      const node = result.node.properties;
-      return {
-        ...node,
-        similarity: result.similarity,
-        isDirectMatch: true
-      };
-    });
-    
-    let allResults = [...directMatches];
-    
-    // If we want related nodes and have direct matches, find connected nodes
-    if (includeRelated && directMatches.length > 0 && maxHops > 0) {
-      // Get IDs of direct matches to use as starting points
-      const directMatchIds = directMatches.map((node: any) => node.id);
-      
-      // Query for related nodes through the graph
-      const relatedQuery = `
-        MATCH (startNode)
-        WHERE startNode.id IN $directMatchIds
-        MATCH path = (startNode)-[*1..${maxHops}]-(relatedNode)
-        WHERE NOT relatedNode.id IN $directMatchIds
-      `;
-      
-      // Add node type filter if specified
-      if (nodeTypes && nodeTypes.length > 0) {
-        const typeLabelsList = nodeTypes.map(t => `relatedNode:${t}`).join(' OR ');
-        query += `\nAND (${typeLabelsList})`;
+    // Create index for message nodes
+    if (!existingIndices.has('vector_idx_msg')) {
+      await executeCustomQuery(`
+      CREATE VECTOR INDEX vector_idx_msg ON :ai_message|user_message(embedding)
+      WITH CONFIG {
+        "dimension": 768,
+        "capacity": 1024,
+        "metric": "cos",
+        "resize_coefficient": 2
       }
-      
-      // Complete the query
-      const relatedQueryComplete = relatedQuery + `
-        WITH DISTINCT relatedNode
-        RETURN relatedNode AS node, 0.0 AS similarity, false AS isDirectMatch
-        LIMIT $relatedLimit
-      `;
-      
-      const relatedResults = await executeCustomQuery(relatedQueryComplete, {
-        directMatchIds,
-        relatedLimit: limit
-      });
-      
-      // Convert related results
-      const relatedMatches = relatedResults.map((result: any) => {
-        const node = result.node.properties;
-        return {
-          ...node,
-          similarity: 0,  // No direct similarity score
-          isDirectMatch: false
-        };
-      });
-      
-      // Combine direct and related matches, prioritizing direct matches
-      allResults = [...directMatches, ...relatedMatches].slice(0, limit);
+      `);
+      log('Created vector index: vector_idx_msg for label: ai_message|user_message', 'mage-vector-service');
     }
     
-    return allResults;
+    // Create index for topic nodes
+    if (!existingIndices.has('vector_idx_topic')) {
+      await executeCustomQuery(`
+      CREATE VECTOR INDEX vector_idx_topic ON :topic(embedding)
+      WITH CONFIG {
+        "dimension": 768,
+        "capacity": 1024,
+        "metric": "cos",
+        "resize_coefficient": 2
+      }
+      `);
+      log('Created vector index: vector_idx_topic for label: topic', 'mage-vector-service');
+    }
+    
+    // Create index for entity nodes
+    if (!existingIndices.has('vector_idx_entity')) {
+      await executeCustomQuery(`
+      CREATE VECTOR INDEX vector_idx_entity ON :entity(embedding)
+      WITH CONFIG {
+        "dimension": 768,
+        "capacity": 1024,
+        "metric": "cos",
+        "resize_coefficient": 2
+      }
+      `);
+      log('Created vector index: vector_idx_entity for label: entity', 'mage-vector-service');
+    }
+    
+    log('MAGE vector service initialized successfully', 'mage-vector-service');
   } catch (error) {
-    log(`Error in semantic graph search: ${error}`, "mage-vector-service-error");
-    return [];
+    log(`Error initializing MAGE vector indices: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+    throw error;
   }
+}
+
+/**
+ * Initialize the MAGE vector service
+ * This should be called during server startup
+ */
+export async function initMageVectorService(): Promise<void> {
+  await createVectorIndices();
 }

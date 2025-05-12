@@ -1,198 +1,254 @@
 /**
- * API endpoint for semantic search functionality
- * Supports both vector similarity search and text-based search
+ * Semantic search API endpoint
  */
+import { Router } from 'express';
+import { z } from 'zod';
+import { generateEmbedding } from '../services/embeddingService';
+import { vectorSearch } from '../services/mageVectorService';
+import { log } from '../vite';
+import { fallbackStorage } from '../db/fallbackStorage';
+import { executeCustomQuery } from '../db/graphService';
 
-import { Request, Response } from "express";
-import { log } from "../vite";
-import { generateEmbedding } from "../services/embeddingService";
-import { performVectorSearch, performSemanticGraphSearch } from "../services/mageVectorService";
-import { executeCustomQuery } from "../db/graphService";
+export const semanticSearchRouter = Router();
+
+// Schema for semantic search request
+const SemanticSearchRequestSchema = z.object({
+  query: z.string().min(1),
+  nodeTypes: z.array(z.string()).optional(),
+  limit: z.number().int().positive().default(10),
+  minSimilarity: z.number().min(0).max(1).default(0.65),
+  maxHops: z.number().int().min(0).max(5).default(2),
+  includeRelated: z.boolean().default(true),
+  vectorSearch: z.boolean().default(true),
+  textSearch: z.boolean().default(true),
+  expandGraphSearch: z.boolean().default(false)
+});
 
 /**
- * Semantic search handler
- * Supports:
- * - Vector similarity search (using embeddings)
- * - Text-based search (full text or keywords)
- * - Optional graph expansion for related content
+ * POST /api/semantic/search
+ * Performs a semantic search against the knowledge graph
  */
-export async function semanticSearchHandler(req: Request, res: Response) {
+semanticSearchRouter.post('/search', async (req, res) => {
   try {
-    const {
-      query,                  // Text query to search for
-      vectorSearch = true,    // Whether to use vector similarity search
-      textSearch = false,     // Whether to use text-based search
-      nodeTypes = [],         // Types of nodes to search (empty array = all)
-      limit = 10,             // Max number of results to return
-      minSimilarity = 0.6,    // Minimum similarity threshold for vector search
-      expandGraphSearch = false // Whether to expand search to related nodes
-    } = req.body;
-    
-    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+    // Validate request body
+    const validationResult = SemanticSearchRequestSchema.safeParse(req.body);
+    if (!validationResult.success) {
       return res.status(400).json({
-        error: 'Query is required'
+        error: 'Invalid request data',
+        details: validationResult.error.errors
       });
     }
-    
+
+    const {
+      query,
+      nodeTypes = [],
+      limit,
+      minSimilarity,
+      maxHops,
+      includeRelated,
+      vectorSearch,
+      textSearch,
+      expandGraphSearch
+    } = validationResult.data;
+
     log(`Performing semantic search for "${query}"`, 'semantic-search');
     log(`Search options: nodeTypes=${JSON.stringify(nodeTypes)}, limit=${limit}, minSimilarity=${minSimilarity}, expandGraphSearch=${expandGraphSearch}`, 'semantic-search');
+
+    // Collect all results
+    const allResults: any[] = [];
     
-    // Default to vector search if not specified
-    let results: any[] = [];
-    
-    // For vector search, generate an embedding and find similar content
+    // Perform vector search if enabled
     if (vectorSearch) {
-      try {
-        // Generate embedding for the query
-        log(`Generating embedding for query: "${query}"`, 'semantic-search');
-        const embedding = await generateEmbedding(query);
-        log(`Generated embedding with ${embedding.length} dimensions`, 'semantic-search');
-        
-        let indexName: string;
-        // Select the appropriate vector index based on node types
-        if (nodeTypes.length === 0) {
-          indexName = 'vector_idx_all'; // Use general index for all node types
-        } else if (nodeTypes.includes('user_message') || nodeTypes.includes('ai_message')) {
-          indexName = 'vector_idx_msg'; // Use message-specific index
-        } else if (nodeTypes.includes('topic')) {
-          indexName = 'vector_idx_topic'; // Use topic-specific index
-        } else if (nodeTypes.includes('entity')) {
-          indexName = 'vector_idx_entity'; // Use entity-specific index
-        } else {
-          indexName = 'vector_idx_all'; // Default to all
-        }
-        
-        log(`Using vector index: ${indexName}`, 'semantic-search');
-        
-        if (expandGraphSearch) {
-          // Advanced semantic search with graph expansion
-          log(`Performing graph-expanded semantic search with maxHops=2`, 'semantic-search');
-          results = await performSemanticGraphSearch(embedding, {
-            nodeTypes: nodeTypes.length > 0 ? nodeTypes : undefined,
-            limit,
-            minSimilarity,
-            maxHops: 2,
-            includeRelated: true
-          });
-        } else {
-          // Simple vector search
-          log(`Performing direct vector search with ${indexName}`, 'semantic-search');
-          results = await performVectorSearch(
-            embedding,
-            indexName,
-            limit,
-            minSimilarity
-          );
-        }
-        
-        log(`Vector search returned ${results.length} results`, 'semantic-search');
-        
-        // Add additional debug info if we have results
-        if (results.length > 0) {
-          const topResult = results[0];
-          log(`Top result: ${topResult.type} "${topResult.content?.substring(0, 50)}..." with similarity ${topResult.similarity}`, 'semantic-search');
-        }
-      } catch (error) {
-        log(`Error in vector search: ${error}`, 'semantic-search-error');
-        
-        // Fall back to text search if vector search fails and text search is enabled
-        if (textSearch) {
-          log('Falling back to text search', 'semantic-search');
-          
-          // Simple text search implementation using Cypher directly
-          try {
-            const cypher = `
-              MATCH (n)
-              WHERE (n.content CONTAINS $queryText OR n.keywords CONTAINS $queryText)
-              ${nodeTypes.length > 0 ? `AND n.type IN $nodeTypes` : ''}
-              RETURN n
-              LIMIT $limit
-            `;
-            
-            const searchResults = await executeCustomQuery(cypher, {
-              queryText: query,
-              nodeTypes: nodeTypes.length > 0 ? nodeTypes : undefined,
-              limit
-            });
-            
-            // Convert to expected result format
-            results = searchResults.map((item: any) => {
-              const node = item.n.properties;
-              return {
-                ...node,
-                similarity: 0.5, // Arbitrary score for text matches
-                isDirectMatch: true
-              };
-            });
-            
-            log(`Text search returned ${results.length} results`, 'semantic-search');
-          } catch (textError) {
-            log(`Text search also failed: ${textError}`, 'semantic-search-error');
-            return res.status(500).json({
-              error: 'Both vector and text search failed',
-              details: `Vector search: ${error instanceof Error ? error.message : 'Unknown error'}. Text search: ${textError instanceof Error ? textError.message : 'Unknown error'}`
-            });
-          }
-        } else {
-          return res.status(500).json({
-            error: 'Vector search failed',
-            details: error instanceof Error ? error.message : 'Unknown error'
-          });
-        }
-      }
-    } else if (textSearch) {
-      // Basic text search implementation
-      log('Performing text-only search', 'semantic-search');
+      // Generate embedding for the query
+      log(`Generating embedding for query: "${query}"`, 'semantic-search');
+      const embedding = await generateEmbedding(query);
+      log(`Generated embedding with ${embedding.length} dimensions`, 'semantic-search');
+
+      // Choose the appropriate vector index
+      const vectorIndex = nodeTypes.length > 0 
+        ? `vector_idx_${nodeTypes.join('_')}`
+        : 'vector_idx_all';
       
+      log(`Using vector index: ${vectorIndex}`, 'semantic-search');
+      log(`Performing direct vector search with ${vectorIndex}`, 'semantic-search');
+
+      // Perform vector search
+      const vectorResults = await vectorSearch(
+        embedding,
+        minSimilarity,
+        limit,
+        nodeTypes
+      );
+
+      log(`Vector search returned ${vectorResults.length} results`, 'semantic-search');
+      
+      // Add direct match flag and add to results
+      vectorResults.forEach(result => {
+        result.isDirectMatch = true;
+        allResults.push(result);
+      });
+
+      // Log some info about top results
+      if (vectorResults.length > 0) {
+        const topResult = vectorResults[0];
+        log(`Top result: ${topResult.type} "${topResult.content?.substring(0, 25)}..." with similarity ${topResult.similarity}`, 'semantic-search');
+      }
+    }
+
+    // Perform text search if enabled
+    if (textSearch) {
+      // Text search query using CONTAINS or FULLTEXT index if available
       try {
-        const cypher = `
+        const textSearchQuery = `
           MATCH (n)
-          WHERE (n.content CONTAINS $queryText OR n.keywords CONTAINS $queryText)
-          ${nodeTypes.length > 0 ? `AND n.type IN $nodeTypes` : ''}
+          WHERE
+            ${nodeTypes.length > 0 ? `n.type IN $nodeTypes AND` : ''}
+            (n.content CONTAINS $query OR
+             n.title CONTAINS $query OR
+             ANY(k IN n.keywords WHERE k CONTAINS $query))
           RETURN n
           LIMIT $limit
         `;
-        
-        const searchResults = await executeCustomQuery(cypher, {
-          queryText: query,
-          nodeTypes: nodeTypes.length > 0 ? nodeTypes : undefined,
+
+        const textResults = await executeCustomQuery(textSearchQuery, {
+          query,
+          nodeTypes,
           limit
         });
-        
-        // Convert to expected result format
-        results = searchResults.map((item: any) => {
-          const node = item.n.properties;
-          return {
-            ...node,
-            similarity: 0.5, // Arbitrary score for text matches
-            isDirectMatch: true
-          };
-        });
-        
-        log(`Text search returned ${results.length} results`, 'semantic-search');
+
+        // Process text search results
+        if (textResults && textResults.length > 0) {
+          log(`Text search returned ${textResults.length} results`, 'semantic-search');
+          
+          // Add text search results to the overall results
+          textResults.forEach(result => {
+            const node = result.n.properties;
+            
+            // Skip if this node is already in the results from vector search
+            if (!allResults.some(r => r.id === node.id)) {
+              allResults.push({
+                ...node,
+                isDirectMatch: true,
+                matchType: 'text'
+              });
+            }
+          });
+        }
       } catch (error) {
-        log(`Error in text search: ${error}`, 'semantic-search-error');
-        return res.status(500).json({
-          error: 'Text search failed',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        });
+        log(`Text search error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search-error');
+        // Continue with other search methods
       }
     }
+
+    // Find related nodes if requested
+    if (includeRelated && allResults.length > 0 && maxHops > 0) {
+      // Get IDs of direct match nodes
+      const directNodeIds = allResults.map(node => node.id);
+      
+      try {
+        // Query for related nodes
+        const relatedNodesQuery = `
+          MATCH (n)-[r*1..${maxHops}]-(related)
+          WHERE n.id IN $nodeIds
+          ${nodeTypes.length > 0 ? 'AND related.type IN $nodeTypes' : ''}
+          RETURN related, 
+                 size([(n)-[r]-(related) WHERE n.id IN $nodeIds | r]) as connection_strength
+          LIMIT ${limit * 2}
+        `;
+
+        const relatedResults = await executeCustomQuery(relatedNodesQuery, {
+          nodeIds: directNodeIds,
+          nodeTypes
+        });
+
+        if (relatedResults && relatedResults.length > 0) {
+          log(`Found ${relatedResults.length} related nodes`, 'semantic-search');
+          
+          // Process related nodes
+          relatedResults.forEach(result => {
+            const node = result.related.properties;
+            const strength = result.connection_strength;
+            
+            // Skip if already in results
+            if (!allResults.some(r => r.id === node.id)) {
+              allResults.push({
+                ...node,
+                isDirectMatch: false,
+                connectionStrength: strength
+              });
+            }
+          });
+        }
+      } catch (error) {
+        log(`Related nodes query error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search-error');
+        // Continue with available results
+      }
+    }
+
+    // Sort results: direct matches first (by similarity), then related nodes
+    allResults.sort((a, b) => {
+      // Direct matches come before related nodes
+      if (a.isDirectMatch && !b.isDirectMatch) return -1;
+      if (!a.isDirectMatch && b.isDirectMatch) return 1;
+      
+      // For direct matches, sort by similarity
+      if (a.isDirectMatch && b.isDirectMatch) {
+        // If similarity is available, use it
+        if (a.similarity !== undefined && b.similarity !== undefined) {
+          return b.similarity - a.similarity;
+        }
+        // Fall back to importance
+        return (b.importance || 0) - (a.importance || 0);
+      }
+      
+      // For related nodes, sort by connection strength
+      return (b.connectionStrength || 0) - (a.connectionStrength || 0);
+    });
+
+    // Limit final results
+    const finalResults = allResults.slice(0, limit);
+
+    log(`Returning ${finalResults.length} search results`, 'semantic-search');
     
-    // Return the results in a consistent format
+    // Return search results
     return res.status(200).json({
       query,
-      results,
-      count: results.length,
-      searchType: vectorSearch && results.some(r => r.similarity > 0.5) ? 'vector' : 'text',
-      timestamp: new Date().toISOString()
+      results: finalResults
     });
   } catch (error) {
-    log(`Error in semantic search: ${error}`, 'semantic-search-error');
-    
+    log(`Semantic search error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search', 'error');
     return res.status(500).json({
-      error: 'Semantic search failed',
+      error: 'Failed to perform semantic search',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
+});
+
+/**
+ * GET /api/semantic/node-count
+ * Gets node counts by type
+ */
+semanticSearchRouter.get('/node-count', async (req, res) => {
+  try {
+    const query = `
+      MATCH (n)
+      RETURN n.type as type, count(n) as count
+      ORDER BY count DESC
+    `;
+    
+    const results = await executeCustomQuery(query);
+    
+    const typeCounts = results.reduce((acc, row) => {
+      acc[row.type || 'unknown'] = row.count;
+      return acc;
+    }, {});
+    
+    return res.status(200).json(typeCounts);
+  } catch (error) {
+    log(`Node count error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search', 'error');
+    return res.status(500).json({
+      error: 'Failed to get node counts',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});

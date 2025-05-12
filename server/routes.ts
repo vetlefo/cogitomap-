@@ -24,7 +24,7 @@ import {
   runSemanticAnalysisHandler
 } from "./api/semanticAnalysis";
 import { updateEmbeddingsHandler } from "./api/updateEmbeddings";
-import { semanticSearchHandler } from "./api/semanticSearch";
+import { semanticSearchRouter } from "./api/semanticSearch";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -353,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/semantic/keywords', extractKeywordsHandler);
   app.post('/api/semantic/relationships', findRelationshipsHandler);
   app.post('/api/semantic/analyze', runSemanticAnalysisHandler);
-  app.post('/api/semantic/search', semanticSearchHandler);
+  // Semantic search is now handled by the semanticSearchRouter
   app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
   
   // Legacy semantic analysis endpoint
@@ -506,6 +506,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Route for updating embeddings on existing nodes
   app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
+  
+  // Semantic search router
+  app.use('/api/semantic', semanticSearchRouter);
   
   // Route for executing custom Memgraph queries (used by memgraphClient)
   app.post('/api/graph/execute', async (req, res) => {
