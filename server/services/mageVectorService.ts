@@ -5,7 +5,7 @@
  */
 
 import { log } from "../vite";
-import { MemgraphClient, configureMemgraphClient } from "./memgraphClient";
+import { MemgraphClient, configureMemgraphClient } from "../services/memgraphClient";
 import { normalizeVector } from "./embeddingService";
 
 // Default configuration for vector indices

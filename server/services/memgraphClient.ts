@@ -1,86 +1,62 @@
 /**
- * Memgraph Client Service
- * Provides connection and query execution utilities for Memgraph
+ * Memgraph database client
+ * Provides connection and query execution for Memgraph
  */
 
 import { log } from "../vite";
 
-// Define types for the Memgraph client
 export interface MemgraphClient {
-  executeQuery: (query: string, params?: Record<string, any>) => Promise<any[]>;
-  close: () => Promise<void>;
+  executeQuery: (query: string, params?: any) => Promise<any[]>;
 }
 
-// Default configuration
-const DEFAULT_CONFIG = {
-  host: process.env.MEMGRAPH_HOST || 'localhost',
-  port: process.env.MEMGRAPH_PORT || '7687',
-  username: process.env.MEMGRAPH_USERNAME || '',
-  password: process.env.MEMGRAPH_PASSWORD || '',
-  useSsl: process.env.MEMGRAPH_USE_SSL === 'true' || true
-};
-
-// Track the client instance
+// Singleton client instance
 let memgraphClient: MemgraphClient | null = null;
 
 /**
- * Configure and return a Memgraph client
- * If a client already exists, returns the existing client
+ * Configure and get a Memgraph client instance
+ * Uses a singleton pattern to avoid multiple connections
  */
-export async function configureMemgraphClient(
-  config = DEFAULT_CONFIG
-): Promise<MemgraphClient> {
-  if (memgraphClient) {
+export async function configureMemgraphClient(): Promise<MemgraphClient> {
+  if (memgraphClient !== null) {
     return memgraphClient;
   }
 
   try {
-    log(`Connecting to Memgraph at ${getConnectionUri(config)}...`, "memgraph-client");
+    log("Configuring Memgraph client...", "memgraph-client");
     
-    // In a real implementation, this would use a proper driver
-    // This is a placeholder implementation
-    memgraphClient = {
-      async executeQuery(query: string, params: Record<string, any> = {}) {
-        log(`Executing query: ${query.slice(0, 200)}${query.length > 200 ? '...' : ''} with params: ${JSON.stringify(params)}`, "memgraph-client");
+    // Create a simple client that executes queries via the graph service API
+    // This ensures we have a consistent query interface
+    const client: MemgraphClient = {
+      executeQuery: async (query: string, params: any = {}) => {
+        log(`Executing query: ${query.substring(0, 200)}... with params: ${JSON.stringify(params).substring(0, 100)}`, "memgraph-client");
         
-        // In a real implementation, this would send the query to Memgraph
-        // For now, we'll return mock data
-        return [];
-      },
-      
-      async close() {
-        log("Closing Memgraph connection", "memgraph-client");
-        memgraphClient = null;
+        try {
+          // Use direct call to the graphService's executeCustomQuery function
+          // This avoids circular dependencies where the client tries to call
+          // an API endpoint that's not yet registered
+          const result = await import("../db/graphService").then(module => {
+            return module.executeCustomQuery(query, params);
+          });
+          return result;
+        } catch (error) {
+          log(`Query execution error: ${error}`, "memgraph-client-error");
+          throw error;
+        }
       }
     };
     
-    // Test the connection
-    log("Attempting to verify Memgraph connectivity...", "memgraph-client");
-    await memgraphClient.executeQuery("RETURN 1");
-    log("Successfully connected to Memgraph Cloud.", "memgraph-client");
-    
-    return memgraphClient;
+    memgraphClient = client;
+    return client;
   } catch (error) {
-    log(`Error connecting to Memgraph: ${error}`, "memgraph-client-error");
-    throw new Error(`Failed to connect to Memgraph: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-/**
- * Get a formatted connection URI
- */
-function getConnectionUri(config: typeof DEFAULT_CONFIG): string {
-  const protocol = config.useSsl ? 'bolt+ssc' : 'bolt';
-  return `${protocol}://${config.host}:${config.port}`;
-}
-
-/**
- * Close the Memgraph connection
- */
-export async function closeMemgraphConnection(): Promise<void> {
-  if (memgraphClient) {
-    await memgraphClient.close();
-    memgraphClient = null;
-    log("Memgraph connection closed", "memgraph-client");
+    log(`Error configuring Memgraph client: ${error}`, "memgraph-client-error");
+    
+    // Return a dummy client for testing/development that just logs queries
+    return {
+      executeQuery: async (query: string, params: any = {}) => {
+        log(`[DUMMY CLIENT] Would execute: ${query.substring(0, 200)}...`, "memgraph-client-debug");
+        log(`[DUMMY CLIENT] With params: ${JSON.stringify(params)}`, "memgraph-client-debug");
+        return [];
+      }
+    };
   }
 }

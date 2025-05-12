@@ -1211,3 +1211,65 @@ body {
   font-size: 0.9em;
   text-align: center;
 }
+
+/* Update Embeddings Button Styles */
+.admin-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.update-embeddings-button {
+  background-color: rgba(0, 60, 90, 0.7);
+  border: 1px solid rgba(0, 180, 255, 0.5);
+  color: #0ff;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 250px;
+}
+
+.update-embeddings-button:hover:not(:disabled) {
+  background-color: rgba(0, 70, 110, 0.8);
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.update-embeddings-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.update-embeddings-button.updating {
+  background-color: rgba(0, 90, 130, 0.8);
+  border-color: rgba(0, 255, 255, 0.6);
+}
+
+.updating-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #0ff;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+.update-stats {
+  font-size: 0.85em;
+  color: #8cf;
+  margin-top: 8px;
+  text-align: center;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

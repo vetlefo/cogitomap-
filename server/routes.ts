@@ -13,7 +13,8 @@ import {
   getGraphStats,
   getAllNodes,
   getAllEdges,
-  getSubgraph
+  getSubgraph,
+  executeCustomQuery
 } from "./db/graphService";
 import { generateEmbedding, embedding3DPosition } from "./services/embeddingService";
 import { analyzeSemanticRelationships, createSemanticEdges } from "./services/semanticService";
@@ -504,6 +505,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Route for updating embeddings on existing nodes
   app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
+  
+  // Route for executing custom Memgraph queries (used by memgraphClient)
+  app.post('/api/graph/execute', async (req, res) => {
+    try {
+      const { query, params } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ error: 'Query is required' });
+      }
+      
+      // Use the internal graph service to execute the query
+      const result = await executeCustomQuery(query, params || {});
+      return res.json(result);
+    } catch (error) {
+      log(`Error executing custom query: ${error}`, "api-graph-error");
+      return res.status(500).json({ 
+        error: 'Error executing query',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

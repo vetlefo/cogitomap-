@@ -147,6 +147,31 @@ export default function SemanticSearchTester({ onClose }: SemanticSearchTesterPr
         
         <div className="separator"></div>
         
+        <div className="admin-actions">
+          <button
+            className={`update-embeddings-button ${isUpdatingEmbeddings ? 'updating' : ''}`}
+            onClick={updateEmbeddings}
+            disabled={isUpdatingEmbeddings}
+          >
+            {isUpdatingEmbeddings ? (
+              <>
+                <span className="updating-spinner"></span>
+                Updating Embeddings...
+              </>
+            ) : (
+              <>Update Node Embeddings</>
+            )}
+          </button>
+          
+          {embeddingUpdateStats && (
+            <div className="update-stats">
+              Updated {embeddingUpdateStats.updated} out of {embeddingUpdateStats.total} nodes with embeddings
+            </div>
+          )}
+        </div>
+        
+        <div className="separator"></div>
+        
         <div className="search-container">
           <SemanticSearchBar 
             className="test-search-bar"
