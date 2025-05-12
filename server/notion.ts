@@ -7,12 +7,44 @@ export const notion = new Client({
 
 // Extract the page ID from the Notion page URL
 export function extractPageIdFromUrl(pageUrl: string): string {
-    const match = pageUrl.match(/([a-f0-9]{32})(?:[?#]|$)/i);
-    if (match && match[1]) {
-        return match[1];
+    // First try to match UUIDs formatted like 1f174e03-0a8d-808d-b8f8-f53cd5a135eb
+    const uuidMatch = pageUrl.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#]|$)/i);
+    if (uuidMatch && uuidMatch[1]) {
+        return uuidMatch[1];
+    }
+    
+    // Then try the 32-character hex format
+    const hexMatch = pageUrl.match(/([a-f0-9]{32})(?:[?#]|$)/i);
+    if (hexMatch && hexMatch[1]) {
+        return hexMatch[1];
     }
 
-    throw Error("Failed to extract page ID");
+    // Try to extract from Notion's slug format (e.g., mypage-1f174e03xxx)
+    const slugMatch = pageUrl.match(/-([a-f0-9]{32})(?:[?#]|$)/i);
+    if (slugMatch && slugMatch[1]) {
+        return slugMatch[1];
+    }
+
+    // Handle Notion's shorter format, typically seen in the browser
+    const shortMatch = pageUrl.match(/notion\.so\/([^/]+)\/([a-z0-9]+)(?:[?#]|$)/i);
+    if (shortMatch && shortMatch[2]) {
+        return shortMatch[2];
+    }
+
+    // Handle simple workspace/page-id format
+    const simpleMatch = pageUrl.match(/notion\.so\/[^/]*([a-z0-9]+)(?:[?#]|$)/i);
+    if (simpleMatch && simpleMatch[1]) {
+        return simpleMatch[1];
+    }
+
+    console.log("Could not extract page ID from URL:", pageUrl);
+    // Fallback to using the URL as is if it looks like it might be a valid ID
+    if (pageUrl && (pageUrl.length === 32 || pageUrl.length === 36)) {
+        console.log("Using URL directly as page ID");
+        return pageUrl;
+    }
+
+    throw Error("Failed to extract page ID from URL: " + pageUrl);
 }
 
 export const NOTION_PAGE_ID = extractPageIdFromUrl(process.env.NOTION_PAGE_URL!);
