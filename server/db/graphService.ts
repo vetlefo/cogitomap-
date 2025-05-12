@@ -9,9 +9,8 @@ import { log } from "../vite";
 import type { BubbleNode, Edge } from "../../client/src/types";
 
 // Track if we're in fallback mode
-// TEMPORARY DEBUG: Force using fallback storage
-let usingFallback = true;
-let connectionTested = true;
+let usingFallback = false;
+let connectionTested = false;
 
 // Constants for pagination defaults
 const DEFAULT_PAGE_SIZE = 50;

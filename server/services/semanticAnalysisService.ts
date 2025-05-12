@@ -369,7 +369,7 @@ export async function findSemanticRelationships(
               id: `semantic-edge-${index}`,
               source: `semantic-${edge.source}`,
               target: `semantic-${edge.target}`,
-              relationship: edge.relationship || 'related_to',
+              relationship: edge.relationship || 'supports',
               strength: edge.strength || 5
             }));
           }
