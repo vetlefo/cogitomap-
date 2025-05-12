@@ -13,16 +13,20 @@ export function extractPageIdFromUrl(pageUrl: string): string {
         return uuidMatch[1];
     }
     
-    // Then try the 32-character hex format
+    // Then try the 32-character hex format without dashes
     const hexMatch = pageUrl.match(/([a-f0-9]{32})(?:[?#]|$)/i);
     if (hexMatch && hexMatch[1]) {
-        return hexMatch[1];
+        // Format the ID with dashes to match Notion's expected format
+        const hex = hexMatch[1];
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
 
     // Try to extract from Notion's slug format (e.g., mypage-1f174e03xxx)
     const slugMatch = pageUrl.match(/-([a-f0-9]{32})(?:[?#]|$)/i);
     if (slugMatch && slugMatch[1]) {
-        return slugMatch[1];
+        // Format with dashes
+        const hex = slugMatch[1];
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
 
     // Handle Notion's shorter format, typically seen in the browser
@@ -40,6 +44,10 @@ export function extractPageIdFromUrl(pageUrl: string): string {
     console.log("Could not extract page ID from URL:", pageUrl);
     // Fallback to using the URL as is if it looks like it might be a valid ID
     if (pageUrl && (pageUrl.length === 32 || pageUrl.length === 36)) {
+        // If it's 32 chars, add dashes
+        if (pageUrl.length === 32) {
+            return `${pageUrl.slice(0, 8)}-${pageUrl.slice(8, 12)}-${pageUrl.slice(12, 16)}-${pageUrl.slice(16, 20)}-${pageUrl.slice(20)}`;
+        }
         console.log("Using URL directly as page ID");
         return pageUrl;
     }
