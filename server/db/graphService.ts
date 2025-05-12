@@ -568,6 +568,42 @@ export async function getGraphStats(): Promise<{ nodeCount: number, edgeCount: n
  * @param params Optional parameters for the query
  * @returns The query result
  */
+/**
+ * Handle vector search queries in fallback mode by using the fallbackStorage's vector search
+ */
+async function handleFallbackVectorSearch(params: Record<string, any>): Promise<any[]> {
+  try {
+    const { 
+      embedding,
+      nodeTypes = [],
+      limit = 10, 
+      minSimilarity = 0.5 
+    } = params;
+    
+    if (!embedding || !Array.isArray(embedding)) {
+      log("Missing or invalid embedding for fallback vector search", "graph-service-error");
+      return [];
+    }
+    
+    log(`Performing fallback vector search with ${embedding.length} dimension vector`, "graph-service");
+    
+    // Use the fallbackStorage's vector search method
+    const results = fallbackStorage.vectorSearch(embedding, nodeTypes, limit, minSimilarity);
+    
+    // Transform results to match the expected format from Memgraph queries
+    return results.map(result => ({
+      node: {
+        properties: { ...result }
+      },
+      similarity: result.similarity
+    }));
+    
+  } catch (error) {
+    log(`Error in fallback vector search: ${error}`, "graph-service-error");
+    return [];
+  }
+}
+
 export async function executeCustomQuery(query: string, params: Record<string, any> = {}): Promise<any[]> {
   // Ensure we've tested the connection
   if (!connectionTested) {
@@ -618,7 +654,13 @@ export async function executeCustomQuery(query: string, params: Record<string, a
     }
   }
   
-  // Fallback mode - return empty array
-  log(`Cannot execute custom query in fallback mode: ${query}`, "graph-service");
-  return [];
+  // Fallback mode - check if it's a vector search query we can handle
+  if (query.includes('db.index.vector.queryNodes') && params.embedding) {
+    log(`Detected vector search query in fallback mode, attempting fallback vector search`, "graph-service");
+    return handleFallbackVectorSearch(params);
+  } else {
+    // Can't handle other custom queries in fallback mode
+    log(`Cannot execute custom query in fallback mode: ${query}`, "graph-service");
+    return [];
+  }
 }

@@ -21,6 +21,13 @@ export interface BubbleNode {
   metadata?: Record<string, any>; // For extra info like entity type (PERSON, ORG)
   // Semantic embedding vector
   embedding_vector?: number[]; // Embedding vector for semantic similarity and positioning
+  
+  // Optional fields for search results
+  similarity?: number;       // Similarity score from vector search
+  isDirectMatch?: boolean;   // Whether this is a direct vector match vs a graph-expanded result
+  title?: string;            // Optional title for display in search results
+  description?: string;      // Optional description for display
+  selected?: boolean;        // UI state for node selection
 }
 
 // Connection between nodes

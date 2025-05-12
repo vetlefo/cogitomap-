@@ -4,7 +4,7 @@
  */
 
 import { log } from "../vite";
-import type { BubbleNode, Edge } from "../../client/src/types";
+import type { BubbleNode, Edge, RelationshipType } from "../../client/src/types";
 
 class FallbackStorage {
   private nodes: Map<string, BubbleNode>;
@@ -81,7 +81,7 @@ class FallbackStorage {
       id: edgeId,
       source: sourceId,
       target: targetId,
-      relationship,
+      relationship: relationship as RelationshipType,
       strength: properties.strength,
       ...properties
     };

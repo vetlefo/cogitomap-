@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { BubbleNode } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -412,7 +412,7 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
               {results.map((node, index) => (
                 <Card key={node.id} className={`overflow-hidden ${
                   // Highlight direct matches (nodes with high similarity)
-                  node.similarity > 0.8 
+                  (node.similarity && node.similarity > 0.8) 
                     ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
                     : ''
                 }`}>
