@@ -1,0 +1,73 @@
+Vector Similarity in MAGE:**
+
+*   **How MAGE handles vector embeddings storage:**
+    *   Embeddings are stored as properties on nodes (e.g., `CREATE (n:Node {vector: [2, 2]});`).
+    *   A dedicated vector index is created on this property using `CREATE VECTOR INDEX index_name ON :Label(property_name) WITH CONFIG {...};`.
+    *   The documentation mentions: "Properties are stored as 64-bit values in the property store and as 32-bit values in the vector index."
+*   **Vector similarity search functions or algorithms available:**
+    *   The primary function is `CALL vector_search.search("index_name", limit, [query_vector]) YIELD distance, node, similarity RETURN *;`.
+    *   This search is performed by the `vector_search` MAGE module, which, as we suspected, likely uses `usearch` under the hood (though `usearch` isn't explicitly named on this specific page, its presence in the CMake files is a strong indicator).
+    *   Supported similarity metrics:
+        *   `ip` (Inner product)
+        *   `cos` (Cosine similarity - used in the example)
+        *   `l2sq` (Squared Euclidean distance - default)
+        *   `pearson` (Pearson correlation coefficient)
+        *   `haversine` (for geographic data)
+        *   `divergence`
+        *   `hamming`
+        *   `tanimoto`
+        *   `sorensen` (Sørensen-Dice coefficient)
+        *   `jaccard` (Jaccard index)
+*   **Performance recommendations for embedding dimensions:**
+    *   The `dimension` is a **mandatory** configuration parameter when creating the vector index (e.g., `WITH CONFIG {"dimension": 256, ...}`).
+    *   The documentation does not offer specific performance recommendations for different dimensions on this page, but it states the dimension must be specified.
+
+**Semantic Queries with MAGE:**
+
+*   **Syntax for performing similarity queries using semantic embeddings:**
+    *   First, create nodes with an embedding property: `CREATE (n:Label {embedding_property: [0.1, 0.2, ..., dim_n]});`
+    *   Then, create a vector index on that property: `CREATE VECTOR INDEX my_index ON :Label(embedding_property) WITH CONFIG {"dimension": <your_dim>, "capacity": <your_capacity>};`
+    *   Perform the search: `CALL vector_search.search("my_index", <number_of_results>, [<query_embedding>]) YIELD node, similarity RETURN node, similarity;`
+*   **How to efficiently query by embedding vector similarity:**
+    *   The efficiency comes from using the `CREATE VECTOR INDEX` command. This creates a specialized data structure for fast nearest neighbor search.
+    *   The documentation notes: "Unlike other index types, the query planner currently does not utilize vector indices." This implies that you *must* use the `CALL vector_search.search(...)` procedure to leverage the vector index; a standard `WHERE` clause on the vector property won't use this specialized index for similarity.
+*   **Support for dimensionality in embedding vectors (e.g., max dimensions supported):**
+    *   The `dimension` parameter is an integer and is mandatory.
+    *   This page doesn't specify a maximum supported dimension. You'd likely need to check `usearch`'s limits or Memgraph's practical limits through testing or further documentation.
+
+**Indexing Features:**
+
+*   **Vector indexing capabilities for faster similarity searches:**
+    *   Yes, Memgraph provides this via `CREATE VECTOR INDEX`.
+    *   It uses a `READ_UNCOMMITTED` isolation level specifically for vector indices to maintain performance while ensuring ACID properties for other database operations.
+*   **Best practices for index creation with embeddings:**
+    *   **Mandatory Parameters:** Always specify `dimension` and `capacity`.
+    *   **Capacity:** `capacity` is a minimum and prefers powers of two. It's adjusted internally.
+    *   **Metric:** Choose an appropriate `metric` based on your embedding type and similarity notion (e.g., `cos` for many language model embeddings, `l2sq` is the default).
+    *   **`resize_coefficient`:** Controls how the index grows when capacity is reached (default is 2).
+    *   The example creates an index: `CREATE VECTOR INDEX index_name ON :Node(vector) WITH CONFIG {"dimension": 2, "capacity": 1000, "metric": "cos","resize_coefficient": 2};`
+*   **Index limitations for embedding vectors:**
+    *   "Properties are stored as 64-bit values in the property store and as 32-bit values in the vector index." This implies a potential precision reduction when vectors are added to the index, using `f32` by default.
+    *   The query planner doesn't automatically use vector indices for WHERE clauses. You must use the `vector_search.search()` procedure.
+
+**Integration with Your Stack:**
+
+*   **Examples of integrating Memgraph with modern embedding models:**
+    *   This page doesn't provide end-to-end examples with specific external embedding models (like OpenAI). However, the process would be:
+        1.  Generate embeddings using your chosen model (e.g., OpenAI's API) in your application code.
+        2.  Store these embeddings as list/array properties on your Memgraph nodes.
+        3.  Create a vector index on that property.
+        4.  Use `vector_search.search()` with a query vector (also generated by your model) to find similar nodes.
+*   **Performance considerations for real-time graph updates:**
+    *   The vector index operates at `READ_UNCOMMITTED`. This suggests that updates to the index (adding/removing nodes with indexed vector properties) are designed to be relatively fast and not block other transactions heavily.
+    *   When the index reaches capacity, it resizes. If memory is insufficient for resizing, an exception occurs. This is a key consideration for capacity planning.
+*   **Recommendations for handling vectors from OpenAI's text-embedding-3-small model:**
+    *   **Dimension:** You would set the `dimension` parameter in `CREATE VECTOR INDEX` to match the output dimension of `text-embedding-3-small` (which is 1536 for the `small` variant, but always verify with OpenAI's latest documentation).
+    *   **Metric:** Cosine similarity (`cos`) is generally recommended for sentence/text embeddings from models like OpenAI's.
+    *   **Data Type:** Ensure your application sends the vector as a list of floating-point numbers. Memgraph will store them as 32-bit floats in the index.
+
+This page is quite comprehensive for the core vector search functionality!
+
+Regarding **GraphRAG**, the sidebar menu on the fetched page has an "AI ecosystem" section with "GraphRAG" listed. This implies that Memgraph has dedicated documentation or features for GraphRAG. The current page focuses on the lower-level vector search capability, which is a fundamental component of a RAG system.
+
+Do you want me to try and fetch the "GraphRAG" page from the Memgraph documentation to see how it builds upon this vector search functionality?

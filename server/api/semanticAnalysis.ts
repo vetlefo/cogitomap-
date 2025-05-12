@@ -10,9 +10,16 @@ import {
   createSummaryNode,
   runAsyncSemanticAnalysis
 } from '../services/semanticAnalysisService';
+import { generateEmbedding } from '../services/embeddingService';
+import { 
+  performVectorSearch, 
+  performSemanticGraphSearch, 
+  initializeMageVectorService 
+} from '../services/mageVectorService';
 import { Message } from '../../client/src/types';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { log } from '../vite';
 
 // Schema for semantic analysis request
 const SemanticAnalysisRequestSchema = z.object({
@@ -29,7 +36,20 @@ const SemanticAnalysisRequestSchema = z.object({
   }).optional()
 });
 
+// Schema for semantic search request
+const SemanticSearchRequestSchema = z.object({
+  query: z.string().min(3),
+  nodeTypes: z.array(z.string()).optional(),
+  maxResults: z.number().min(1).max(50).optional(),
+  minSimilarity: z.number().min(0.1).max(1.0).optional(),
+  includeRelated: z.boolean().optional(),
+  maxHops: z.number().min(1).max(3).optional(),
+  useEmbedding: z.boolean().optional(),
+  requireKeywords: z.array(z.string()).optional()
+});
+
 type SemanticAnalysisRequest = z.infer<typeof SemanticAnalysisRequestSchema>;
+type SemanticSearchRequest = z.infer<typeof SemanticSearchRequestSchema>;
 
 /**
  * Endpoint to extract keywords from a conversation
@@ -154,5 +174,126 @@ export async function runSemanticAnalysisHandler(req: Request, res: Response) {
       error: 'Internal server error during semantic analysis',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+}
+
+/**
+ * Endpoint for semantic vector search in the knowledge graph
+ * Uses MAGE's vector search capabilities for efficient similarity search
+ */
+export async function semanticSearchHandler(req: Request, res: Response) {
+  try {
+    // Validate request body
+    const validationResult = SemanticSearchRequestSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessage = fromZodError(validationResult.error).toString();
+      return res.status(400).json({ error: errorMessage });
+    }
+    
+    const { 
+      query, 
+      nodeTypes = [], 
+      maxResults = 10, 
+      minSimilarity = 0.65,
+      includeRelated = true,
+      maxHops = 2,
+      useEmbedding = true,
+      requireKeywords = []
+    } = validationResult.data;
+    
+    log(`Performing semantic search for query: "${query}"`, "semantic-search-api");
+    
+    // Initialize the MAGE vector service if using embeddings
+    if (useEmbedding) {
+      await initializeMageVectorService();
+    }
+    
+    let results;
+    
+    // If embeddings are requested, generate and use them
+    if (useEmbedding) {
+      try {
+        // Generate embedding for query
+        const queryEmbedding = await generateEmbedding(query);
+        
+        // Perform vector-based semantic search
+        results = await performSemanticGraphSearch(queryEmbedding, {
+          limit: maxResults,
+          minSimilarity,
+          includeRelated,
+          maxHops,
+          nodeTypes,
+          requireKeywords
+        });
+        
+        log(`Found ${results.length} semantic matches using vector search`, "semantic-search-api");
+      } catch (error) {
+        log(`Error in vector search, falling back to keyword search: ${error}`, "semantic-search-api-error");
+        
+        // Fallback to basic keyword search
+        results = await performKeywordSearch(query, nodeTypes, maxResults);
+      }
+    } else {
+      // Perform keyword-based search
+      results = await performKeywordSearch(query, nodeTypes, maxResults);
+      log(`Found ${results.length} matches using keyword search`, "semantic-search-api");
+    }
+    
+    return res.json({
+      query,
+      results,
+      searchType: useEmbedding ? 'vector' : 'keyword',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    log(`Error in semantic search: ${error}`, "semantic-search-api-error");
+    return res.status(500).json({ 
+      error: 'Internal server error during semantic search',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+/**
+ * Helper function for basic keyword search in the graph
+ */
+async function performKeywordSearch(
+  query: string, 
+  nodeTypes: string[] = [], 
+  limit: number = 10
+): Promise<Array<{id: string, type: string, content: string, similarity: number, isDirectMatch: boolean}>> {
+  try {
+    const searchTerms = query.toLowerCase().split(/\s+/);
+    
+    // Build type filter
+    let typeFilter = '';
+    if (nodeTypes && nodeTypes.length > 0) {
+      const typeList = nodeTypes.map(t => `n.type = '${t}'`).join(' OR ');
+      typeFilter = `AND (${typeList})`;
+    }
+    
+    // Crude keyword matching query
+    const keywordQuery = `
+      MATCH (n)
+      WHERE n.content IS NOT NULL ${typeFilter}
+      WITH n, n.content AS content
+      WHERE ${searchTerms.map(term => `toLower(content) CONTAINS '${term.replace(/'/g, "\\'")}'`).join(' OR ')}
+      RETURN n.id AS id, n.type AS type, n.content AS content
+      LIMIT ${limit}
+    `;
+    
+    // This is a placeholder - in a real implementation, use the memgraphClient directly
+    // For now, return a mock result
+    return [{
+      id: 'keyword-search-not-implemented',
+      type: 'info',
+      content: 'Keyword search fallback not fully implemented. Please use vector search.',
+      similarity: 1.0,
+      isDirectMatch: true
+    }];
+  } catch (error) {
+    log(`Error in keyword search: ${error}`, "semantic-search-api-error");
+    return [];
   }
 }

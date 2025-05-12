@@ -20,7 +20,8 @@ import { analyzeSemanticRelationships, createSemanticEdges } from "./services/se
 import { 
   extractKeywordsHandler, 
   findRelationshipsHandler, 
-  runSemanticAnalysisHandler 
+  runSemanticAnalysisHandler,
+  semanticSearchHandler
 } from "./api/semanticAnalysis";
 import { z } from "zod";
 
@@ -350,6 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/semantic/keywords', extractKeywordsHandler);
   app.post('/api/semantic/relationships', findRelationshipsHandler);
   app.post('/api/semantic/analyze', runSemanticAnalysisHandler);
+  app.post('/api/semantic/search', semanticSearchHandler);
   
   // Legacy semantic analysis endpoint
   app.post('/api/graph/semantic-analysis', async (req, res) => {
