@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import type { BubbleNode } from '../types/graph';
+import React, { useState } from 'react';
+import type { BubbleNode } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';

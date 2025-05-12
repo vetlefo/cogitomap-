@@ -140,29 +140,33 @@ export async function performVectorSearch(
       throw new Error("Invalid embedding vector provided");
     }
     
+    log(`Performing vector search with ${embedding.length} dimension vector, min similarity: ${minSimilarity}`, "mage-vector-service");
+    
     // Vector search using MAGE
     const query = `
-      CALL db.index.vector.queryNodes($indexName, $embedding, $limit)
+      CALL db.index.vector.queryNodes('${indexName}', $embedding, ${limit})
       YIELD node, similarity
-      WHERE similarity >= $minSimilarity
+      WHERE similarity >= ${minSimilarity}
       RETURN node, similarity
       ORDER BY similarity DESC
     `;
     
+    log(`Executing MAGE vector query: ${query}`, "mage-vector-service");
+    
     const results = await executeCustomQuery(query, {
-      indexName,
-      embedding,
-      limit,
-      minSimilarity
+      embedding
     });
+    
+    log(`Vector search returned ${results.length} results`, "mage-vector-service");
     
     // Convert results to BubbleNode objects with similarity scores
     return results.map((result: any) => {
       const node = result.node.properties;
       return {
         ...node,
-        similarity: result.similarity
-      } as BubbleNode & { similarity: number };
+        similarity: result.similarity,
+        isDirectMatch: true // Mark all vector search results as direct matches
+      } as BubbleNode & { similarity: number, isDirectMatch: boolean };
     });
   } catch (error) {
     log(`Error in vector search: ${error}`, "mage-vector-service-error");
