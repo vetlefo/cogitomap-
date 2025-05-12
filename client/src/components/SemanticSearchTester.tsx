@@ -454,7 +454,7 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
                     </p>
                     {node.keywords && node.keywords.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {node.keywords.map((keyword, i) => (
+                        {node.keywords.map((keyword: string, i: number) => (
                           <Badge key={i} variant="outline" className="text-xs">
                             {keyword}
                           </Badge>
