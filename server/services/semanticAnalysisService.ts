@@ -319,7 +319,7 @@ export async function findSemanticRelationships(
               conceptEdges.push({
                 source: concepts[i].id,
                 target: concepts[target].id,
-                relationship: 'related_to',
+                relationship: 'mentions',
                 strength: 6 + Math.floor(Math.random() * 4) // 6-9 strength
               });
             }
@@ -333,7 +333,7 @@ export async function findSemanticRelationships(
               conceptEdges.push({
                 source: concepts[source].id,
                 target: concepts[target].id,
-                relationship: 'related_to',
+                relationship: 'mentions',
                 strength: 6 + Math.floor(Math.random() * 4)
               });
             }
@@ -435,7 +435,7 @@ export async function findSemanticRelationships(
                 id: `semantic-fallback-edge-${i}`,
                 source: nodes[i].id,
                 target: nodes[i+1].id,
-                relationship: 'related_to',
+                relationship: 'mentions',
                 strength: 6
               });
             }
@@ -445,7 +445,7 @@ export async function findSemanticRelationships(
               id: `semantic-fallback-edge-last`,
               source: nodes[nodes.length-1].id,
               target: nodes[0].id,
-              relationship: 'related_to',
+              relationship: 'mentions',
               strength: 5
             });
           }
