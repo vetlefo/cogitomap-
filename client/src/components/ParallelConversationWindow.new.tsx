@@ -5,6 +5,7 @@ import ModelSelector from './ModelSelector';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { BubbleNode, Message, StructuredLLMOutput } from '../types';
 import { useVisualization } from '../lib/stores/useVisualization';
+import { Key } from 'lucide-react';
 
 interface ParallelConversationWindowProps {
   windowId: string;
@@ -490,7 +491,7 @@ export default function ParallelConversationWindow({
             onClick={() => setIsApiKeyModalOpen(true)}
             title="Set API Key"
           >
-            🔑
+            <Key size={16} style={{ color: '#0ff' }} />
           </button>
           <button 
             style={{

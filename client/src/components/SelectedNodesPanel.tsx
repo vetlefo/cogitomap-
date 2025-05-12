@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useVisualization } from '../lib/stores/useVisualization';
 import { BubbleNode } from '../types';
 import { useKeyboardState } from '../hooks/useKeyboardState';
+import { Check, X } from 'lucide-react';
 
 interface SelectedNodesPanelProps {
   onRequestSecondOpinion: (selectedNodeIds: string[]) => void;
