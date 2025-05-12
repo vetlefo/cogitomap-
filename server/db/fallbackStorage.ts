@@ -211,7 +211,7 @@ class FallbackStorage {
   getAllNodes(
     page: number = 0, 
     pageSize: number = 50, 
-    nodeType: string = 'all'
+    nodeType: string | null = 'all'
   ): { nodes: BubbleNode[], total: number } {
     log(`getAllNodes called with page=${page}, pageSize=${pageSize}, nodeType=${nodeType}`, "fallback-storage-debug");
     log(`Current nodes in Map: ${this.nodes.size}`, "fallback-storage-debug");
@@ -224,11 +224,14 @@ class FallbackStorage {
     
     log(`Converted ${nodeArray.length} nodes to array`, "fallback-storage-debug");
     
-    // Filter by node type if specified
+    // Filter by node type if specified - force to 'all' if null
+    const effectiveNodeType = nodeType === null ? 'all' : nodeType;
+    log(`Using effective nodeType: ${effectiveNodeType}`, "fallback-storage-debug");
+    
     let filteredNodes = nodeArray;
-    if (nodeType !== 'all') {
-      filteredNodes = filteredNodes.filter(node => node.type === nodeType);
-      log(`Filtered to ${filteredNodes.length} nodes of type ${nodeType}`, "fallback-storage-debug");
+    if (effectiveNodeType !== 'all') {
+      filteredNodes = filteredNodes.filter(node => node.type === effectiveNodeType);
+      log(`Filtered to ${filteredNodes.length} nodes of type ${effectiveNodeType}`, "fallback-storage-debug");
     }
     
     // Apply pagination
