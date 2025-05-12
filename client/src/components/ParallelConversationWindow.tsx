@@ -365,7 +365,19 @@ export default function ParallelConversationWindow({
                 key={index} 
                 className={`message ${message.role}`}
               >
-                {message.content}
+                {(() => {
+                  try {
+                    // Check if the content is a JSON string containing main_response
+                    if (message.content && message.content.startsWith('{') && message.content.includes('"main_response"')) {
+                      const parsedContent = JSON.parse(message.content);
+                      return parsedContent.main_response || message.content;
+                    }
+                    return message.content;
+                  } catch (e) {
+                    // If parsing fails, just return the original content
+                    return message.content;
+                  }
+                })()}
               </div>
             )
           ))}

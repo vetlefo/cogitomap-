@@ -307,7 +307,21 @@ export default function ChatInterface({
                 <span className="node-indicator">{messageNodeMap[index].length} node{messageNodeMap[index].length > 1 ? 's' : ''}</span>
               )}
             </div>
-            <div className="message-content">{message.content}</div>
+            <div className="message-content">
+              {(() => {
+                try {
+                  // Check if the content is a JSON string containing main_response
+                  if (message.content && message.content.startsWith('{') && message.content.includes('"main_response"')) {
+                    const parsedContent = JSON.parse(message.content);
+                    return parsedContent.main_response || message.content;
+                  }
+                  return message.content;
+                } catch (e) {
+                  // If parsing fails, just return the original content
+                  return message.content;
+                }
+              })()}
+            </div>
           </div>
         ))}
         {isProcessing && (
