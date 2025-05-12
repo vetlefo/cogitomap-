@@ -5,6 +5,7 @@ import { Html, useTexture, MeshDistortMaterial, MeshWobbleMaterial, Sphere } fro
 import { BubbleNode } from "../types";
 import { useVisualization } from "../lib/stores/useVisualization";
 import { useKeyboardState } from "../hooks/useKeyboardState";
+import { Check, X, RefreshCcw } from "lucide-react";
 
 // Utility function to blend two hex colors
 function blendColors(color1: number, color2: number, ratio: number): number {
@@ -438,19 +439,19 @@ export default function ContextBubble({
                 {/* Validation status indicators */}
                 {validation.validated.includes(node.id) && (
                   <div className="validation-status validated">
-                    ✓ Validated - Added to main graph
+                    <Check size={16} className="inline mr-1 text-green-500" /> Validated - Added to main graph
                   </div>
                 )}
                 
                 {validation.rejected.includes(node.id) && (
                   <div className="validation-status rejected">
-                    ✗ Rejected - Not integrated
+                    <X size={16} className="inline mr-1 text-red-500" /> Rejected - Not integrated
                   </div>
                 )}
                 
                 {validation.pending.includes(node.id) && (
                   <div className="validation-status pending">
-                    ⟳ Pending review...
+                    <RefreshCcw size={16} className="inline mr-1 text-blue-500" /> Pending review...
                   </div>
                 )}
                 

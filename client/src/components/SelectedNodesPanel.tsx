@@ -201,7 +201,10 @@ export default function SelectedNodesPanel({ onRequestSecondOpinion }: SelectedN
               }}
             >
               <div><strong>DEBUG INFO:</strong></div>
-              <div>Keyboard: {keyboardState.shiftKey ? 'Shift✓' : 'Shift✗'} | {keyboardState.ctrlKey ? 'Ctrl✓' : 'Ctrl✗'}</div>
+              <div>
+                Keyboard: {keyboardState.shiftKey ? <span>Shift <Check size={14} className="inline text-green-500" /></span> : <span>Shift <X size={14} className="inline text-red-500" /></span>} | 
+                {keyboardState.ctrlKey ? <span>Ctrl <Check size={14} className="inline text-green-500" /></span> : <span>Ctrl <X size={14} className="inline text-red-500" /></span>}
+              </div>
               <div>Total Scene Nodes: {nodes.length}</div>
               <div>Primary Selected: {selectedNodeId ? selectedNodeId.substring(0, 8) + '...' : 'null'}</div>
               <div>Multi-Selected: [{selectedNodes.length}] {selectedNodes.length > 0 ? selectedNodes.map(id => id.substring(0, 6)).join(', ') : 'none'}</div>
