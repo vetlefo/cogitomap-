@@ -16,6 +16,14 @@ import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenA
 import { useKeyboardState } from "./hooks/useKeyboardState";
 import { AuthProvider } from "./hooks/useAuth";
 import { Message } from "./types";
+import { 
+  LayoutPanelLeft, 
+  RotateCcw, 
+  Flag, 
+  Key, 
+  Search, 
+  Eye 
+} from "lucide-react";
 import "../src/styles/cyberpunk.css";
 
 function App() {
