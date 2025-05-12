@@ -1,7 +1,8 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import App from './App';
-import NotionPage from './pages/NotionPage';
+// NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
+// import NotionPage from './pages/NotionPage';
 
 // Import UI components
 import { Button } from './components/ui/button';
@@ -17,11 +18,13 @@ const Navigation: React.FC = () => {
           </Link>
           
           <div className="ml-6 flex space-x-1">
+            {/* NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
             <Link to="/notion">
               <Button variant="ghost" className="text-xs h-8 px-2">
                 Notion
               </Button>
             </Link>
+            */}
           </div>
         </div>
       </div>
@@ -45,7 +48,9 @@ const AppWithRouter: React.FC = () => {
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/" element={<App />} />
+            {/* NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
             <Route path="/notion" element={<NotionPage />} />
+            */}
           </Routes>
         </Suspense>
       </div>

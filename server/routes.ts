@@ -25,7 +25,8 @@ import {
 } from "./api/semanticAnalysis";
 import { updateEmbeddingsHandler } from "./api/updateEmbeddings";
 import { semanticSearchRouter } from "./api/semanticSearch";
-import { notionSyncRouter } from './api/notionSync';
+// NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
+// import { notionSyncRouter } from './api/notionSync';
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -511,8 +512,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Semantic search router
   app.use('/api/semantic', semanticSearchRouter);
   
+  // NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
   // Notion synchronization router
-  app.use('/api/notion', notionSyncRouter);
+  // app.use('/api/notion', notionSyncRouter);
   
   // Route for executing custom Memgraph queries (used by memgraphClient)
   app.post('/api/graph/execute', async (req, res) => {
