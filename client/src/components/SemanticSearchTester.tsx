@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BubbleNode } from '../types/graph';
+import type { BubbleNode } from '../types/graph';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
@@ -156,7 +156,7 @@ const SemanticSearchTester: React.FC<SemanticSearchTesterProps> = ({ onClose }) 
     setUpdateStatus('Starting update...');
     
     try {
-      const response = await fetch('/api/update-embeddings', {
+      const response = await fetch('/api/semantic/update-embeddings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

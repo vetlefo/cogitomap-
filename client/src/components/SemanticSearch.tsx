@@ -37,7 +37,25 @@ const SemanticSearch: React.FC<SemanticSearchProps> = ({
 
   // Show the tester instead of regular search when enabled
   if (showTester) {
-    return <SemanticSearchTester onClose={() => setShowTester(false)} />;
+    return (
+      <div className={`semantic-search-panel ${className}`}>
+        <div className="panel-header">
+          <h3>Semantic Search Tester</h3>
+          {onClose && (
+            <button className="close-button" onClick={onClose}>×</button>
+          )}
+          <button 
+            className="back-button px-2 py-1 text-xs bg-cyan-900/50 text-cyan-300 rounded border border-cyan-500/30 hover:bg-cyan-800/60 ml-auto mr-2"
+            onClick={() => setShowTester(false)}
+          >
+            Back to Search
+          </button>
+        </div>
+        <div className="panel-content">
+          <SemanticSearchTester />
+        </div>
+      </div>
+    );
   }
 
   return (

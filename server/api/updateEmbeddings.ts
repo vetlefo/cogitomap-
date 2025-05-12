@@ -4,9 +4,9 @@
 
 import { Request, Response } from "express";
 import { log } from "../vite";
-import { getAllNodes } from "../db/graphService";
+import { executeCustomQuery, getAllNodes } from "../db/graphService";
 import { generateEmbedding } from "../services/embeddingService";
-import { storeNodeEmbedding } from "../services/mageVectorService";
+import { BubbleNode } from "../../client/src/types";
 
 /**
  * Handler for updating embeddings on existing nodes
@@ -15,76 +15,100 @@ import { storeNodeEmbedding } from "../services/mageVectorService";
  */
 export async function updateEmbeddingsHandler(req: Request, res: Response) {
   try {
-    const { nodeType = 'all', limit = 50 } = req.body;
-    log(`Updating embeddings for nodes of type: ${nodeType}, limit: ${limit}`, 'update-embeddings');
+    const { 
+      nodeType = 'all',  // Type of nodes to update, or 'all' for all types
+      limit = 50         // Maximum number of nodes to process in one request
+    } = req.body;
+
+    log(`Starting embedding update for node type: ${nodeType}, limit: ${limit}`, "update-embeddings");
     
-    // Fetch nodes without embeddings
-    let allNodes: any[] = [];
-    let page = 0;
-    let hasMore = true;
+    // 1. Get nodes without embeddings
+    let nodes: BubbleNode[] = [];
     
-    // Get nodes in batches to avoid memory issues with large datasets
-    while (hasMore && allNodes.length < limit) {
-      const { nodes, total } = await getAllNodes(page, 50, nodeType);
-      allNodes = [...allNodes, ...nodes.filter(node => !node.embedding_vector)];
+    try {
+      // Get nodes that don't have embeddings yet
+      if (nodeType === 'all') {
+        nodes = await getAllNodes(0, limit, undefined, true);
+      } else {
+        nodes = await getAllNodes(0, limit, nodeType as string, true);
+      }
       
-      page++;
-      hasMore = allNodes.length < total && allNodes.length < limit;
+      log(`Found ${nodes.length} nodes that need embeddings updated`, "update-embeddings");
+    } catch (error) {
+      log(`Error fetching nodes: ${error}`, "update-embeddings-error");
+      return res.status(500).json({
+        error: 'Failed to fetch nodes',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
     
-    // Limit the number of nodes to process
-    allNodes = allNodes.slice(0, limit);
-    
-    log(`Found ${allNodes.length} nodes without embeddings to update`, 'update-embeddings');
-    
-    // Process each node in sequence
+    // 2. Process each node and generate embeddings
     const results = {
-      total: allNodes.length,
       processed: 0,
       succeeded: 0,
       failed: 0,
-      errors: [] as string[]
+      total: nodes.length,
+      failures: [] as string[]
     };
     
-    // Process each node
-    for (const node of allNodes) {
+    // Process nodes in sequence to avoid overwhelming the embedding service
+    for (const node of nodes) {
       try {
         results.processed++;
         
-        // Generate embedding for the node's content
-        const content = node.content || '';
-        if (!content || content.trim().length === 0) {
-          results.failed++;
-          results.errors.push(`Node ${node.id} has no content to embed`);
+        // Skip nodes that already have valid embeddings (non-empty arrays)
+        if (node.embedding_vector && node.embedding_vector.length > 0) {
+          results.succeeded++;
           continue;
         }
         
-        log(`Generating embedding for node ${node.id}`, 'update-embeddings');
-        const embedding = await generateEmbedding(content);
-        
-        // Store the embedding in the database
-        const success = await storeNodeEmbedding(node.id, embedding);
-        
-        if (success) {
-          results.succeeded++;
-        } else {
+        // Generate the embedding from the node content
+        const textToEmbed = node.content;
+        if (!textToEmbed || textToEmbed.trim().length === 0) {
+          log(`Node ${node.id} has no content to embed, skipping`, "update-embeddings-warn");
           results.failed++;
-          results.errors.push(`Failed to store embedding for node ${node.id}`);
+          results.failures.push(`${node.id}: No content to embed`);
+          continue;
         }
+        
+        // Generate the embedding
+        const embedding = await generateEmbedding(textToEmbed);
+        
+        // Update the node in the database with the new embedding
+        const updateQuery = `
+          MATCH (n {id: $id})
+          SET n.embedding = $embedding
+          RETURN n
+        `;
+        
+        await executeCustomQuery(updateQuery, { 
+          id: node.id, 
+          embedding: embedding 
+        });
+        
+        log(`Updated embedding for node ${node.id}`, "update-embeddings");
+        results.succeeded++;
       } catch (error) {
+        log(`Error updating embedding for node ${node.id}: ${error}`, "update-embeddings-error");
         results.failed++;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        results.errors.push(`Error processing node ${node.id}: ${errorMessage}`);
+        results.failures.push(`${node.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
-    // Return results
+    // 3. Return the results
     return res.status(200).json({
-      message: `Updated embeddings for ${results.succeeded} of ${results.total} nodes`,
-      results
+      message: `Processed ${results.processed} nodes, updated ${results.succeeded} embeddings, failed ${results.failed}`,
+      results: {
+        processed: results.processed,
+        succeeded: results.succeeded,
+        failed: results.failed,
+        total: results.total,
+        failures: results.failures.length > 0 ? results.failures : undefined
+      }
     });
   } catch (error) {
-    log(`Error updating embeddings: ${error}`, 'update-embeddings-error');
+    log(`Error in update embeddings handler: ${error}`, "update-embeddings-error");
+    
     return res.status(500).json({
       error: 'Failed to update embeddings',
       details: error instanceof Error ? error.message : 'Unknown error'

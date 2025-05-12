@@ -354,6 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/semantic/relationships', findRelationshipsHandler);
   app.post('/api/semantic/analyze', runSemanticAnalysisHandler);
   app.post('/api/semantic/search', semanticSearchHandler);
+  app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
   
   // Legacy semantic analysis endpoint
   app.post('/api/graph/semantic-analysis', async (req, res) => {
