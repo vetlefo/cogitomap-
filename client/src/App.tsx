@@ -221,6 +221,24 @@ function App() {
         </div>
       )}
 
+      {/* Semantic Search Panel */}
+      {showSemanticSearch && (
+        <div className="semantic-search-panel">
+          <div className="panel-header">
+            <h3>Semantic Search</h3>
+            <button className="close-button" onClick={toggleSemanticSearch}>×</button>
+          </div>
+          <div className="panel-content">
+            <SemanticSearch 
+              onSelectResult={(result) => {
+                console.log('Selected search result:', result);
+                // TODO: Handle selecting a search result (e.g., focus camera on node)
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* API Key Modal */}
       <ApiKeyModal 
         isOpen={showApiKeyModal} 

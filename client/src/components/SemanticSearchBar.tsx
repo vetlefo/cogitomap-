@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Button, Input } from './ui/common';
 import { toast } from 'sonner';
 
 interface SemanticSearchBarProps {
@@ -75,28 +74,29 @@ const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       <div className="flex gap-2">
-        <Input
-          className="flex-grow"
+        <input
+          className="flex-grow px-3 py-2 rounded bg-black/50 text-cyan-300 border border-cyan-500/30 focus:border-cyan-400 focus:outline-none"
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleSearch()}
         />
-        <Button
+        <button
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="w-24"
+          className="w-24 px-3 py-2 bg-cyan-900/70 text-cyan-300 rounded border border-cyan-500/50 hover:bg-cyan-800/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSearching ? "Searching..." : "Search"}
-        </Button>
+        </button>
       </div>
       
-      <div className="flex flex-wrap gap-2 text-sm">
+      <div className="flex flex-wrap gap-2 text-sm text-cyan-300">
         <label className="flex items-center gap-1 cursor-pointer">
           <input
             type="checkbox"
             checked={searchOptions.useEmbedding}
             onChange={() => handleToggleOption('useEmbedding')}
+            className="accent-cyan-500"
           />
           <span>Vector Search</span>
         </label>
@@ -106,6 +106,7 @@ const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
             type="checkbox"
             checked={searchOptions.includeRelated}
             onChange={() => handleToggleOption('includeRelated')}
+            className="accent-cyan-500"
           />
           <span>Include Related</span>
         </label>
