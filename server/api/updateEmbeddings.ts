@@ -27,11 +27,14 @@ export async function updateEmbeddingsHandler(req: Request, res: Response) {
     
     try {
       // Get nodes that don't have embeddings yet
+      let result;
       if (nodeType === 'all') {
-        nodes = await getAllNodes(0, limit, undefined, true);
+        result = await getAllNodes(0, limit, undefined);
       } else {
-        nodes = await getAllNodes(0, limit, nodeType as string, true);
+        result = await getAllNodes(0, limit, nodeType as string);
       }
+      
+      nodes = result.nodes;
       
       log(`Found ${nodes.length} nodes that need embeddings updated`, "update-embeddings");
     } catch (error) {

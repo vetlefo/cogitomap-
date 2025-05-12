@@ -98,6 +98,9 @@ export default function ContextVisualizer({ showDrones }: ContextVisualizerProps
       
       // Process only valid edges
       edges.forEach(edge => {
+        // Skip if edge is null or undefined
+        if (!edge) return;
+        
         const sourcePos = nodePositions.get(edge.source);
         const targetPos = nodePositions.get(edge.target);
         
