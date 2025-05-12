@@ -149,7 +149,7 @@ export async function generateBatchEmbeddings(
     }
     
     // Sort the embeddings by index to maintain order
-    const sortedEmbeddings = data.data
+    const sortedEmbeddings: number[][] = data.data
       .sort((a: any, b: any) => a.index - b.index)
       .map((item: any) => item.embedding);
     
@@ -157,7 +157,7 @@ export async function generateBatchEmbeddings(
     
     // Apply storage optimizations if requested
     if (dimensions === STORAGE_DIMENSIONS) {
-      return sortedEmbeddings.map(embedding => 
+      return sortedEmbeddings.map((embedding: number[]) => 
         prepareEmbeddingForStorage(embedding, STORAGE_DIMENSIONS)
       );
     }
@@ -391,6 +391,133 @@ export function buildSemanticSearchQuery(
       limit: limit
     }
   };
+}
+
+/**
+ * Generates a Cypher query for advanced GraphRAG retrieval using community detection
+ * and multiple retrieval strategies
+ * 
+ * @param queryEmbedding The embedding vector to search with
+ * @param queryText Optional original query text for keyword-based retrieval
+ * @param options Advanced retrieval options
+ * @returns Cypher query string for GraphRAG retrieval
+ */
+export function buildGraphRAGQuery(
+  queryEmbedding: number[],
+  queryText?: string,
+  options: {
+    nodeTypes?: string[];
+    similarityThreshold?: number;
+    limit?: number;
+    usePageRank?: boolean; 
+    useCommunityDetection?: boolean;
+    maxHops?: number;
+    includeRelationships?: boolean;
+  } = {}
+): { query: string; params: any } {
+  // Default options
+  const {
+    nodeTypes,
+    similarityThreshold = 0.65,
+    limit = 10,
+    usePageRank = true,
+    useCommunityDetection = true,
+    maxHops = 2,
+    includeRelationships = true
+  } = options;
+
+  // Normalize the query embedding
+  const normalizedEmbedding = normalizeVector(queryEmbedding);
+  
+  // Create type filter
+  let typeFilter = '';
+  if (nodeTypes && nodeTypes.length > 0) {
+    const typeList = nodeTypes.map(t => `'${t}'`).join(', ');
+    typeFilter = `AND n.type IN [${typeList}]`;
+  }
+  
+  // Build the first part - vector similarity search to find initial relevant nodes
+  let query = `
+    // Step 1: Initial vector search to find semantically similar nodes
+    MATCH (n)
+    WHERE n.embedding IS NOT NULL ${typeFilter}
+    WITH n, gds.similarity.cosine(n.embedding, $embedding) AS similarity
+    WHERE similarity >= $threshold
+  `;
+  
+  // Optional text search if query text is provided
+  if (queryText && queryText.trim()) {
+    // Add hybrid retrieval with text search
+    query += `
+    // Step 1b: Hybrid retrieval - combine with text search
+    WITH n, similarity
+    WHERE n.content CONTAINS $queryText OR
+          ANY(kw IN n.keywords WHERE kw CONTAINS $queryText)
+    `;
+  }
+  
+  // Optional PageRank for importance weighting
+  if (usePageRank) {
+    query += `
+    // Step 2: Apply PageRank importance weighting
+    WITH n, similarity
+    CALL pagerank.get(n) YIELD rank
+    WITH n, similarity, rank
+    ORDER BY similarity * rank DESC
+    LIMIT $initialLimit
+    `;
+  } else {
+    query += `
+    // Step 2: Select top nodes by similarity
+    WITH n, similarity
+    ORDER BY similarity DESC
+    LIMIT $initialLimit
+    `;
+  }
+  
+  // Optional community detection for relationship expansion
+  if (useCommunityDetection && includeRelationships) {
+    query += `
+    // Step 3: Relationship expansion with community detection
+    WITH COLLECT(n) AS initialNodes
+    UNWIND initialNodes AS seedNode
+    MATCH path = (seedNode)-[r*1..${maxHops}]-(related)
+    WHERE related.embedding IS NOT NULL
+    WITH COLLECT(DISTINCT seedNode) + COLLECT(DISTINCT related) AS expandedNodes, initialNodes
+    
+    // Step 4: Filter and rank final results
+    UNWIND expandedNodes AS node
+    WITH node, 
+         node IN initialNodes AS isDirectMatch,
+         gds.similarity.cosine(node.embedding, $embedding) AS expandedSimilarity
+    ORDER BY isDirectMatch DESC, expandedSimilarity DESC
+    LIMIT $limit
+    RETURN node, expandedSimilarity AS similarity
+    `;
+  } else {
+    // Just return the initial nodes if no expansion is requested
+    query += `
+    // Step 3: Return results without expansion
+    WITH n, similarity
+    LIMIT $limit
+    RETURN n AS node, similarity
+    `;
+  }
+  
+  // Build parameters
+  const params: any = {
+    embedding: normalizedEmbedding,
+    threshold: similarityThreshold,
+    initialLimit: Math.min(limit * 2, 20), // Get more initial nodes than final limit
+    limit: limit
+  };
+  
+  // Add query text if provided
+  if (queryText && queryText.trim()) {
+    params.queryText = queryText.trim();
+  }
+  
+  return { query, params };
 }
 
 /**
