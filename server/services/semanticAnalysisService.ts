@@ -508,7 +508,7 @@ export async function generateSemanticConnections(recentMessages: Message[]): Pr
           edge.source,
           edge.target,
           edge.relationship || 'relates_to',
-          edge.strength || 5
+          { strength: edge.strength || 5 }
         );
         edgesCreated++;
       } catch (e) {
@@ -626,7 +626,7 @@ export async function createSummaryNode(
                 createdNode.id,
                 nodeId,
                 'summarizes',
-                7 // Relatively strong connection
+                { strength: 7 } // Relatively strong connection
               );
             } catch (e) {
               console.error(`Error creating edge from summary to ${nodeId}:`, e);
