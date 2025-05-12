@@ -345,6 +345,92 @@ class FallbackStorage {
     };
   }
   
+  /**
+   * Find related nodes by following edges up to maxHops away
+   */
+  async findRelatedNodes(
+    nodeIds: string[],
+    maxHops: number = 2,
+    limit: number = 20,
+    nodeTypes: string[] = []
+  ): Promise<BubbleNode[]> {
+    log(`[fallback-storage] Finding related nodes for ${nodeIds.length} nodes with max hops: ${maxHops}`, "fallback-storage");
+    
+    // Track visited nodes to avoid duplicates
+    const visited = new Set<string>(nodeIds);
+    
+    // Map to track related nodes and their connection strength
+    const relatedNodesMap = new Map<string, { node: BubbleNode, strength: number }>();
+    
+    // Queue for BFS, with [nodeId, currentHop]
+    const queue: Array<[string, number]> = nodeIds.map(id => [id, 0]);
+    
+    while (queue.length > 0) {
+      const [currentNodeId, currentHop] = queue.shift()!;
+      
+      // Don't explore beyond maxHops
+      if (currentHop >= maxHops) continue;
+      
+      // Get all edges connected to this node
+      for (const edge of this.edges.values()) {
+        let connectedNodeId: string | null = null;
+        
+        // Check which end of the edge contains our node
+        if (edge.source === currentNodeId) {
+          connectedNodeId = edge.target;
+        } else if (edge.target === currentNodeId) {
+          connectedNodeId = edge.source;
+        }
+        
+        // If we found a connected node and haven't visited it yet
+        if (connectedNodeId && !visited.has(connectedNodeId)) {
+          visited.add(connectedNodeId);
+          
+          // Get the node object
+          const connectedNode = this.nodes.get(connectedNodeId);
+          
+          if (connectedNode && (nodeTypes.length === 0 || nodeTypes.includes(connectedNode.type))) {
+            // Calculate connection strength - edges closer to source nodes get higher strength
+            const connectionStrength = edge.strength * (1 - (currentHop / maxHops));
+            
+            // If we already have this node, update its strength if the new path is stronger
+            if (relatedNodesMap.has(connectedNodeId)) {
+              const existing = relatedNodesMap.get(connectedNodeId)!;
+              if (connectionStrength > existing.strength) {
+                relatedNodesMap.set(connectedNodeId, { 
+                  node: connectedNode, 
+                  strength: connectionStrength 
+                });
+              }
+            } else {
+              // Add to our results
+              relatedNodesMap.set(connectedNodeId, { 
+                node: connectedNode, 
+                strength: connectionStrength 
+              });
+            }
+            
+            // Add to queue for next hop exploration
+            queue.push([connectedNodeId, currentHop + 1]);
+          }
+        }
+      }
+    }
+    
+    // Convert map to array and sort by connection strength
+    const results = Array.from(relatedNodesMap.values())
+      .map(item => ({
+        ...item.node,
+        similarity: item.strength, // Use strength as the similarity score
+        isDirectMatch: false
+      }))
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+    
+    log(`[fallback-storage] Found ${results.length} related nodes`, "fallback-storage");
+    return results;
+  }
+  
   // Clear all data (for testing)
   clear(): void {
     this.nodes.clear();

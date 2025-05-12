@@ -147,38 +147,26 @@ semanticSearchRouter.post('/search', async (req, res) => {
       const directNodeIds = allResults.map(node => node.id);
       
       try {
-        // Query for related nodes
-        const relatedNodesQuery = `
-          MATCH (n)-[r*1..${maxHops}]-(related)
-          WHERE n.id IN $nodeIds
-          ${nodeTypes.length > 0 ? 'AND related.type IN $nodeTypes' : ''}
-          RETURN related, 
-                 size([(n)-[r]-(related) WHERE n.id IN $nodeIds | r]) as connection_strength
-          LIMIT ${limit * 2}
-        `;
-
-        const relatedResults = await executeCustomQuery(relatedNodesQuery, {
-          nodeIds: directNodeIds,
+        log(`Expanding graph search for ${directNodeIds.length} direct matches`, 'semantic-search');
+        
+        // Use the fallbackStorage implementation for graph expansion
+        const relatedNodes = await fallbackStorage.findRelatedNodes(
+          directNodeIds,
+          maxHops,
+          limit * 2,
           nodeTypes
-        });
-
-        if (relatedResults && relatedResults.length > 0) {
-          log(`Found ${relatedResults.length} related nodes`, 'semantic-search');
-          
-          // Process related nodes
-          relatedResults.forEach(result => {
-            const node = result.related.properties;
-            const strength = result.connection_strength;
-            
-            // Skip if already in results
-            if (!allResults.some(r => r.id === node.id)) {
-              allResults.push({
-                ...node,
-                isDirectMatch: false,
-                connectionStrength: strength
-              });
+        );
+        
+        log(`Found ${relatedNodes.length} related nodes through graph expansion`, 'semantic-search');
+        
+        if (relatedNodes && relatedNodes.length > 0) {
+          // Add related nodes to results if they aren't already there
+          for (const relatedNode of relatedNodes) {
+            // Only add if not already in results
+            if (!allResults.some(node => node.id === relatedNode.id)) {
+              allResults.push(relatedNode);
             }
-          });
+          }
         }
       } catch (error) {
         log(`Related nodes query error: ${error instanceof Error ? error.message : String(error)}`, 'semantic-search-error');
