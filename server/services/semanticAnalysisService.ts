@@ -34,8 +34,8 @@ export async function extractKeywordsFromConversation(messages: Message[]): Prom
       keywordExtractionPrompt,
       { role: 'user', content: conversationContent }
     ],
-    // Use a model with good pattern recognition
-    model: 'openai:gpt-4o',
+    // Use a widely available model
+    model: 'openai:gpt-3.5-turbo',
     structured: false
   };
 
@@ -135,8 +135,8 @@ export async function findSemanticRelationships(
       relationshipAnalysisPrompt,
       { role: 'user', content: `Analyze these concepts: ${keywords.join(', ')}${contextHint}` }
     ],
-    // Use a model with good reasoning capabilities
-    model: 'openai:gpt-4o',
+    // Use a widely available model
+    model: 'openai:gpt-3.5-turbo',
     structured: false
   };
 
@@ -322,7 +322,7 @@ export async function createSummaryNode(
         content: `Create a summary connecting these concepts: ${nodeIds.join(', ')}${messageHint}` 
       }
     ],
-    model: 'openai:gpt-4o',
+    model: 'openai:gpt-3.5-turbo',
     structured: false
   };
 
