@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { User, Bot, Pin, BarChart2, FileText, HelpCircle, Search } from 'lucide-react';
 
 interface SearchResult {
   id: string;

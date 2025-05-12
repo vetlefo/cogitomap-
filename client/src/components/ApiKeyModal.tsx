@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LLMProvider } from '../lib/stores/useOpenAI';
+import { Key } from 'lucide-react';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -107,7 +108,7 @@ export default function ApiKeyModal({
         <form onSubmit={handleSubmit}>
           {initialValue === 'env-variable' ? (
             <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px', backgroundColor: 'rgba(0, 40, 80, 0.4)', padding: '10px', borderRadius: '4px' }}>
-              <strong>🔑 Environment Variable Detected</strong><br/>
+              <strong><Key size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Environment Variable Detected</strong><br/>
               Your {info.name} API key is currently set via an environment variable. You don't need to enter it manually.
             </p>
           ) : (
