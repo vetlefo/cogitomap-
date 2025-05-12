@@ -114,6 +114,88 @@ class FallbackStorage {
   
   // Query operations
   
+  /**
+   * Perform a vector similarity search against nodes in the fallback storage
+   * Uses cosine similarity for vector comparison
+   */
+  vectorSearch(
+    queryVector: number[],
+    nodeTypes: string[] = [],
+    limit: number = 10,
+    minSimilarity: number = 0.5
+  ): Array<BubbleNode & { similarity: number }> {
+    if (!queryVector || !Array.isArray(queryVector) || queryVector.length === 0) {
+      log("Invalid query vector provided for fallback vector search", "fallback-storage");
+      return [];
+    }
+    
+    log(`Performing fallback vector search with ${nodeTypes.length > 0 ? nodeTypes.join(',') : 'all'} node types`, "fallback-storage");
+    
+    // Get all nodes or filtered by type
+    let candidates = Array.from(this.nodes.values());
+    if (nodeTypes.length > 0) {
+      candidates = candidates.filter(node => nodeTypes.includes(node.type));
+    }
+    
+    // Only consider nodes that have embeddings
+    candidates = candidates.filter(node => 
+      node.embedding_vector && 
+      Array.isArray(node.embedding_vector) && 
+      node.embedding_vector.length > 0
+    );
+    
+    if (candidates.length === 0) {
+      log("No candidate nodes with embeddings found for vector search", "fallback-storage");
+      return [];
+    }
+    
+    // Calculate cosine similarity for each node
+    const results = candidates.map(node => {
+      // Calculate cosine similarity between query vector and node embedding
+      const similarity = this.cosineSimilarity(queryVector, node.embedding_vector!);
+      return {
+        ...node,
+        similarity
+      };
+    });
+    
+    // Filter by minimum similarity and sort by descending similarity
+    return results
+      .filter(result => result.similarity >= minSimilarity)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  }
+  
+  /**
+   * Calculate cosine similarity between two vectors
+   * Returns a value between -1 and 1, where 1 is most similar
+   */
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length) {
+      // If dimensions don't match, truncate the longer one
+      const minLength = Math.min(vecA.length, vecB.length);
+      vecA = vecA.slice(0, minLength);
+      vecB = vecB.slice(0, minLength);
+      log(`Vector dimensions don't match, truncating to ${minLength}`, "fallback-storage");
+    }
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+    
+    if (normA === 0 || normB === 0) {
+      return 0; // Avoid division by zero
+    }
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+  
   getAllNodes(
     page: number = 0, 
     pageSize: number = 50, 
