@@ -69,20 +69,33 @@ export async function vectorSearch(
  */
 export async function createVectorIndices(): Promise<void> {
   try {
-    // Check if MAGE is loaded
+    // Check if MAGE procedures exist
     try {
-      await executeCustomQuery('CALL mg.load("mage") YIELD *');
-      log('MAGE is already loaded', 'mage-vector-service');
-    } catch (error) {
-      log(`Error loading MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
-      // Try alternative loading method
-      try {
-        await executeCustomQuery('CALL mg.load_all() YIELD *');
-        log('MAGE loaded using alternative method', 'mage-vector-service');
-      } catch (alternativeError) {
-        log(`Alternative MAGE loading also failed: ${alternativeError instanceof Error ? alternativeError.message : String(alternativeError)}`, 'mage-vector-service-error');
-        log('Attempting to continue anyway...', 'mage-vector-service');
+      // Try checking if MAGE modules are already loaded by querying for vector procedures
+      const mageProcs = await executeCustomQuery('CALL mg.procedures() YIELD * WHERE name CONTAINS "vector" RETURN count(*) as proc_count');
+      const procCount = mageProcs.length > 0 ? mageProcs[0].proc_count : 0;
+      
+      if (procCount > 0) {
+        log(`Found ${procCount} vector procedures, MAGE appears to be loaded`, 'mage-vector-service');
+      } else {
+        // Try loading MAGE if no procedures found
+        try {
+          await executeCustomQuery('CALL mg.load("mage") YIELD *');
+          log('MAGE loaded successfully', 'mage-vector-service');
+        } catch (mageError) {
+          // Try alternative method
+          try {
+            await executeCustomQuery('CALL mg.load_all() YIELD *');
+            log('MAGE loaded using alternative method', 'mage-vector-service');
+          } catch (allError) {
+            log(`All MAGE loading attempts failed. Last error: ${allError instanceof Error ? allError.message : String(allError)}`, 'mage-vector-service-error');
+            log('Continuing with fallback mode...', 'mage-vector-service');
+          }
+        }
       }
+    } catch (error) {
+      log(`Error checking MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+      log('Continuing with fallback mode...', 'mage-vector-service');
     }
     
     // Get existing vector indices
