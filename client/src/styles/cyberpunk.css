@@ -1273,3 +1273,226 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Semantic Search Tester Styles */
+.semantic-search-tester {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 800px;
+  height: 80%;
+  max-height: 600px;
+  background-color: rgba(8, 15, 20, 0.95);
+  border: 1px solid rgba(0, 180, 255, 0.4);
+  box-shadow: 0 0 25px rgba(0, 200, 255, 0.2), inset 0 0 15px rgba(0, 150, 180, 0.1);
+  border-radius: 8px;
+  z-index: 1000;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tester-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 180, 255, 0.3);
+}
+
+.tester-header h2 {
+  color: #0cf;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.close-button {
+  background: none;
+  border: 1px solid rgba(0, 140, 210, 0.5);
+  color: #0cf;
+  font-size: 1.2rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.close-button:hover {
+  background-color: rgba(0, 60, 90, 0.7);
+  border-color: rgba(0, 200, 255, 0.6);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+.tester-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.test-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.test-selector label {
+  color: #8cf;
+  min-width: 100px;
+}
+
+.test-selector select {
+  flex: 1;
+  background-color: rgba(0, 30, 50, 0.6);
+  color: #fff;
+  border: 1px solid rgba(0, 140, 210, 0.5);
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.test-description {
+  color: #adf;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  padding-left: 100px;
+}
+
+.run-test-button {
+  background-color: rgba(0, 80, 120, 0.7);
+  border: 1px solid rgba(0, 180, 255, 0.5);
+  color: #0ff;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  align-self: flex-end;
+  font-size: 0.9rem;
+  width: 120px;
+}
+
+.run-test-button:hover:not(:disabled) {
+  background-color: rgba(0, 100, 140, 0.8);
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.run-test-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.results-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.results-container h3 {
+  color: #0cf;
+  font-size: 1.1rem;
+  margin: 0 0 10px 0;
+}
+
+.loading-indicator {
+  color: #8cf;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.no-results {
+  color: #8cf;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  text-align: center;
+}
+
+.results-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.search-result {
+  background-color: rgba(0, 30, 40, 0.5);
+  border: 1px solid rgba(0, 120, 180, 0.4);
+  padding: 10px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.search-result:hover {
+  background-color: rgba(0, 40, 60, 0.6);
+  border-color: rgba(0, 160, 220, 0.5);
+}
+
+.high-similarity {
+  border-left: 4px solid rgb(0, 255, 160);
+}
+
+.medium-similarity {
+  border-left: 4px solid rgb(0, 180, 255);
+}
+
+.low-similarity {
+  border-left: 4px solid rgb(100, 100, 255);
+}
+
+.direct-match {
+  box-shadow: 0 0 10px rgba(0, 255, 160, 0.2);
+}
+
+.indirect-match {
+  opacity: 0.85;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(0, 140, 210, 0.3);
+}
+
+.result-type {
+  color: #8df;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  background-color: rgba(0, 60, 90, 0.6);
+  border-radius: 4px;
+}
+
+.result-score {
+  color: #0ff;
+  font-size: 0.8rem;
+}
+
+.result-match-type {
+  color: #adf;
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+
+.result-content {
+  color: #eef;
+  font-size: 0.9rem;
+  overflow-wrap: break-word;
+}

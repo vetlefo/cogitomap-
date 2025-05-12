@@ -21,10 +21,10 @@ import { analyzeSemanticRelationships, createSemanticEdges } from "./services/se
 import { 
   extractKeywordsHandler, 
   findRelationshipsHandler, 
-  runSemanticAnalysisHandler,
-  semanticSearchHandler
+  runSemanticAnalysisHandler
 } from "./api/semanticAnalysis";
 import { updateEmbeddingsHandler } from "./api/updateEmbeddings";
+import { semanticSearchHandler } from "./api/semanticSearch";
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
