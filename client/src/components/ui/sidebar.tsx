@@ -244,7 +244,7 @@ const Sidebar = React.forwardRef<
         className={cn(
           "group peer text-sidebar-foreground",
           isFloating ? 
-            "fixed top-20 left-4 z-[90] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform" : 
+            "fixed top-12 left-4 z-[90] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform" : 
             "hidden md:block"
         )}
         data-state={state}
@@ -267,7 +267,7 @@ const Sidebar = React.forwardRef<
         <div
           className={cn(
             "fixed inset-y-0 h-svh w-[--sidebar-width] transition-all duration-200 ease-linear md:flex",
-            isFloating ? "rounded-xl shadow-2xl bg-sidebar/95 backdrop-blur border border-accent min-h-96 max-h-[80vh] !h-auto inset-y-auto top-20" 
+            isFloating ? "rounded-xl shadow-2xl bg-sidebar/95 backdrop-blur border border-accent max-h-[50vh] !h-auto inset-y-auto top-12" 
                        : "z-10 hidden",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"

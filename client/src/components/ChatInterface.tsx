@@ -265,7 +265,7 @@ export default function ChatInterface({
   };
 
   return (
-    <div id="chat-interface" className={`${visible ? '' : 'hidden'} z-50 relative mt-16`}>
+    <div id="chat-interface" className={`${visible ? '' : 'hidden'} z-50 relative mt-12`}>
       <button 
         className="new-conversation-btn"
         onClick={handleNewConversation}

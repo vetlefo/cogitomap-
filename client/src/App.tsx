@@ -150,7 +150,7 @@ function App() {
       </div>
 
       {/* Top Info Panel - minimized version of the model selector & auth */}
-      <div className="top-cockpit-panel fixed top-16 right-4 z-[80] flex items-center gap-2 perspective-dramatic transform-gpu translate-z-6 transition-transform hover:translate-z-8">
+      <div className="top-cockpit-panel fixed top-12 right-4 z-[80] flex items-center gap-2 perspective-dramatic transform-gpu translate-z-6 transition-transform hover:translate-z-8">
         <div className="cockpit-auth-container rounded-lg bg-background/80 backdrop-blur shadow-lg p-1">
           <AuthButton />
         </div>
@@ -219,7 +219,7 @@ function App() {
       
       {/* Multi-select mode indicator */}
       {keyboardState.shiftKey && (
-        <div className="mode-indicator fixed top-20 left-1/2 -translate-x-1/2 z-[95] perspective-dramatic transform-gpu translate-z-8">
+        <div className="mode-indicator fixed top-16 left-1/2 -translate-x-1/2 z-[95] perspective-dramatic transform-gpu translate-z-8">
           <div className="mode-indicator-pulse"></div>
           <div className="mode-indicator-content bg-accent/70 backdrop-blur-sm shadow-xl rounded-lg px-4 py-2 border border-accent text-background">
             <span className="mode-icon">⊕</span>

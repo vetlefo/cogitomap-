@@ -11,10 +11,10 @@ import { Button } from './components/ui/button';
 import ModelSelector from './components/ModelSelector';
 
 // NEW Navigation with fixed height and sticky stacking context
-const NAV_HEIGHT = 64; // 4 rem
+const NAV_HEIGHT = 48; // 3 rem
 const Navigation: React.FC = () => (
   <header
-    className="fixed inset-x-0 top-0 z-[100] h-16 flex items-center gap-4 bg-background/90
+    className="fixed inset-x-0 top-0 z-[100] h-12 flex items-center gap-4 bg-background/90
                backdrop-blur-md shadow-md px-4"
   >
     <Link to="/" className="text-blue-400 hover:text-blue-300 font-bold">
