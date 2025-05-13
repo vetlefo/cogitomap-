@@ -1023,3 +1023,48 @@ canvas {
 .model-option.selected {
   background-color: rgba(0, 60, 100, 0.3);
 }
+
+/* Icon toolbar styles */
+.floating-icon-toolbar {
+  position: fixed;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 40;
+}
+
+.toolbar-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background-color: rgba(10, 20, 30, 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(30, 150, 200, 0.3);
+  color: rgba(140, 200, 255, 0.9);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-icon:hover {
+  background-color: rgba(15, 30, 45, 0.7);
+  border-color: rgba(40, 160, 255, 0.6);
+  box-shadow: 0 0 12px rgba(0, 120, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.toolbar-icon.active {
+  background-color: rgba(0, 70, 120, 0.6);
+  border-color: rgba(60, 180, 255, 0.7);
+  box-shadow: 0 0 12px rgba(0, 140, 255, 0.5);
+}
+
+.shadow-neon {
+  box-shadow: 0 0 8px rgba(0, 140, 255, 0.3);
+}

@@ -11,6 +11,7 @@ import ModelSelector from "./components/ModelSelector";
 import AuthButton from "./components/AuthButton";
 import SemanticAnalysisButton from "./components/SemanticAnalysisButton";
 import SemanticSearch from "./components/SemanticSearch";
+import FloatingToolbar from "./components/ui/FloatingToolbar";
 import { getLocalStorage, setLocalStorage } from "./lib/utils";
 import { useLLM, LLMProvider, fetchAvailableModels } from "./lib/stores/useOpenAI";
 import { useKeyboardState } from "./hooks/useKeyboardState";
@@ -171,6 +172,9 @@ function App() {
       
       {/* Node Panel Toggle Button */}
       <NodePanelToggle initialState={true} />
+      
+      {/* Floating Icon Toolbar */}
+      <FloatingToolbar />
 
       {/* Controls */}
       <div id="controls" className="fixed bottom-4 left-4 z-[60] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform rounded-lg overflow-hidden bg-background/80 backdrop-blur border border-accent/30 shadow-lg">
