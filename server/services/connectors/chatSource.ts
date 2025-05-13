@@ -6,7 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { AuthType, BaseSource, SourceConfigField } from './_baseSource';
-import { BubbleNode } from '../../../client/src/types';
+import { BubbleNode, NodeType } from '../../../client/src/types';
 
 interface ChatMessage {
   id: string;
@@ -126,12 +126,12 @@ export class ChatSource implements BaseSource {
         // Create a node for the message
         const node: Partial<BubbleNode> = {
           id: message.id,
-          type: `${message.role}_message`,
+          type: this.mapRoleToNodeType(message.role),
           content: message.content,
           // Position is added by the pipeline
           // embedding_vector is added by the pipeline
           importance: message.role === 'system' ? 0.9 : 0.75,
-          timestamp: message.timestamp,
+          createdAt: message.timestamp,
           metadata: {
             userId: message.userId,
             role: message.role
@@ -152,12 +152,12 @@ export class ChatSource implements BaseSource {
         // Create a node for the message
         const node: Partial<BubbleNode> = {
           id: unprocessed.id,
-          type: `${unprocessed.role}_message`,
+          type: this.mapRoleToNodeType(unprocessed.role),
           content: unprocessed.content,
           // Position is added by the pipeline
           // embedding_vector is added by the pipeline
           importance: unprocessed.role === 'system' ? 0.9 : 0.75,
-          timestamp: unprocessed.timestamp,
+          createdAt: unprocessed.timestamp,
           metadata: {
             userId: unprocessed.userId,
             role: unprocessed.role
@@ -174,5 +174,21 @@ export class ChatSource implements BaseSource {
    */
   async checkConnection(): Promise<{isConnected: boolean, message?: string}> {
     return { isConnected: true };
+  }
+  
+  /**
+   * Map chat role to NodeType
+   */
+  private mapRoleToNodeType(role: 'user' | 'assistant' | 'system'): NodeType {
+    switch (role) {
+      case 'user':
+        return 'user_message';
+      case 'assistant':
+        return 'ai_message';
+      case 'system':
+        return 'ai_message'; // Map system to ai_message as NodeType doesn't have system_message
+      default:
+        return 'user_message'; // Default fallback
+    }
   }
 }

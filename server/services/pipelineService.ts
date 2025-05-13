@@ -220,7 +220,7 @@ export class PipelineService {
                 const relationship = edge.relationship as RelationshipType;
                 const properties = edge.properties || { strength: edge.strength || 0.5 };
                 
-                await createEdge(sourceId, targetId, relationship, metadata);
+                await createEdge(sourceId, targetId, relationship, properties);
                 log(`Created edge in database: ${edge.id || `${sourceId}-${relationship}-${targetId}`}`, 'pipeline-service');
               } catch (edgeError) {
                 log(`Error creating edge in database: ${edgeError}`, 'pipeline-error');
@@ -363,10 +363,10 @@ export class PipelineService {
                         try {
                           const sourceId = edge.source as string;
                           const targetId = edge.target as string;
-                          const relationship = edge.relationship as string;
-                          const metadata = edge.metadata || { strength: edge.strength || 0.5 };
+                          const relationship = edge.relationship as RelationshipType;
+                          const properties = edge.properties || { strength: edge.strength || 0.5 };
                           
-                          await createEdge(sourceId, targetId, relationship, metadata);
+                          await createEdge(sourceId, targetId, relationship, properties);
                           log(`Created edge in database: ${edge.id || `${sourceId}-${relationship}-${targetId}`}`, 'pipeline-service');
                           edgesCreated++;
                         } catch (edgeError) {

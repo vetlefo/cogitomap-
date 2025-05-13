@@ -10,7 +10,16 @@ import { PipelineService } from './pipelineService';
 import { ChatSource } from './connectors/chatSource';
 import { KeywordExtractionTransformer } from './transformers/keywordExtractionTransformer';
 import { OpenaiEmbeddingModel } from './embedding_models/openaiEmbeddingModel';
-import { Message, BubbleNode, Edge } from '../../client/src/types';
+import { Message as ClientMessage, BubbleNode, Edge } from '../../client/src/types';
+
+// Message format for pipeline processing
+export interface Message {
+  id?: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  userId: string;
+  timestamp?: string;
+}
 import { log } from '../vite';
 
 // The singleton instance of the pipeline service

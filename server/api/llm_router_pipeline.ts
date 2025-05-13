@@ -19,6 +19,7 @@ import {
 import { ZodError } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { processMessage } from '../services/pipelineController';
+import { Message as ProcessableMessage } from '../services/pipelineController';
 import { log } from '../vite';
 import { v4 as uuidv4 } from 'uuid';
 
