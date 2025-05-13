@@ -267,7 +267,7 @@ const Sidebar = React.forwardRef<
         <div
           className={cn(
             "fixed w-[--sidebar-width] transition-all duration-200 ease-linear md:flex",
-            isFloating ? "shadow-lg bg-sidebar/95 backdrop-blur border-r border-t-0 border-accent max-h-[35vh] !h-auto top-12 left-0 rounded-br-lg rounded-tr-none rounded-tl-none rounded-bl-none" 
+            isFloating ? "shadow-lg bg-sidebar/90 backdrop-blur border-r border-b border-accent max-h-[70vh] !h-auto top-12 left-0 rounded-br-lg" 
                        : "z-10 hidden",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"

@@ -149,23 +149,7 @@ function App() {
         </Canvas>
       </div>
 
-      {/* Top Info Panel - minimized version of the model selector & auth */}
-      <div className="top-cockpit-panel fixed top-12 right-4 z-[80] flex items-center gap-2 perspective-dramatic transform-gpu translate-z-6 transition-transform hover:translate-z-8">
-        <div className="cockpit-auth-container rounded-lg bg-background/80 backdrop-blur shadow-lg p-1">
-          <AuthButton />
-        </div>
-        <div className="cockpit-model-selector rounded-lg bg-background/80 backdrop-blur shadow-lg">
-          <ModelSelector 
-            onProviderChange={(provider) => {
-              // Check if we need to show the API key modal for this provider
-              if (!apiKeys[provider]) {
-                setProvider(provider);
-                setShowApiKeyModal(true);
-              }
-            }}
-          />
-        </div>
-      </div>
+      {/* Top Info Panel removed to prevent duplicate UI */}
 
       {/* Chat Interface */}
       <ChatInterface 
@@ -189,7 +173,7 @@ function App() {
       <NodePanelToggle initialState={true} />
 
       {/* Controls */}
-      <div id="controls" className="fixed bottom-4 left-4 z-[60] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform rounded-xl overflow-hidden bg-background/80 backdrop-blur border border-accent/20 shadow-xl">
+      <div id="controls" className="fixed bottom-4 left-4 z-[60] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform rounded-lg overflow-hidden bg-background/80 backdrop-blur border border-accent/30 shadow-lg">
         <div className="panel-header">NAVIGATION</div>
         <button id="toggle-ui" title="Show/Hide Chat UI" onClick={toggleUI}>
           <span className="control-icon"><Eye size={16} /></span> Toggle Interface

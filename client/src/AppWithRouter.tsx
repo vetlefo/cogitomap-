@@ -14,8 +14,8 @@ import ModelSelector from './components/ModelSelector';
 const NAV_HEIGHT = 48; // 3 rem
 const Navigation: React.FC = () => (
   <header
-    className="fixed inset-x-0 top-0 z-[100] h-12 flex items-center gap-4 bg-background/90
-               backdrop-blur-md shadow-md px-4"
+    className="fixed inset-x-0 top-0 z-[100] h-12 flex items-center gap-4 bg-background/70
+               backdrop-blur-md border-b border-accent/30 shadow-sm px-4"
   >
     <Link to="/" className="text-blue-400 hover:text-blue-300 font-bold">
       <img src="/logo.svg" alt="CogitoMap" className="h-8 w-auto" onError={(e) => {
