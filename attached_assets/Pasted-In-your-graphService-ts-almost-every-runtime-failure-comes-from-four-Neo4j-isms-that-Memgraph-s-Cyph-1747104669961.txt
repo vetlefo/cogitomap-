@@ -1,0 +1,82 @@
+In your graphService.ts almost every runtime failure comes from four Neo4j-isms that Memgraph’s Cypher parser rejects:
+
+Neo4j style	Memgraph-safe replacement	Why it matters
+… YIELD … **WHERE** …	… YIELD … **WITH** … WHERE …	WHERE can only follow MATCH, OPTIONAL MATCH or WITH in Memgraph, never a bare YIELD 
+Memgraph
+Memgraph
+CALL db.index.vector.queryNodes(...) …	CALL vector_search.search(index, limit, $embedding)	The whole db.index.vector.* family was removed in Memgraph 3.x; the MAGE-backed vector_search module is the official replacement 
+Memgraph
+toInteger($skip) / .toNumber() guards	just $skip / plain numbers	Memgraph’s Bolt driver already returns native JavaScript numbers; the extra coercion is unnecessary and sometimes throws 
+Memgraph
+CREATE (n:Label **$props**) without a SET	CREATE (n:Label) SET n = $props (or keep the map literal)	Parameter maps are allowed, but pairing them with dynamic labels reduces injection risk and follows Memgraph’s own examples 
+Memgraph
+Memgraph
+Graph Database & Analytics
+Minimal patch set
+
+Below is a surgical diff (line numbers approximate) that keeps your fallback logic intact while making every query that reaches Memgraph run cleanly:
+
+@@ createNode
+-const query = `CREATE (n:${node.type} $props) RETURN n`;
++const query = `
++  CREATE (n:${node.type})
++  SET n = $props          // sets every key from the parameter map
++  RETURN n
++`;
+
+@@ createEdge
+-        CREATE (source)-[r:${relationship} $props]->(target)
+-        RETURN source, target, type(r) as relationship
++        CREATE (source)-[r:${relationship} $props]->(target)
++        RETURN r, source, target, type(r) AS relationship
+
+@@ getAllNodes
+-RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)
++RETURN n ORDER BY n.id SKIP $skip LIMIT $limit
+
+@@ getAllEdges
+-          RETURN type(r) AS relationship, 
++          RETURN type(r) AS relationship,
+
+@@ executeCustomQuery (fallback vector-search sniff)
+-if (query.includes('db.index.vector.queryNodes')
++if (query.includes('vector_search.search')
+
+❯ **NEW helper (optional, but handy)**
+   export const VECTOR_QUERY = `
+     CALL vector_search.search($index, $limit, $embedding)
+     YIELD node, similarity
+     WITH node, similarity
+     WHERE similarity >= $minSim          // client-side filter
+     RETURN node, similarity
+   `;
+Why these edits are enough
+YIELD → WITH Memgraph’s grammar groups WHERE with WITH, not with YIELD, so piping the stream through WITH is the canonical fix 
+Memgraph
+.
+vector_search Every current Memgraph tutorial, quick-start and API reference uses vector_search.search instead of the old Neo4j procedure family 
+Memgraph
+.
+Numeric casts The official Node.js quick-start shows that the driver returns plain JS numbers; no .toNumber() guard is needed 
+Memgraph
+.
+CREATE map parameters Memgraph follows openCypher’s map-parameter rule: CREATE (n:Label $props) or CREATE (n:Label) SET n = $props both work 
+Memgraph
+Graph Database & Analytics
+.
+Checking the fixes
+
+Start Memgraph with MAGE
+docker run -it --rm -p 7687:7687 -p 7444:7444 memgraph/memgraph-mage:latest
+Load the vector module
+CALL mg.load("vector_search");      -- or mg.load_all()
+CALL mg.procedures() YIELD name WHERE name STARTS WITH "vector_search" RETURN name;
+The last line should list vector_search.search 
+Memgraph
+Run your Jest/Vitest suite or memgraphDiagnostic.js — every query should now pass without falling back.
+A couple of bonus clean-ups
+
+Drop toInteger() everywhere. It does nothing for Memgraph and can break prepared‐statement caching.
+Prefer WITH collect() over double queries for the sub-graph method; it cuts the round-trip in half.
+Edge strength default: move the 0.7 constant into a DEFAULT_EDGE_STRENGTH so you only patch in one place next time.
+Let me know if you’d like a full PR or a deeper refactor of the diagnostic script—happy to help!

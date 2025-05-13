@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { initMemgraph } from "./db/memgraphClient";
+import { initializeMemgraph } from "./db/memgraphClient";
 import { initMageVectorService } from "./services/mageVectorService";
 import { initializePipeline } from "./services/pipelineController";
 
@@ -43,7 +43,7 @@ app.use((req, res, next) => {
   try {
     // Initialize Memgraph connection
     log("Initializing Memgraph connection...", "server-startup");
-    await initMemgraph();
+    await initializeMemgraph();
     log("Memgraph initialized successfully", "server-startup");
     
     // Initialize MAGE vector service

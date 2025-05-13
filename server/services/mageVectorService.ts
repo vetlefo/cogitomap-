@@ -92,13 +92,15 @@ export async function createVectorIndices(): Promise<void> {
       } else {
         // Try loading MAGE if no procedures found
         try {
-          await executeCustomQuery('CALL mg.load("mage") YIELD *');
-          log('MAGE loaded successfully', 'mage-vector-service');
+          // Load vector_search module specifically for Memgraph 3.0+
+          await executeCustomQuery('CALL mg.load("vector_search")');
+          log('MAGE vector_search module loaded successfully', 'mage-vector-service');
         } catch (mageError) {
           // Try alternative method
           try {
-            await executeCustomQuery('CALL mg.load_all() YIELD *');
-            log('MAGE loaded using alternative method', 'mage-vector-service');
+            // In Memgraph 3.0, load_all doesn't use YIELD
+            await executeCustomQuery('CALL mg.load_all()');
+            log('MAGE loaded using mg.load_all()', 'mage-vector-service');
           } catch (allError) {
             log(`All MAGE loading attempts failed. Last error: ${allError instanceof Error ? allError.message : String(allError)}`, 'mage-vector-service-error');
             log('Continuing with fallback mode...', 'mage-vector-service');
@@ -150,29 +152,27 @@ export async function createVectorIndices(): Promise<void> {
       log('Created vector index: vector_idx_msg for label: ai_message|user_message', 'mage-vector-service');
     }
     
-    // Create index for topic nodes
+    // Create index for topic nodes - updated for Memgraph 3.0
     if (!existingIndices.has('vector_idx_topic')) {
       await executeCustomQuery(`
       CREATE VECTOR INDEX vector_idx_topic ON :topic(embedding)
       WITH CONFIG {
         "dimension": 768,
-        "capacity": 1024,
-        "metric": "cos",
-        "resize_coefficient": 2
+        "capacity": 10000,
+        "metric": "cos"
       }
       `);
       log('Created vector index: vector_idx_topic for label: topic', 'mage-vector-service');
     }
     
-    // Create index for entity nodes
+    // Create index for entity nodes - updated for Memgraph 3.0
     if (!existingIndices.has('vector_idx_entity')) {
       await executeCustomQuery(`
       CREATE VECTOR INDEX vector_idx_entity ON :entity(embedding)
       WITH CONFIG {
         "dimension": 768,
-        "capacity": 1024,
-        "metric": "cos",
-        "resize_coefficient": 2
+        "capacity": 10000,
+        "metric": "cos"
       }
       `);
       log('Created vector index: vector_idx_entity for label: entity', 'mage-vector-service');

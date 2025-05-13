@@ -3,7 +3,7 @@
  * Tries to use Memgraph first, but falls back to local storage when unavailable.
  */
 
-import { runMemgraphQuery } from "./memgraphClient";
+import { executeQuery } from "./memgraphClient";
 import { fallbackStorage } from "./fallbackStorage";
 import { log } from "../vite";
 import type { BubbleNode, Edge } from "../../client/src/types";
@@ -27,7 +27,7 @@ export async function testMemgraphConnection(): Promise<boolean> {
   
   try {
     // Simple query to test connection
-    await runMemgraphQuery("RETURN 1 as test");
+    await executeQuery("RETURN 1 as test");
     usingFallback = false;
     connectionTested = true;
     log("Memgraph connection test successful, using database storage", "graph-service");
@@ -58,7 +58,7 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
       // The node label is based on the node type (ai_message, user_message, topic, etc.)
       const query = `CREATE (n:${node.type} $props) RETURN n`;
       
-      const result = await runMemgraphQuery(query, { props: node });
+      const result = await executeQuery(query, { props: node });
       
       log(`Node created in Memgraph: ${node.id}`, "graph-service");
       
@@ -121,7 +121,7 @@ export async function createEdge(
         RETURN source, target, type(r) as relationship
       `;
       
-      const result = await runMemgraphQuery(query, {
+      const result = await executeQuery(query, {
         sourceId,
         targetId,
         props: properties
@@ -171,7 +171,7 @@ export async function getNode(id: string): Promise<BubbleNode | null> {
   if (!usingFallback) {
     try {
       const query = `MATCH (n {id: $id}) RETURN n`;
-      const result = await runMemgraphQuery(query, { id });
+      const result = await executeQuery(query, { id });
       
       // Check if the node was found
       if (result.records.length === 0) {
@@ -211,7 +211,7 @@ export async function getNodeNeighbors(nodeId: string): Promise<{ node: BubbleNo
         RETURN neighbor, type(r) AS relationship
       `;
       
-      const result = await runMemgraphQuery(query, { nodeId });
+      const result = await executeQuery(query, { nodeId });
       
       // Process results
       const neighbors: { node: BubbleNode, relationship: string }[] = [];
@@ -265,7 +265,7 @@ export async function getAllNodes(
         ? `MATCH (n:${nodeType}) RETURN count(n) AS total`
         : `MATCH (n) RETURN count(n) AS total`;
         
-      const countResult = await runMemgraphQuery(countQuery);
+      const countResult = await executeQuery(countQuery);
       const total = countResult.records[0].get('total');
       
       // Get paginated nodes
@@ -273,7 +273,7 @@ export async function getAllNodes(
         ? `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`
         : `MATCH (n) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`;
       
-      const result = await runMemgraphQuery(query, {
+      const result = await executeQuery(query, {
         skip,
         limit: pageSize
       });
@@ -325,7 +325,7 @@ export async function getAllEdges(
         ? `MATCH ()-[r:${relationshipType}]->() RETURN count(r) AS total`
         : `MATCH ()-[r]->() RETURN count(r) AS total`;
         
-      const countResult = await runMemgraphQuery(countQuery);
+      const countResult = await executeQuery(countQuery);
       const total = countResult.records[0].get('total');
       
       // Get paginated relationships with source and target nodes
@@ -347,7 +347,7 @@ export async function getAllEdges(
           SKIP toInteger($skip) LIMIT toInteger($limit)
         `;
       
-      const result = await runMemgraphQuery(query, {
+      const result = await executeQuery(query, {
         skip,
         limit: pageSize
       });
@@ -422,8 +422,8 @@ export async function getSubgraph(
       const params = { nodeId };
       
       // Get nodes in the subgraph
-      const nodesResult = await runMemgraphQuery(query, params);
-      const edgesResult = await runMemgraphQuery(edgesQuery, params);
+      const nodesResult = await executeQuery(query, params);
+      const edgesResult = await executeQuery(edgesQuery, params);
       
       // Process nodes
       const nodes: BubbleNode[] = [];
@@ -527,8 +527,8 @@ export async function getGraphStats(): Promise<{ nodeCount: number, edgeCount: n
       const nodeCountQuery = `MATCH (n) RETURN count(n) AS nodeCount`;
       const edgeCountQuery = `MATCH ()-[r]->() RETURN count(r) AS edgeCount`;
       
-      const nodeResult = await runMemgraphQuery(nodeCountQuery);
-      const edgeResult = await runMemgraphQuery(edgeCountQuery);
+      const nodeResult = await executeQuery(nodeCountQuery);
+      const edgeResult = await executeQuery(edgeCountQuery);
       
       // Get raw values - neo4j integers might be returned as either Numbers or special Integer objects
       const nodeCountRaw = nodeResult.records[0].get('nodeCount');
@@ -616,7 +616,7 @@ export async function executeCustomQuery(query: string, params: Record<string, a
     try {
       log(`Executing custom query: ${query.substring(0, 200)}...`, "graph-service-query");
       
-      const result = await runMemgraphQuery(query, params);
+      const result = await executeQuery(query, params);
       
       // Extract records from the result
       const records = result.records.map(record => {

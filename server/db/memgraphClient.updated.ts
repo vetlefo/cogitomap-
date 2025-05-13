@@ -3,7 +3,7 @@
  * Compatible with Memgraph 3.0+ and MAGE vector search
  */
 
-import * as neo4j from 'neo4j-driver';
+import neo4j from 'neo4j-driver';
 import { log } from '../vite';
 
 // Import environment variables
@@ -115,7 +115,7 @@ export async function executeQuery(query: string, params: Record<string, any> = 
     log(`Query returned ${result.records.length} records`, 'memgraph-client-debug');
     
     // Extract and return records as plain objects
-    return result.records.map((record: any) => {
+    return result.records.map(record => {
       return record.toObject();
     });
   } catch (error: any) {
