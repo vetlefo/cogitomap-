@@ -26,12 +26,36 @@ export async function testMemgraphConnection(): Promise<boolean> {
   }
   
   try {
+    // Check if environment variables are configured
+    const missingEnvVars = [];
+    if (!process.env.MEMGRAPH_URI) missingEnvVars.push('MEMGRAPH_URI');
+    if (!process.env.MEMGRAPH_USERNAME) missingEnvVars.push('MEMGRAPH_USERNAME');
+    if (!process.env.MEMGRAPH_PASSWORD) missingEnvVars.push('MEMGRAPH_PASSWORD');
+    
+    if (missingEnvVars.length > 0) {
+      log(`Missing Memgraph environment variables: ${missingEnvVars.join(', ')}`, "graph-service-warning");
+      log("Will use fallback storage due to missing configuration", "graph-service");
+      usingFallback = true;
+      connectionTested = true;
+      return false;
+    }
+    
     // Simple query to test connection - with improved debug output
     log("Executing Memgraph test query...", "graph-service-debug");
     const results = await executeQuery("RETURN 1 as test");
     
     if (results && results.length > 0) {
       log(`Test query results: ${JSON.stringify(results)}`, "graph-service-debug");
+      
+      // Try a second more complex query
+      try {
+        const nodeCount = await executeQuery("MATCH (n) RETURN count(n) as count");
+        log(`Database contains ${nodeCount[0]?.count || 0} nodes`, "graph-service-debug");
+      } catch (countError) {
+        log(`Node count query failed: ${countError}`, "graph-service-debug");
+        // This is not a critical error, we can still proceed
+      }
+      
       usingFallback = false;
       connectionTested = true;
       log("Memgraph connection test successful, using database storage", "graph-service");
