@@ -129,7 +129,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <div id="visualization-container">
+      <div id="visualization-container" className="absolute inset-0 -z-10">
         <Canvas
           camera={{ position: [0, 0, 50], fov: 60 }}
           gl={{ antialias: true }}
@@ -150,11 +150,11 @@ function App() {
       </div>
 
       {/* Top Info Panel - minimized version of the model selector & auth */}
-      <div className="top-cockpit-panel">
-        <div className="cockpit-auth-container">
+      <div className="top-cockpit-panel fixed top-16 right-4 z-[80] flex items-center gap-2 perspective-dramatic transform-gpu translate-z-6 transition-transform hover:translate-z-8">
+        <div className="cockpit-auth-container rounded-lg bg-background/80 backdrop-blur shadow-lg p-1">
           <AuthButton />
         </div>
-        <div className="cockpit-model-selector">
+        <div className="cockpit-model-selector rounded-lg bg-background/80 backdrop-blur shadow-lg">
           <ModelSelector 
             onProviderChange={(provider) => {
               // Check if we need to show the API key modal for this provider
@@ -189,7 +189,7 @@ function App() {
       <NodePanelToggle initialState={true} />
 
       {/* Controls */}
-      <div id="controls">
+      <div id="controls" className="fixed bottom-4 left-4 z-[60] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform rounded-xl overflow-hidden bg-background/80 backdrop-blur border border-accent/20 shadow-xl">
         <div className="panel-header">NAVIGATION</div>
         <button id="toggle-ui" title="Show/Hide Chat UI" onClick={toggleUI}>
           <span className="control-icon"><Eye size={16} /></span> Toggle Interface
@@ -219,9 +219,9 @@ function App() {
       
       {/* Multi-select mode indicator */}
       {keyboardState.shiftKey && (
-        <div className="mode-indicator">
+        <div className="mode-indicator fixed top-20 left-1/2 -translate-x-1/2 z-[95] perspective-dramatic transform-gpu translate-z-8">
           <div className="mode-indicator-pulse"></div>
-          <div className="mode-indicator-content">
+          <div className="mode-indicator-content bg-accent/70 backdrop-blur-sm shadow-xl rounded-lg px-4 py-2 border border-accent text-background">
             <span className="mode-icon">⊕</span>
             <span className="mode-label">MULTI-SELECT MODE</span>
             <span className="mode-hint">Click nodes to add to selection</span>
