@@ -26,6 +26,9 @@ export async function testMemgraphConnection(): Promise<boolean> {
   }
   
   try {
+    // Override fallback setting for testing
+    log(`Testing Memgraph connection... Current mode: ${usingFallback ? 'fallback' : 'database'}`, "graph-service-debug");
+    
     // Check if environment variables are configured
     const missingEnvVars = [];
     if (!process.env.MEMGRAPH_URI) missingEnvVars.push('MEMGRAPH_URI');
@@ -54,20 +57,21 @@ export async function testMemgraphConnection(): Promise<boolean> {
       if (results && results.length > 0) {
         log(`Test query results: ${JSON.stringify(results)}`, "graph-service-debug");
         
+        // If we got here, we have a working connection - force database mode
+        usingFallback = false;
+        
         // Try a second more complex query
         try {
           const nodeCount = await executeQuery("MATCH (n) RETURN count(n) as count");
-          const count = nodeCount[0]?.count || 0;
+          const count = nodeCount && nodeCount.length > 0 ? parseInt(nodeCount[0].count) : 0;
           log(`Database contains ${count} nodes`, "graph-service-debug");
           
-          // Force using real database if connection test successful
-          usingFallback = false;
+          // Connection is definitely working
           connectionTested = true;
           log("Memgraph connection test successful, using database storage", "graph-service");
         } catch (countError) {
           log(`Node count query failed: ${countError}`, "graph-service-debug");
           // This is not a critical error, as long as basic query works
-          usingFallback = false;
           connectionTested = true;
           log("Memgraph connection partially successful, still using database storage", "graph-service");
         }
@@ -218,23 +222,74 @@ export async function createEdge(
   // Use Memgraph if available
   if (!usingFallback) {
     try {
-      // Generate Cypher query for edge creation - updated for Memgraph 3.0
+      log(`Creating edge with Memgraph: ${sourceId} -> ${targetId} (${relationship})`, "graph-service-debug");
+      
+      // First check if source and target nodes exist
+      const checkQuery = `
+        MATCH (source {id: $sourceId}), (target {id: $targetId})
+        RETURN source.id, target.id
+      `;
+      
+      const checkResults = await executeQuery(checkQuery, {
+        sourceId,
+        targetId
+      });
+      
+      // Check if both nodes were found
+      if (!checkResults || checkResults.length === 0) {
+        log(`Cannot create edge, one or both nodes not found: ${sourceId} -> ${targetId}`, "graph-service-warning");
+        
+        // Try creating the nodes if they don't exist
+        try {
+          // Create minimal nodes if they don't exist
+          const createNodesQuery = `
+            MERGE (source {id: $sourceId})
+            ON CREATE SET source.created_at = timestamp()
+            MERGE (target {id: $targetId})
+            ON CREATE SET target.created_at = timestamp()
+            RETURN source.id, target.id
+          `;
+          
+          const nodeCreationResults = await executeQuery(createNodesQuery, {
+            sourceId,
+            targetId
+          });
+          
+          if (nodeCreationResults && nodeCreationResults.length > 0) {
+            log(`Created missing nodes for edge: ${sourceId} -> ${targetId}`, "graph-service");
+          } else {
+            log(`Failed to create missing nodes for edge`, "graph-service-error");
+            throw new Error("Failed to create nodes needed for edge");
+          }
+        } catch (nodeCreationError) {
+          log(`Error creating nodes for edge: ${nodeCreationError}`, "graph-service-error");
+          throw nodeCreationError;
+        }
+      }
+      
+      // Now create the edge with the MERGE command (to avoid duplicates)
       const query = `
         MATCH (source {id: $sourceId}), (target {id: $targetId})
-        CREATE (source)-[r:${relationship} $props]->(target)
+        MERGE (source)-[r:${relationship}]->(target)
+        ON CREATE SET r = $props
+        ON MATCH SET r = $props
         RETURN r, source, target, type(r) AS relationship
       `;
       
+      log(`Executing edge creation query: ${query}`, "graph-service-debug");
       const results = await executeQuery(query, {
         sourceId,
         targetId,
-        props: properties
+        props: {
+          ...properties,
+          id: edgeId // Include the edge ID in properties
+        }
       });
       
       // Check if the edge was created
       if (!results || results.length === 0) {
-        log(`Failed to create edge, nodes not found: ${sourceId} -> ${targetId}`, "graph-service");
-        return null;
+        log(`Failed to create edge after multiple attempts: ${sourceId} -> ${targetId}`, "graph-service-error");
+        throw new Error(`Failed to create edge: ${sourceId} -> ${targetId}`);
       }
       
       log(`Edge created in Memgraph: ${edgeId}`, "graph-service");
@@ -252,7 +307,6 @@ export async function createEdge(
       return edge;
     } catch (error) {
       // Switch to fallback mode if there's an error
-      usingFallback = true;
       log(`Error creating edge in Memgraph, switching to fallback: ${error}`, "graph-service");
       // Continue with fallback implementation
     }
@@ -367,35 +421,51 @@ export async function getAllNodes(
   
   if (!usingFallback) {
     try {
+      log(`Getting all nodes: page=${page}, pageSize=${pageSize}, nodeType=${nodeType}`, "graph-service-debug");
+      
       // Get total count of nodes
       const countQuery = nodeType !== 'all'
         ? `MATCH (n:${nodeType}) RETURN count(n) AS total`
         : `MATCH (n) RETURN count(n) AS total`;
-        
+      
+      log(`Executing count query: ${countQuery}`, "graph-service-debug");  
       const countResult = await executeQuery(countQuery);
-      const total = countResult && countResult.length > 0 ? countResult[0].total : 0;
+      const total = countResult && countResult.length > 0 ? parseInt(countResult[0].total) : 0;
+      log(`Total matching nodes: ${total}`, "graph-service-debug");
       
-      // Get paginated nodes - updated for Memgraph 3.0 (removed toInteger)
+      if (total === 0) {
+        // No need to execute the main query if count is 0
+        return { nodes: [], total: 0 };
+      }
+      
+      // Get paginated nodes with toInteger for Memgraph compatibility
       const query = nodeType !== 'all'
-        ? `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`
-        : `MATCH (n) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
+        ? `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`
+        : `MATCH (n) RETURN n ORDER BY n.id SKIP toInteger($skip) LIMIT toInteger($limit)`;
       
+      log(`Executing node query: ${query} with skip=${skip}, limit=${pageSize}`, "graph-service-debug");
       const results = await executeQuery(query, {
-        skip,
-        limit: pageSize
+        skip: parseInt(skip.toString()),  // Ensure integer
+        limit: parseInt(pageSize.toString())  // Ensure integer
       });
       
-      // Process results
+      // Process results with flexible handling
       const nodes: BubbleNode[] = [];
       
       if (results && results.length > 0) {
         for (const result of results) {
-          if (result.n) {
+          // Support different result formats
+          if (result.n && typeof result.n === 'object') {
+            // Neo4j style with .n property containing node
             nodes.push(result.n as BubbleNode);
+          } else if (result && !result.n && typeof result === 'object') {
+            // Some Memgraph configurations might return node directly
+            nodes.push(result as BubbleNode);
           }
         }
       }
       
+      log(`Returning ${nodes.length} nodes from database`, "graph-service-debug");
       return { nodes, total: Number(total) };
     } catch (error) {
       // Switch to fallback mode if there's an error

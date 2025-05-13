@@ -250,33 +250,34 @@ export async function createVectorIndices(): Promise<void> {
       try {
         if (!existingIndices.has('vector_idx_all')) {
           try {
-            // Try creating index using CALL vector_search.create_index procedure
+            // Try using CREATE VECTOR INDEX first (Memgraph 3.0 syntax)
             await executeCustomQuery(`
-              CALL vector_search.create_index(
-                "vector_idx_all", 
-                "Node", 
-                "embedding", 
-                768, 
-                10000, 
-                "cosine"
-              );
+              CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
+              WITH CONFIG {
+                "dimension": 768,
+                "capacity": 10000,
+                "metric": "cos"
+              }
             `);
             log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
           } catch (createError) {
-            log(`Error creating Node vector index: ${createError}`, 'mage-vector-service-error');
-            // Try alternative CREATE VECTOR INDEX syntax
+            log(`Vector index creation error: ${createError}`, 'mage-vector-service-error');
+            
+            // Try alternative syntax
             try {
               await executeCustomQuery(`
-                CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
-                WITH CONFIG {
-                  "dimension": 768,
-                  "capacity": 10000,
-                  "metric": "cos"
-                }
+                CALL vector_search.create_index(
+                  "vector_idx_all", 
+                  "Node", 
+                  "embedding", 
+                  768, 
+                  10000, 
+                  "cosine"
+                );
               `);
-              log('Created vector index using alternative syntax: vector_idx_all', 'mage-vector-service');
+              log('Created vector index using procedure: vector_idx_all', 'mage-vector-service');
             } catch (altError) {
-              log(`Alternative Node index creation also failed: ${altError}`, 'mage-vector-service-error');
+              log(`Procedure vector index creation also failed: ${altError}`, 'mage-vector-service-error');
             }
           }
         }
