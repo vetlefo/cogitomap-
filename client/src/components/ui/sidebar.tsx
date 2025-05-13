@@ -194,6 +194,10 @@ const Sidebar = React.forwardRef<
     const [mode, setMode] = React.useState(initialMode);
     const isFloating = mode === "floating";
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    
+    const handleModeChange = (newMode: "docked" | "collapsed" | "floating") => {
+      setMode(newMode);
+    };
 
     if (collapsible === "none") {
       return (
@@ -262,7 +266,9 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+            "fixed inset-y-0 h-svh w-[--sidebar-width] transition-all duration-200 ease-linear md:flex",
+            isFloating ? "rounded-xl shadow-2xl bg-sidebar/95 backdrop-blur border border-accent min-h-96 max-h-[80vh] !h-auto inset-y-auto top-20" 
+                       : "z-10 hidden",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -276,8 +282,16 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            className={cn(
+              "flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow",
+              "relative",
+              isFloating && "rounded-xl overflow-hidden shadow-lg"
+            )}
           >
+            <SidebarTrigger 
+              className="absolute right-2 top-2 z-20" 
+              onModeChange={handleModeChange} 
+            />
             {children}
           </div>
         </div>
@@ -289,9 +303,25 @@ Sidebar.displayName = "Sidebar";
 
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
-  React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
+  React.ComponentProps<typeof Button> & {
+    onModeChange?: (mode: "docked" | "collapsed" | "floating") => void;
+  }
+>(({ className, onClick, onModeChange, ...props }, ref) => {
   const { toggleSidebar } = useSidebar();
+  const [currentMode, setCurrentMode] = React.useState<"docked" | "collapsed" | "floating">("collapsed");
+
+  const cycleMode = () => {
+    const nextMode = currentMode === "docked" 
+      ? "collapsed" 
+      : currentMode === "collapsed" 
+        ? "floating" 
+        : "docked";
+    
+    setCurrentMode(nextMode);
+    if (onModeChange) {
+      onModeChange(nextMode);
+    }
+  };
 
   return (
     <Button
@@ -299,15 +329,19 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      className={cn(
+        "absolute -right-3 top-4 size-6 rounded-full bg-accent shadow-md ring-1 ring-ring",
+        className
+      )}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
+        cycleMode();
       }}
       {...props}
     >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
+      <PanelLeft className="size-4" />
+      <span className="sr-only">Toggle Sidebar Mode</span>
     </Button>
   );
 });
