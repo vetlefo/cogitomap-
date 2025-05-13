@@ -28,11 +28,12 @@ export async function vectorSearch(
       ? `AND node.type IN $nodeTypes` 
       : '';
     
-    // Build and execute the query - modified for Memgraph compatibility
-    // Memgraph doesn't support WHERE after YIELD, so we pass cutoff directly in the procedure call
+    // Build and execute the query - using Memgraph 3.0+ vector_search module
     const query = `
-      CALL db.index.vector.queryNodes('vector_idx_all', $embedding, ${limit}, ${minSimilarity})
+      CALL vector_search.search('vector_idx_all', ${limit}, $embedding)
       YIELD node, similarity
+      WITH node, similarity
+      WHERE similarity >= ${minSimilarity}
       RETURN node, similarity
       ORDER BY similarity DESC
     `;
@@ -109,11 +110,13 @@ export async function createVectorIndices(): Promise<void> {
       log('Continuing with fallback mode...', 'mage-vector-service');
     }
     
-    // Get existing vector indices
+    // Get existing vector indices - using Memgraph 3.0 SHOW INDEX INFO command
     const indices = await executeCustomQuery(`
-      CALL db.index.vector() 
-      YIELD index_name, index_label, property_name 
-      RETURN index_name AS name, index_label AS label, property_name AS property
+      SHOW INDEX INFO
+      YIELD index_name, index_type, object_type, schema_name, property_name
+      WITH index_name, index_type, object_type, schema_name, property_name
+      WHERE index_type = 'vector'
+      RETURN index_name AS name, schema_name AS label, property_name AS property
     `);
     
     log(`Found ${indices.length} existing vector indices`, 'mage-vector-service');
@@ -121,29 +124,27 @@ export async function createVectorIndices(): Promise<void> {
     // Initialize indices if they don't exist
     const existingIndices = new Set(indices.map((idx: any) => idx.name));
     
-    // Create general vector index for all nodes
+    // Create general vector index for all nodes - updated for Memgraph 3.0
     if (!existingIndices.has('vector_idx_all')) {
       await executeCustomQuery(`
       CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
       WITH CONFIG {
         "dimension": 768,
-        "capacity": 1024,
-        "metric": "cos",
-        "resize_coefficient": 2
+        "capacity": 10000,
+        "metric": "cos"
       }
       `);
       log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
     }
     
-    // Create index for message nodes
+    // Create index for message nodes - updated for Memgraph 3.0
     if (!existingIndices.has('vector_idx_msg')) {
       await executeCustomQuery(`
       CREATE VECTOR INDEX vector_idx_msg ON :ai_message|user_message(embedding)
       WITH CONFIG {
         "dimension": 768,
-        "capacity": 1024,
-        "metric": "cos",
-        "resize_coefficient": 2
+        "capacity": 10000,
+        "metric": "cos"
       }
       `);
       log('Created vector index: vector_idx_msg for label: ai_message|user_message', 'mage-vector-service');
