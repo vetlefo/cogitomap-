@@ -14,13 +14,21 @@ dotenv.config();
 export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
   readonly modelId: string = 'openai-embedding';
   readonly modelName: string = 'OpenAI Embeddings';
-  readonly dimensions: number = 1536; // text-embedding-ada-002 dimensions
+  // We'll store the actual dimensions here and reference it
+  private _dimensions: number = 1536; // text-embedding-ada-002 dimensions
   readonly maxTokens: number = 8191; // Maximum tokens for text-embedding-ada-002
   
   private _isAvailable: boolean = false;
   private apiKey: string | null = null;
   private embeddingModel: string = 'text-embedding-ada-002';
   private baseURL: string = 'https://api.openai.com/v1/embeddings';
+  
+  /**
+   * Get dimensions of the embedding vectors
+   */
+  get dimensions(): number {
+    return this._dimensions;
+  }
   
   /**
    * Check if the model is available (has API key)
@@ -41,9 +49,9 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
     
     // Set dimensions based on the model
     if (this.embeddingModel === 'text-embedding-3-small') {
-      this.dimensions = 1536;
+      this._dimensions = 1536;
     } else if (this.embeddingModel === 'text-embedding-3-large') {
-      this.dimensions = 3072;
+      this._dimensions = 3072;
     }
     
     // Update availability based on API key presence
@@ -76,12 +84,25 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as Record<string, any>;
         throw new Error(`OpenAI API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
 
-      const data = await response.json();
-      const embedding = data.data[0].embedding;
+      const data = await response.json() as {
+        data: Array<{
+          embedding: number[];
+          index: number;
+          object: string;
+        }>;
+        model: string;
+        object: string;
+        usage: {
+          prompt_tokens: number;
+          total_tokens: number;
+        };
+      };
+      
+      const embedding = data.data[0]?.embedding;
       
       if (!embedding || !Array.isArray(embedding)) {
         throw new Error('Invalid embedding format returned from OpenAI API');
@@ -91,7 +112,11 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       return embedding;
     } catch (error) {
       console.error('Error generating embedding:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`);
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate embedding: ${error.message}`);
+      } else {
+        throw new Error('Failed to generate embedding: Unknown error');
+      }
     }
   }
 
@@ -117,11 +142,23 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as Record<string, any>;
         throw new Error(`OpenAI API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        data: Array<{
+          embedding: number[];
+          index: number;
+          object: string;
+        }>;
+        model: string;
+        object: string;
+        usage: {
+          prompt_tokens: number;
+          total_tokens: number;
+        };
+      };
       
       // Sort embeddings by index to ensure they match the input order
       const sortedEmbeddings = data.data
@@ -132,7 +169,11 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       return sortedEmbeddings;
     } catch (error) {
       console.error('Error generating batch embeddings:', error);
-      throw new Error(`Failed to generate batch embeddings: ${error.message}`);
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate batch embeddings: ${error.message}`);
+      } else {
+        throw new Error('Failed to generate batch embeddings: Unknown error');
+      }
     }
   }
 

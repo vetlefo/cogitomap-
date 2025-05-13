@@ -1,74 +1,62 @@
 /**
  * Base interface for embedding models
  * 
- * Embedding models are responsible for converting text into numerical
- * vector representations that capture semantic meaning. These embeddings
- * are used for similarity search, positioning in 3D space, and other
- * semantic operations.
+ * Embedding models convert text to vector representations that capture semantic meaning.
+ * These vectors enable similarity comparisons, clustering, and other semantic operations.
+ */
+
+/**
+ * Base interface that all embedding models must implement
  */
 export interface BaseEmbeddingModel {
   /**
-   * Unique identifier for this model
+   * Unique identifier for this embedding model
    */
   readonly modelId: string;
   
   /**
-   * Human-readable name of the model
+   * Human-readable name of the embedding model
    */
   readonly modelName: string;
   
   /**
-   * Number of dimensions in the embedding vectors this model produces
+   * Number of dimensions in the embedding vectors
    */
   readonly dimensions: number;
   
   /**
-   * Maximum token length this model can process
+   * Maximum number of tokens the model can process at once
    */
-  readonly maxTokens?: number;
+  readonly maxTokens: number;
   
   /**
-   * Whether this model is currently available
-   */
-  readonly isAvailable: boolean;
-  
-  /**
-   * Initialize the model with configuration
-   * 
-   * @param config Configuration parameters
+   * Initialize the embedding model with configuration
    */
   initialize(config?: Record<string, any>): Promise<void>;
   
   /**
-   * Generate embedding for a single text input
-   * 
-   * @param text The text to generate an embedding for
-   * @returns A vector of floating point numbers representing the embedding
+   * Generate an embedding vector for a text string
    */
   generateEmbedding(text: string): Promise<number[]>;
   
   /**
-   * Generate embeddings for multiple text inputs in a batch
-   * 
-   * @param texts Array of texts to generate embeddings for
-   * @returns Array of embedding vectors
+   * Generate embedding vectors for multiple text strings
    */
   generateBatchEmbeddings(texts: string[]): Promise<number[][]>;
   
   /**
-   * Calculate similarity between two embeddings
-   * 
-   * @param embedding1 First embedding vector
-   * @param embedding2 Second embedding vector
-   * @returns Similarity score (higher means more similar)
+   * Calculate similarity between two embedding vectors
+   * (typically cosine similarity)
    */
-  calculateSimilarity?(embedding1: number[], embedding2: number[]): number;
+  calculateSimilarity(embedding1: number[], embedding2: number[]): number;
   
   /**
-   * Map embeddings to 3D coordinates for visualization
-   * 
-   * @param embedding Embedding vector
-   * @returns 3D coordinates {x, y, z}
+   * Calculate a 3D position from an embedding vector for visualization
    */
   embedding3DPosition?(embedding: number[]): { x: number, y: number, z: number };
+  
+  /**
+   * Whether the embedding model is available and ready to use
+   */
+  get isAvailable(): boolean;
 }

@@ -96,4 +96,17 @@ export interface BaseSource {
    * @returns Object indicating connection status and optional message
    */
   checkConnection?(): Promise<{isConnected: boolean, message?: string}>;
+  
+  /**
+   * Optional method to add raw messages to the source (for chat sources)
+   * 
+   * @param message Message with role, content, and other metadata
+   */
+  addRawMessage?(message: { 
+    id?: string;
+    role: 'user' | 'assistant' | 'system'; 
+    content: string; 
+    userId: string;
+    timestamp?: string;
+  }): void;
 }

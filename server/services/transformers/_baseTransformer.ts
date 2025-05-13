@@ -1,15 +1,32 @@
+/**
+ * Base interface for all transformers
+ * 
+ * Transformers are responsible for extracting meaning and relationships
+ * from raw content, generating derived nodes and connections.
+ */
+
 import { BubbleNode, Edge } from '../../../client/src/types';
 
 /**
- * Base interface for data transformers
- * 
- * Transformers process BubbleNode objects and perform operations like:
- * - Extracting keywords or entities
- * - Generating embeddings
- * - Creating summarizations
- * - Establishing relationships between nodes
- * 
- * They can modify the incoming nodes directly or generate new nodes.
+ * Result of a transformer operation
+ */
+export interface TransformerResult {
+  nodes: Partial<BubbleNode>[];
+  edges: Partial<Edge>[];
+}
+
+/**
+ * Context provided to transformers with information about the input
+ */
+export interface TransformContext {
+  node: BubbleNode;
+  content: string;
+  type: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Base interface that all transformers must implement
  */
 export interface BaseTransformer {
   /**
@@ -20,40 +37,15 @@ export interface BaseTransformer {
   /**
    * Human-readable name of the transformer
    */
-  readonly name: string;
+  readonly transformerName: string;
   
   /**
-   * Description of what this transformer does
+   * Initialize the transformer with configuration options
    */
-  readonly description: string;
+  initialize(config?: Record<string, any>): Promise<void>;
   
   /**
-   * Configuration schema for this transformer
+   * Process input content and extract derived nodes and relationships
    */
-  readonly configSchema?: Record<string, any>;
-  
-  /**
-   * Transform a batch of nodes
-   * 
-   * This method should modify or augment the provided nodes, or generate
-   * completely new nodes based on the input.
-   * 
-   * @param nodes Partial BubbleNode objects to transform
-   * @param context Additional context for the transformation
-   * @returns An array of transformed nodes, potentially including new generated nodes
-   */
-  transform(
-    nodes: Partial<BubbleNode>[], 
-    context?: any
-  ): Promise<{ 
-    nodes: Partial<BubbleNode>[], 
-    edges?: Partial<Edge>[] 
-  }>;
-  
-  /**
-   * Initialize the transformer with configuration
-   * 
-   * @param config Configuration parameters
-   */
-  initialize?(config?: Record<string, any>): Promise<void>;
+  transform(context: TransformContext): Promise<TransformerResult>;
 }
