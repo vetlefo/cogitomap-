@@ -33,6 +33,7 @@ export interface BubbleNode {
   sourceSystem?: string; // e.g., "chat", "notion_import", "airweave_connector_X"
   sourceSystemId?: string; // ID of the entity in the original source system
   parentEntityId?: string; // If this node is a "chunk" of a larger entity
+  source_id?: string; // The ID of the source node (e.g., the message ID for a derived topic)
   versionHash?: string; // For data versioning, inspired by AirWeave's hashing
   createdAt?: string; // ISO 8601 timestamp
   updatedAt?: string; // ISO 8601 timestamp

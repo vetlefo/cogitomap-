@@ -8,6 +8,8 @@ const MEMGRAPH_PASSWORD = process.env.MEMGRAPH_PASSWORD || "";
 let driver: Driver | undefined;
 
 export async function initMemgraph(): Promise<void> {
+  log(`Checking Memgraph credentials - URI exists: ${!!MEMGRAPH_URI}, Username exists: ${!!MEMGRAPH_USERNAME}, Password exists: ${!!MEMGRAPH_PASSWORD}`, "memgraph-client-debug");
+  
   if (!MEMGRAPH_URI || !MEMGRAPH_USERNAME || !MEMGRAPH_PASSWORD) {
     log(
       "Memgraph credentials not fully configured in environment variables!",
@@ -32,6 +34,13 @@ export async function initMemgraph(): Promise<void> {
         maxConnectionPoolSize: 50,
         connectionAcquisitionTimeout: 2 * 60 * 1000, // 2 minutes
         disableLosslessIntegers: true,
+        // Add logging
+        logging: {
+          level: 'debug',
+          logger: (level, message) => {
+            log(`[Neo4j Driver ${level}] ${message}`, 'neo4j-driver');
+          }
+        }
       }
     );
     
@@ -44,6 +53,20 @@ export async function initMemgraph(): Promise<void> {
     });
     
     await Promise.race([verifyPromise, timeoutPromise]);
+    
+    // Try a simple test query to truly verify the connection
+    const session = driver.session();
+    try {
+      log("Running test query to verify full connectivity...", "memgraph-client");
+      const result = await session.run("RETURN 'Connected' AS status");
+      const status = result.records[0]?.get('status');
+      log(`Test query result: ${status}`, "memgraph-client");
+      await session.close();
+    } catch (queryError) {
+      log(`Test query failed: ${queryError}`, "memgraph-client-error");
+      throw queryError;
+    }
+    
     log("Successfully connected to Memgraph Cloud.", "memgraph-client");
   } catch (error) {
     log(`Failed to connect to Memgraph Cloud: ${error}`, "memgraph-client");

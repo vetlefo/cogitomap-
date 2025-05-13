@@ -105,6 +105,7 @@ export class KeywordExtractionTransformer implements BaseTransformer {
             content: keyword.text,
             position,
             importance: 0.5 + (keyword.score / 10), // Base importance on keyword relevance
+            source_id: node.id, // Set parent node ID for hub-and-spoke positioning
             metadata: {
               extracted_from: node.id,
               source_type: type,
