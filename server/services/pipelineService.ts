@@ -83,7 +83,7 @@ export class PipelineService {
             position = this.embeddingModel.embedding3DPosition(embedding);
           } else {
             // Default positioning algorithm if the model doesn't provide one
-            position = this.defaultPositioning(embedding);
+            position = this.defaultPositioning(embedding, message.role + '_message', messageId);
           }
         } catch (embeddingError) {
           log(`Error generating embedding: ${embeddingError}`, 'pipeline-error');
@@ -275,7 +275,7 @@ export class PipelineService {
                   if (typeof this.embeddingModel.embedding3DPosition === 'function') {
                     entity.position = this.embeddingModel.embedding3DPosition(entity.embedding_vector);
                   } else {
-                    entity.position = this.defaultPositioning(entity.embedding_vector);
+                    entity.position = this.defaultPositioning(entity.embedding_vector, entity.type, entity.source_id);
                   }
                 } else if (!entity.position) {
                   entity.position = {
@@ -402,10 +402,19 @@ export class PipelineService {
   }
   
   /**
-   * Default positioning algorithm when embedding model doesn't provide one
+   * Hub-and-spoke positioning algorithm that creates a more intuitive visual hierarchy.
+   * Messages are placed more centrally and topic/entity nodes are positioned in a spoke pattern.
+   * 
+   * @param embedding The vector embedding to convert to 3D coordinates
+   * @param nodeType The type of node (message, topic, entity, etc)
+   * @param parentNodeId Optional parent node ID for child nodes (topics/entities derived from messages)
    */
-  private defaultPositioning(embedding: number[]): { x: number, y: number, z: number } {
-    // PCA-like dimensionality reduction
+  private defaultPositioning(
+    embedding: number[], 
+    nodeType?: string,
+    parentNodeId?: string
+  ): { x: number, y: number, z: number } {
+    // PCA-like dimensionality reduction (basic calculation)
     const chunkSize = Math.floor(embedding.length / 3);
     
     let x = 0, y = 0, z = 0;
@@ -422,13 +431,48 @@ export class PipelineService {
       z += embedding[i] * (1 + 0.1 * Math.sin(i * 0.5));
     }
     
+    // Normalize
     const scaleFactor = 20;
     const normalizeFactor = embedding.length / 3;
     
-    return {
+    const basePosition = {
       x: (x / normalizeFactor) * scaleFactor,
       y: (y / normalizeFactor) * scaleFactor,
       z: (z / normalizeFactor) * scaleFactor
     };
+    
+    // Special positioning for message nodes (central hubs)
+    if (nodeType && nodeType.includes('message')) {
+      // Messages are positioned more prominently (slightly elevated)
+      return {
+        x: basePosition.x,
+        y: basePosition.y + 2, // Lift messages slightly above other nodes
+        z: basePosition.z
+      };
+    }
+    // Position for derived nodes (topics, entities, etc.)
+    else if (nodeType && parentNodeId) {
+      // Create a more random distribution around the parent node
+      // This creates the "spoke" effect radiating from message nodes
+      
+      // Generate a consistent angle based on the node's embedding
+      // This ensures the same node always gets the same position relative to its parent
+      const angle = Math.abs(x + y + z) % (2 * Math.PI);
+      
+      // Distance from parent node (based on node type)
+      const distance = nodeType.includes('topic') ? 3 : 
+                       nodeType.includes('entity') ? 4 :
+                       nodeType.includes('summary') ? 2.5 : 3.5;
+      
+      // Calculate position in a spherical pattern around the parent
+      return {
+        x: basePosition.x + distance * Math.cos(angle),
+        y: basePosition.y + distance * 0.5 * Math.sin(angle), // Less vertical spread
+        z: basePosition.z + distance * Math.sin(angle)
+      };
+    }
+    
+    // Default positioning for nodes without special treatment
+    return basePosition;
   }
 }
