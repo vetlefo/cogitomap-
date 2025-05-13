@@ -17,6 +17,9 @@ const STORAGE_DIMENSIONS = 384; // Further reduced for efficient storage
 // Reduced dimensions for 3D visualization
 const VISUALIZATION_DIMENSIONS = 3;
 
+// Maximum length for input text to prevent excessive processing
+const MAX_TEXT_LENGTH = 1000; // Adjust as needed based on application requirements
+
 /**
  * Generate an embedding vector for text content using OpenAI's embedding API
  * @param text The text to generate an embedding for
@@ -532,7 +535,7 @@ function generateFallbackEmbedding(text: string, dimensions: number = DEFAULT_DI
   const embedding = new Array(dimensions).fill(0);
   
   // Normalize text
-  const normalizedText = text.toLowerCase().trim();
+  const normalizedText = text.toLowerCase().trim().slice(0, MAX_TEXT_LENGTH);
   
   // Generate a deterministic hash-based embedding
   for (let i = 0; i < normalizedText.length; i++) {

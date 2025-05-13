@@ -553,7 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // New route for SSR-friendly semantic results
   app.get('/api/graph/semantic-ssr', async (req: Request, res: Response) => {
     try {
-      const queryText = req.query.query as string;
+      const queryText = (req.query.query as string)?.slice(0, 1000); // Truncate to MAX_TEXT_LENGTH
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
       const minSimilarity = req.query.minSimilarity ? parseFloat(req.query.minSimilarity as string) : 0.7;
       const nodeTypesQuery = req.query.nodeTypes as string;
