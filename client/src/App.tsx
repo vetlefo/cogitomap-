@@ -231,12 +231,15 @@ function App() {
 
       {/* Semantic Search Panel */}
       {showSemanticSearch && (
-        <div className="semantic-search-panel">
-          <div className="panel-header">
-            <h3>Semantic Search</h3>
-            <button className="close-button" onClick={toggleSemanticSearch}>×</button>
+        <div className="semantic-search-panel fixed top-20 right-20 z-[70] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform min-w-[300px] max-w-[400px] rounded-xl overflow-hidden border border-accent/30 bg-background/80 backdrop-blur-lg shadow-xl">
+          <div className="panel-header flex items-center justify-between p-2 border-b border-accent/20">
+            <h3 className="text-accent font-semibold flex items-center gap-2">
+              <Search size={16} />
+              Semantic Search
+            </h3>
+            <button className="close-button rounded-full size-6 flex items-center justify-center hover:bg-accent/20 transition-colors" onClick={toggleSemanticSearch}>×</button>
           </div>
-          <div className="panel-content">
+          <div className="panel-content p-3">
             <SemanticSearch 
               onSelectResult={(result) => {
                 console.log('Selected search result:', result);

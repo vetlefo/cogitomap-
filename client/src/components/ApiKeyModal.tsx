@@ -99,44 +99,40 @@ export default function ApiKeyModal({
   const info = providerInfo[provider];
   
   return (
-    <div className="modal" style={{ display: 'flex' }}>
-      <div className="modal-content" style={{ borderColor: info.color }}>
-        <h2 className="modal-title" style={{ color: info.color }}>
+    <div className="modal fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm perspective-dramatic">
+      <div className="modal-content rounded-xl overflow-hidden bg-background/90 backdrop-blur-lg border border-accent/30 shadow-2xl transform-gpu translate-z-6 transition-transform hover:translate-z-8 max-w-md w-full mx-4 p-6" style={{ borderColor: info.color }}>
+        <h2 className="modal-title text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: info.color }}>
+          <Key size={18} />
           {initialValue === 'env-variable' ? `${info.name} API Key (Environment)` : `Enter ${info.name} API Key`}
         </h2>
         
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {initialValue === 'env-variable' ? (
-            <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px', backgroundColor: 'rgba(0, 40, 80, 0.4)', padding: '10px', borderRadius: '4px' }}>
-              <strong><Key size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Environment Variable Detected</strong><br/>
-              Your {info.name} API key is currently set via an environment variable. You don't need to enter it manually.
-            </p>
+            <div className="rounded-lg bg-accent/10 p-3 border border-accent/20">
+              <p className="text-sm flex items-start gap-2">
+                <Key size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <strong className="block text-accent mb-1">Environment Variable Detected</strong>
+                  Your {info.name} API key is currently set via an environment variable. You don't need to enter it manually.
+                </span>
+              </p>
+            </div>
           ) : (
-            <p style={{ color: info.color, marginBottom: '15px', fontSize: '14px' }}>
+            <p className="text-sm text-muted-foreground">
               Your API key is stored locally in your browser and is only sent directly to {info.name}.
             </p>
           )}
           
           {initialValue !== 'env-variable' && (
-            <div style={{ 
-              background: info.bgColor, 
-              padding: '10px', 
-              borderRadius: '4px', 
-              marginBottom: '15px'
-            }}>
-              <p style={{ fontSize: '12px', margin: '0 0 8px 0' }}>
+            <div className="rounded-lg bg-accent/5 p-3 border border-accent/10 text-sm">
+              <p className="text-xs text-muted-foreground mb-1">
                 Don't have a key? Get one from:
               </p>
               <a 
                 href={info.website} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                style={{ 
-                  color: info.color, 
-                  textDecoration: 'none', 
-                  fontWeight: 'bold',
-                  fontSize: '13px'
-                }}
+                className="text-accent font-medium hover:underline"
               >
                 {info.website}
               </a>
