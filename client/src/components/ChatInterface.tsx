@@ -4,6 +4,8 @@ import { useLLM, sendMessage as sendLLMMessage } from '../lib/stores/useOpenAI';
 import { analyzeMessage } from '../lib/ContextAnalyzer';
 import { useAuth } from '../hooks/useAuth';
 import { BubbleNode, Message, Edge, StructuredLLMOutput, NodeType } from '../types';
+import { ChevronDown, Send, RefreshCw } from 'lucide-react';
+import FloatingToolbar from './ui/FloatingToolbar';
 
 interface ChatInterfaceProps {
   visible: boolean;
@@ -264,18 +266,36 @@ export default function ChatInterface({
     }
   };
 
+  // Model selector dropdown
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  
+  const toggleModelDropdown = () => {
+    setShowModelDropdown(!showModelDropdown);
+  };
+  
+  // Function to handle model selection
+  const handleModelSelect = (model: string) => {
+    // You would need to implement this in your LLM store
+    setShowModelDropdown(false);
+  };
+  
   return (
-    <div id="chat-interface" className={`${visible ? '' : 'hidden'} z-50 relative mt-12`}>
-      <button 
-        className="new-conversation-btn"
-        onClick={handleNewConversation}
-        title="Start a new conversation"
-      >
-        <span className="new-conversation-icon">+</span>
-        <span>New Chat</span>
-      </button>
-
-      <div id="chat-messages">
+    <div id="chat-interface" className={`${visible ? '' : 'hidden'} z-50 relative`}>
+      {/* Left side toolbar - vertically aligned */}
+      <div className="chat-left-toolbar">
+        <button 
+          className="toolbar-icon" 
+          onClick={handleNewConversation}
+          title="New Conversation"
+        >
+          <RefreshCw size={16} />
+        </button>
+        
+        {/* Place the FloatingToolbar on the left side of chat */}
+        <FloatingToolbar className="chat-sidebar" />
+      </div>
+      
+      <div id="chat-messages" className="text-sm">
         {!isAuthenticated && (
           <a 
             href="/?devMode=true" 
@@ -307,7 +327,7 @@ export default function ChatInterface({
                 <span className="node-indicator">{messageNodeMap[index].length} node{messageNodeMap[index].length > 1 ? 's' : ''}</span>
               )}
             </div>
-            <div className="message-content">
+            <div className="message-content text-sm">
               {(() => {
                 try {
                   // Check if the content is a JSON string containing main_response
@@ -331,7 +351,7 @@ export default function ChatInterface({
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div id="input-area">
+      <div id="input-area" className="input-area-with-model">
         <textarea 
           id="user-input"
           value={input}
@@ -341,15 +361,63 @@ export default function ChatInterface({
             ? `Ask ${selectedProvider.toUpperCase()} something...` 
             : `Set your ${selectedProvider.toUpperCase()} API key first`}
           disabled={!apiKeys[selectedProvider] || isProcessing}
+          className="text-sm"
         />
+        
+        {/* Model selector button */}
+        <div className="model-select-container">
+          <button 
+            className="model-select-button"
+            onClick={toggleModelDropdown}
+            title="Change AI model"
+          >
+            <span className="model-name">{selectedModel.replace('gpt-', 'GPT ')}</span>
+            <ChevronDown size={12} className="ml-1" />
+          </button>
+          
+          {/* Model selection dropdown */}
+          {showModelDropdown && (
+            <div className="model-dropdown shadow-lg">
+              <div className="model-dropdown-header">Select Model</div>
+              <div className="model-dropdown-options">
+                <div 
+                  className={`model-option ${selectedModel === 'gpt-3.5-turbo' ? 'selected' : ''}`}
+                  onClick={() => handleModelSelect('gpt-3.5-turbo')}
+                >
+                  GPT 3.5 Turbo
+                </div>
+                <div 
+                  className={`model-option ${selectedModel === 'gpt-4' ? 'selected' : ''}`}
+                  onClick={() => handleModelSelect('gpt-4')}
+                >
+                  GPT 4
+                </div>
+                <div 
+                  className={`model-option ${selectedModel === 'gpt-4-turbo' ? 'selected' : ''}`}
+                  onClick={() => handleModelSelect('gpt-4-turbo')}
+                >
+                  GPT 4 Turbo
+                </div>
+                <div 
+                  className={`model-option ${selectedModel === 'gpt-4o' ? 'selected' : ''}`}
+                  onClick={() => handleModelSelect('gpt-4o')}
+                >
+                  GPT 4o
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
         <button 
           id="send-button" 
           onClick={handleSendMessage}
           disabled={!apiKeys[selectedProvider] || isProcessing}
+          className="flex items-center justify-center"
         >
           {isProcessing ? 
             <span className="loading"></span> : 
-            'Send'
+            <Send size={16} />
           }
         </button>
       </div>
