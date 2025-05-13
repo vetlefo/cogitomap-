@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useLLM, LLMProvider, ModelInfo, fetchAvailableModels } from '../lib/stores/useOpenAI';
 import { Key, Check, X } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface ModelSelectorProps {
   onProviderChange?: (provider: LLMProvider) => void;
   onModelChange?: (model: string) => void;
+  className?: string;
 }
 
 export default function ModelSelector({ 
   onProviderChange, 
-  onModelChange 
+  onModelChange,
+  className
 }: ModelSelectorProps) {
   const { 
     selectedProvider, 
@@ -67,7 +70,7 @@ export default function ModelSelector({
   return (
     <div className={cn(
       "inline-flex items-center gap-2 rounded-md border px-3 py-1 bg-muted/50 hover:bg-muted transition-colors model-selector-container",
-      props.className
+      className
     )}>
       <div 
         className="model-selector" 

@@ -168,12 +168,15 @@ const SidebarProvider = React.forwardRef<
 );
 SidebarProvider.displayName = "SidebarProvider";
 
+const SIDEBAR_FLOATING_Z = 90;
+
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
+    mode?: "docked" | "collapsed" | "floating";
   }
 >(
   (
@@ -181,12 +184,15 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      mode: initialMode = "collapsed",
       className,
       children,
       ...props
     },
     ref,
   ) => {
+    const [mode, setMode] = React.useState(initialMode);
+    const isFloating = mode === "floating";
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
     if (collapsible === "none") {
@@ -231,11 +237,17 @@ const Sidebar = React.forwardRef<
     return (
       <div
         ref={ref}
-        className="group peer hidden text-sidebar-foreground md:block"
+        className={cn(
+          "group peer text-sidebar-foreground",
+          isFloating ? 
+            "fixed top-20 left-4 z-[90] perspective-dramatic transform-gpu translate-z-6 hover:translate-z-8 transition-transform" : 
+            "hidden md:block"
+        )}
         data-state={state}
         data-collapsible={state === "collapsed" ? collapsible : ""}
         data-variant={variant}
         data-side={side}
+        data-sidebar={mode}
       >
         {/* This is what handles the sidebar gap on desktop */}
         <div

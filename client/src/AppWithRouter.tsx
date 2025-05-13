@@ -7,30 +7,26 @@ import App from './App';
 // Import UI components
 import { Button } from './components/ui/button';
 
-// Define a simple navigation component
-const Navigation: React.FC = () => {
-  return (
-    <nav className="fixed top-0 left-0 right-0 bg-black/70 backdrop-blur-md z-50 p-2">
-      <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center space-x-1">
-          <Link to="/" className="text-blue-400 hover:text-blue-300 font-bold">
-            CogitoMap
-          </Link>
-          
-          <div className="ml-6 flex space-x-1">
-            {/* NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
-            <Link to="/notion">
-              <Button variant="ghost" className="text-xs h-8 px-2">
-                Notion
-              </Button>
-            </Link>
-            */}
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-};
+// Import ModelSelector
+import ModelSelector from './components/ModelSelector';
+
+// NEW Navigation with fixed height and sticky stacking context
+const NAV_HEIGHT = 64; // 4 rem
+const Navigation: React.FC = () => (
+  <header
+    className="fixed inset-x-0 top-0 z-[100] h-16 flex items-center gap-4 bg-background/90
+               backdrop-blur-md shadow-md px-4"
+  >
+    <Link to="/" className="text-blue-400 hover:text-blue-300 font-bold">
+      <img src="/logo.svg" alt="CogitoMap" className="h-8 w-auto" onError={(e) => {
+        // Fallback if image doesn't exist
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.parentElement!.textContent = 'CogitoMap';
+      }} />
+    </Link>
+    <ModelSelector className="ml-auto" /> {/* now visible, never covered */}
+  </header>
+);
 
 // Define a loading component
 const Loading: React.FC = () => (
@@ -43,16 +39,18 @@ const Loading: React.FC = () => (
 const AppWithRouter: React.FC = () => {
   return (
     <Router>
-      <Navigation />
-      <div className="pt-12"> {/* Add padding to account for the fixed navbar */}
-        <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/" element={<App />} />
-            {/* NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
-            <Route path="/notion" element={<NotionPage />} />
-            */}
-          </Routes>
-        </Suspense>
+      <div className="pt-16 min-h-screen flex flex-col">
+        <Navigation />
+        <main className="flex-1">
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/" element={<App />} />
+              {/* NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
+              <Route path="/notion" element={<NotionPage />} />
+              */}
+            </Routes>
+          </Suspense>
+        </main>
       </div>
     </Router>
   );
