@@ -40,31 +40,50 @@ export async function testMemgraphConnection(): Promise<boolean> {
       return false;
     }
     
+    // Check URI format and adjust if needed
+    const uri = process.env.MEMGRAPH_URI!;
+    if (uri.startsWith('bolt+ssc://')) {
+      log(`Using Memgraph URI with SSL: ${uri}`, "graph-service-debug");
+    }
+    
     // Simple query to test connection - with improved debug output
     log("Executing Memgraph test query...", "graph-service-debug");
-    const results = await executeQuery("RETURN 1 as test");
-    
-    if (results && results.length > 0) {
-      log(`Test query results: ${JSON.stringify(results)}`, "graph-service-debug");
+    try {
+      const results = await executeQuery("RETURN 1 as test");
       
-      // Try a second more complex query
-      try {
-        const nodeCount = await executeQuery("MATCH (n) RETURN count(n) as count");
-        log(`Database contains ${nodeCount[0]?.count || 0} nodes`, "graph-service-debug");
-      } catch (countError) {
-        log(`Node count query failed: ${countError}`, "graph-service-debug");
-        // This is not a critical error, we can still proceed
+      if (results && results.length > 0) {
+        log(`Test query results: ${JSON.stringify(results)}`, "graph-service-debug");
+        
+        // Try a second more complex query
+        try {
+          const nodeCount = await executeQuery("MATCH (n) RETURN count(n) as count");
+          const count = nodeCount[0]?.count || 0;
+          log(`Database contains ${count} nodes`, "graph-service-debug");
+          
+          // Force using real database if connection test successful
+          usingFallback = false;
+          connectionTested = true;
+          log("Memgraph connection test successful, using database storage", "graph-service");
+        } catch (countError) {
+          log(`Node count query failed: ${countError}`, "graph-service-debug");
+          // This is not a critical error, as long as basic query works
+          usingFallback = false;
+          connectionTested = true;
+          log("Memgraph connection partially successful, still using database storage", "graph-service");
+        }
+        return true;
+      } else {
+        log("Test query returned empty results", "graph-service-debug");
+        usingFallback = true;
+        connectionTested = true;
+        log("Memgraph connection test returned no results, using fallback storage", "graph-service");
+        return false;
       }
-      
-      usingFallback = false;
-      connectionTested = true;
-      log("Memgraph connection test successful, using database storage", "graph-service");
-      return true;
-    } else {
-      log("Test query returned empty results", "graph-service-debug");
+    } catch (queryError) {
+      log(`Test query execution failed: ${queryError}`, "graph-service-debug");
       usingFallback = true;
       connectionTested = true;
-      log("Memgraph connection test returned no results, using fallback storage", "graph-service");
+      log("Memgraph test query failed, using fallback storage", "graph-service");
       return false;
     }
   } catch (error) {
@@ -87,25 +106,66 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
   // Use Memgraph if available
   if (!usingFallback) {
     try {
-      log(`Creating node with position data: ${JSON.stringify(node.position)}`, "graph-service-debug");
+      log(`Creating node with Memgraph: ${node.id} of type ${node.type}`, "graph-service-debug");
+      log(`Node position data: ${JSON.stringify(node.position)}`, "graph-service-debug");
       
       // Generate Cypher query for node creation - updated for Memgraph 3.0
-      // The node label is based on the node type (ai_message, user_message, topic, etc.)
-      const query = `
-        CREATE (n:${node.type})
-        SET n = $props
-        RETURN n
+      // Use MATCH to first check if node exists, prevent duplicates
+      let query = '';
+      
+      // First check if node exists
+      const checkQuery = `
+        MATCH (n)
+        WHERE n.id = $id
+        RETURN count(n) AS count
       `;
       
-      const results = await executeQuery(query, { props: node });
+      const checkResult = await executeQuery(checkQuery, { id: node.id });
+      const exists = checkResult && checkResult.length > 0 && checkResult[0].count > 0;
       
-      log(`Node created in Memgraph: ${node.id}`, "graph-service");
+      if (exists) {
+        // Node exists, update it
+        query = `
+          MATCH (n {id: $id})
+          SET n = $props
+          RETURN n
+        `;
+      } else {
+        // Node doesn't exist, create it
+        query = `
+          CREATE (n:${node.type} {id: $id})
+          SET n = $props
+          RETURN n
+        `;
+      }
       
-      // Return the created node - handling the new result format
-      if (results && results.length > 0 && results[0].n) {
-        const createdNode = results[0].n;
+      log(`Executing node creation query: ${query}`, "graph-service-debug");
+      const results = await executeQuery(query, { id: node.id, props: node });
+      
+      log(`Node ${exists ? 'updated' : 'created'} in Memgraph: ${node.id}`, "graph-service");
+      
+      // Return the created node - handling the Memgraph result format
+      if (results && results.length > 0) {
+        let createdNode: any;
+        
+        // Handle different result formats
+        if (results[0].n && typeof results[0].n === 'object') {
+          // Neo4j-style result with .n property
+          createdNode = results[0].n;
+        } else if (results[0] && typeof results[0] === 'object') {
+          // Memgraph might return the node directly
+          createdNode = results[0];
+        } else {
+          // Unable to parse result
+          log(`Unusual result format: ${JSON.stringify(results)}`, "graph-service-warning");
+          createdNode = node; // Fall back to original node
+        }
         
         // Make sure position data is included
+        if (!createdNode.position && node.position) {
+          createdNode.position = node.position;
+        }
+        
         if (createdNode.position) {
           log(`Returning node with position: ${JSON.stringify(createdNode.position)}`, "graph-service-debug");
         }
