@@ -1,0 +1,163 @@
+The overlapping top bar and clunky sidebar both stem from layout issues (z-index, missing content padding) and a lack of modern 3-D placement primitives. A small, fixed-height header plus HUD-style floating panels—positioned with @floating-ui, rendered with CSS3 3-D transforms and Tailwind’s perspective utilities—give you the “lightweight VR engine” feel while solving the collision problems. This approach follows established VR-UI best-practice guidance on keeping HUD elements off the main gaze path while avoiding occlusion and eye-strain 
+User Experience Stack Exchange
+WIRED
+, uses well-tested collision-aware positioning rather than ad-hoc z-index hacks 
+Floating UI
+Floating UI
+Smashing Magazine
+, and relies on Tailwind’s built-in 3-D utilities for inexpensive depth cues 
+Tailwind CSS
+. A dedicated HUDPanel component (inside Sidebar when “floating” mode is active) lets the same codebase handle docked, collapsed-icon, or free-floating panels 
+Flowbite
+Radix UI
+. Finally, the top-bar overlap is fixed by making it sticky at z-[100] and padding the root layout beneath it 
+Stack Overflow
+.
+
+Code changes
+
+File: client/src/AppWithRouter.tsx
+Change: Replace Navigation implementation with a slim, fixed header and page-padding
+
+// NEW Navigation with fixed height and sticky stacking context
+const NAV_HEIGHT = 64; // 4 rem
+const Navigation: React.FC = () => (
+  <header
+    className="fixed inset-x-0 top-0 z-[100] h-16 flex items-center gap-4 bg-background/90
+               backdrop-blur-md shadow-md px-4"
+  >
+    <img src="/logo.svg" alt="CogitoMap" className="h-8 w-auto" />
+    <ModelSelector className="ml-auto" /> {/* now visible, never covered */}
+  </header>
+);
+
+// root layout gets top-padding – add at top of <AppWithRouter>
+<div className="pt-16 min-h-screen flex flex-col">
+  {/* …existing routes/components… */}
+</div>
+File: client/src/components/ui/sidebar.tsx
+Change: Add “floating” mode and 3-D depth cues; refactor provider & panel
+
+const SIDEBAR_FLOATING_Z = 90;
+const SidebarProvider = React.forwardRef<HTMLDivElement, React.ComponentProps<"div"> & {
+  initialMode?: "docked" | "collapsed" | "floating";
+}>(({ initialMode = "collapsed", ...props }, ref) => {
+  const [mode, setMode] = React.useState(initialMode);
+  const isFloating = mode === "floating";
+
+  return (
+    <SidebarContext.Provider value={{ mode, setMode }}>
+      <div
+        ref={ref}
+        data-sidebar={mode}
+        className={cn(
+          "relative",
+          mode === "docked" && "w-[16rem]",
+          mode === "collapsed" && "w-12",
+          isFloating &&
+            "fixed top-20 left-4 z-[SIDEBAR_FLOATING_Z] perspective-dramatic transform-gpu
+             translate-z-6 hover:translate-z-8 transition-transform"
+        )}
+        {...props}
+      />
+    </SidebarContext.Provider>
+  );
+});
+// inside Sidebar component body – replace trigger
+<SidebarTrigger
+  onClick={() =>
+    setMode((m) =>
+      m === "docked" ? "collapsed" : m === "collapsed" ? "floating" : "docked"
+    )
+  }
+  aria-label="Toggle sidebar mode"
+  className="absolute -right-3 top-4 size-6 rounded-full bg-accent shadow-md ring-1 ring-ring"
+>
+  <Icons.Panel className="size-4" />
+</SidebarTrigger>
+File: client/src/components/ui/hud-panel.tsx
+Change: New HUDPanel component that floats anywhere using @floating-ui
+
+import { useFloating, offset, shift, flip } from "@floating-ui/react";
+import { AnimatePresence, motion } from "framer-motion";
+
+interface HUDPanelProps {
+  anchor: React.RefObject<HTMLElement>;
+  open: boolean;
+  onClose?: () => void;
+  className?: string;
+}
+
+export const HUDPanel: React.FC<HUDPanelProps> = ({
+  anchor,
+  open,
+  onClose,
+  children,
+  className
+}) => {
+  const { refs, floatingStyles } = useFloating({
+    placement: "right-start",
+    middleware: [offset(12), flip(), shift({ padding: 8 })]
+  });
+
+  React.useEffect(() => {
+    refs.setReference(anchor.current);
+  }, [anchor, refs]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={refs.setFloating}
+          style={floatingStyles}
+          className={cn(
+            "w-64 rounded-2xl bg-background/80 shadow-xl backdrop-blur-lg ring-1 ring-ring
+             transform-gpu perspective-normal translate-z-6",
+            className
+          )}
+          initial={{ opacity: 0, scale: 0.9, rotateX: -6 }}
+          animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+          exit={{ opacity: 0, scale: 0.95, rotateX: -4 }}
+          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+File: tailwind.config.ts
+Change: Expose additional perspective values & z-index scale
+
+theme: {
+  extend: {
+    perspective: {
+      dramatic: "800px",
+      normal: "1200px",
+    },
+    translate: {
+      "z-6": "1.5rem",
+      "z-8": "2rem",
+    },
+    zIndex: {
+      90: "90",
+      100: "100", // matches header
+    },
+  },
+},
+plugins: [require("@tailwindcss/typography"), require("tailwindcss-perspective")],
+File: client/src/components/ModelSelector.tsx
+Change: Remove absolute positioning in favour of inline-flex
+
+const ModelSelector: React.FC<{ className?: string }> = ({ className }) => (
+  <div
+    className={cn(
+      "inline-flex items-center gap-2 rounded-md border px-3 py-1 bg-muted/50
+       hover:bg-muted transition-colors",
+      className
+    )}
+  >
+    {/* …existing model buttons… */}
+  </div>
+);
+These focused edits resolve the overlap, compress the collapsed sidebar to a slim icon-rail, and unlock a third “floating” mode that feels like a VR HUD while remaining fully responsive and accessible.

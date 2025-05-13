@@ -5,6 +5,18 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      perspective: {
+        dramatic: "800px",
+        normal: "1200px",
+      },
+      translate: {
+        "z-6": "1.5rem",
+        "z-8": "2rem",
+      },
+      zIndex: {
+        90: "90",
+        100: "100", // matches header
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -99,5 +111,28 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [
+    require("tailwindcss-animate"), 
+    require("@tailwindcss/typography"),
+    function({ addUtilities }: { addUtilities: Function }) {
+      const newUtilities = {
+        '.perspective-dramatic': {
+          perspective: '800px',
+        },
+        '.perspective-normal': {
+          perspective: '1200px',
+        },
+        '.transform-gpu': {
+          transform: 'translateZ(0)',
+        },
+        '.translate-z-6': {
+          transform: 'translateZ(1.5rem)',
+        },
+        '.translate-z-8': {
+          transform: 'translateZ(2rem)',
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 } satisfies Config;

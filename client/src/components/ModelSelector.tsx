@@ -65,7 +65,10 @@ export default function ModelSelector({
   };
   
   return (
-    <div className="model-selector-container">
+    <div className={cn(
+      "inline-flex items-center gap-2 rounded-md border px-3 py-1 bg-muted/50 hover:bg-muted transition-colors model-selector-container",
+      props.className
+    )}>
       <div 
         className="model-selector" 
         onClick={() => setShowDropdown(!showDropdown)}
