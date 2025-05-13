@@ -28,11 +28,11 @@ export async function vectorSearch(
       ? `AND node.type IN $nodeTypes` 
       : '';
     
-    // Build and execute the query
+    // Build and execute the query - modified for Memgraph compatibility
+    // Memgraph doesn't support WHERE after YIELD, so we pass cutoff directly in the procedure call
     const query = `
-      CALL db.index.vector.queryNodes('vector_idx_all', $embedding, ${limit})
+      CALL db.index.vector.queryNodes('vector_idx_all', $embedding, ${limit}, ${minSimilarity})
       YIELD node, similarity
-      WHERE similarity >= ${minSimilarity} ${typeFilter}
       RETURN node, similarity
       ORDER BY similarity DESC
     `;
@@ -72,14 +72,22 @@ export async function createVectorIndices(): Promise<void> {
     // Check if MAGE procedures exist
     try {
       // Try checking if MAGE modules are already loaded
-      // Note: Split into two queries to avoid WHERE syntax that's problematic with Memgraph
-      const allProcs = await executeCustomQuery('CALL mg.procedures() YIELD name RETURN name');
-      // Filter the results in-memory rather than with WHERE clause
-      const vectorProcs = allProcs.filter(proc => proc.name && proc.name.includes('vector'));
-      const procCount = vectorProcs.length;
+      // Memgraph doesn't support WHERE after YIELD, so we filter results in memory
+      let vectorProcCount = 0;
+      try {
+        const allProcs = await executeCustomQuery('CALL mg.procedures() YIELD name RETURN name');
+        // Filter the results in-memory rather than with WHERE clause
+        const vectorProcs = allProcs.filter(proc => proc.name && proc.name.includes('vector'));
+        vectorProcCount = vectorProcs.length;
+        
+        log(`Found ${vectorProcs.length} vector procedures: ${vectorProcs.map(p => p.name).join(', ')}`, 'mage-vector-service-debug');
+      } catch (procError) {
+        log(`Error fetching procedures: ${procError}`, 'mage-vector-service-debug');
+        // Continue with initialization even if procedure check fails
+      }
       
-      if (procCount > 0) {
-        log(`Found ${procCount} vector procedures, MAGE appears to be loaded`, 'mage-vector-service');
+      if (vectorProcCount > 0) {
+        log(`Found ${vectorProcCount} vector procedures, MAGE appears to be loaded`, 'mage-vector-service');
       } else {
         // Try loading MAGE if no procedures found
         try {
