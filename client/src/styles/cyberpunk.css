@@ -301,10 +301,10 @@ body, html {
 
 #chat-interface {
   position: fixed;
-  bottom: 20px;
+  top: 0;
   right: 20px;
-  width: 400px; /* Slightly wider */
-  max-height: 60%; /* Limit height */
+  width: 40%; min-width: 400px; max-width: 500px; /* Slightly wider */
+  height: 100vh; /* Limit height */
   background-color: rgba(0, 15, 35, 0.85); /* Darker, more transparent blue */
   border: 1px solid #0ff; /* Cyan border */
   border-radius: 6px;
@@ -319,7 +319,7 @@ body, html {
 
 /* Header bar for chat interface */
 #chat-interface::before {
-  content: 'NEURAL LINK';
+  content: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -765,7 +765,7 @@ body, html {
   border: 2px solid #0ff;
   border-radius: 5px;
   padding: 20px;
-  width: 400px;
+  width: 40%; min-width: 400px; max-width: 500px;
   max-width: 90%;
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
@@ -1041,7 +1041,7 @@ body {
   top: 50px;
   right: 20px;
   z-index: 5;
-  width: 400px;
+  width: 40%; min-width: 400px; max-width: 500px;
   max-height: 80vh;
   background-color: rgba(0, 15, 35, 0.9);
   border: 1px solid #0ff;
@@ -1336,7 +1336,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-top: 0;
 }
 
 .test-selector {
@@ -1495,4 +1495,109 @@ body {
   color: #eef;
   font-size: 0.9rem;
   overflow-wrap: break-word;
+}
+
+/* New UI styles */
+.chat-left-toolbar {
+  position: absolute;
+  left: -46px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 40;
+}
+
+.chat-sidebar {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  transform: none !important;
+  margin-top: 8px;
+}
+
+.input-area-with-model {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+/* Model selector dropdown */
+.model-select-container {
+  position: relative;
+  margin-right: 5px;
+}
+
+.model-select-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 40, 80, 0.7);
+  border: 1px solid rgba(0, 170, 255, 0.5);
+  border-radius: 4px;
+  color: rgba(0, 200, 255, 0.9);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.model-select-button:hover {
+  background-color: rgba(0, 50, 100, 0.8);
+  border-color: rgba(0, 200, 255, 0.7);
+}
+
+.model-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  width: 180px;
+  background-color: rgba(5, 20, 40, 0.95);
+  border: 1px solid rgba(0, 150, 255, 0.5);
+  border-radius: 6px;
+  margin-bottom: 5px;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.model-dropdown-header {
+  padding: 7px 10px;
+  background-color: rgba(0, 40, 80, 0.8);
+  color: rgba(0, 200, 255, 0.9);
+  font-size: 12px;
+  border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+}
+
+.model-dropdown-options {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.model-option {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: rgba(200, 220, 255, 0.9);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.model-option:hover {
+  background-color: rgba(0, 40, 80, 0.3);
+}
+
+.model-option.selected {
+  background-color: rgba(0, 60, 100, 0.3);
+}
+
+/* Chat messages adjustments */
+#chat-messages {
+  font-size: 0.875rem;
+  padding-top: 10px; /* Reduced padding since header is removed */
+  max-height: calc(100vh - 60px); /* Allow more height */
+}
+
+#user-input {
+  font-size: 0.875rem;
 }
