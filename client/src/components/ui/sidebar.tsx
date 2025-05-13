@@ -25,8 +25,8 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "8rem";
-const SIDEBAR_WIDTH_MOBILE = "10rem";
+const SIDEBAR_WIDTH = "2.5rem";
+const SIDEBAR_WIDTH_MOBILE = "2.5rem";
 const SIDEBAR_WIDTH_ICON = "2.5rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
@@ -266,8 +266,8 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed w-[--sidebar-width] transition-all duration-200 ease-linear md:flex",
-            isFloating ? "shadow-lg bg-sidebar/90 backdrop-blur border-r border-b border-accent max-h-[300px] h-auto top-12 left-0 rounded-br-lg" 
+            "fixed w-[--sidebar-width] transition-all duration-200 ease-linear md:flex flex-col",
+            isFloating ? "shadow-lg bg-sidebar/80 backdrop-blur border-l border-accent h-auto top-12 right-0 bottom-20 rounded-l-lg" 
                        : "z-10 hidden",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
