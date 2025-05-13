@@ -1,65 +1,49 @@
-import { BaseSource, AuthType, SourceConfigField } from './_baseSource';
-import { BubbleNode } from '../../../client/src/types';
-import { v4 as uuidv4 } from 'uuid';
-
 /**
- * ChatSource implementation
+ * Chat Source
  * 
- * This source handles live conversation data from the chat interface,
- * processing messages and converting them into appropriate BubbleNode objects.
+ * A source that processes chat messages and produces nodes for the conversation.
  */
+
+import { v4 as uuidv4 } from 'uuid';
+import { AuthType, BaseSource, SourceConfigField } from './_baseSource';
+import { BubbleNode } from '../../../client/src/types';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  userId: string;
+  timestamp: string;
+}
+
 export class ChatSource implements BaseSource {
-  readonly sourceId: string = 'chat-source';
-  readonly sourceName: string = 'Live Conversation';
-  readonly sourceType: string = 'cogito_chat';
-  readonly authType: AuthType = AuthType.NONE; // No special auth for the built-in chat
-
-  // Raw messages queue to be processed
-  private messages: Array<{ 
-    id: string;
-    role: 'user' | 'assistant' | 'system'; 
-    content: string; 
-    userId: string;
-    timestamp: string;
-  }> = [];
-
-  // Flag to track if the source has been initialized
-  private initialized: boolean = false;
-
-  // Configuration properties
-  private config: {
-    includeSystemMessages: boolean;
-    maxHistoryMessages: number;
-    processMessagesBatch: boolean;
-  } = {
-    includeSystemMessages: false,
-    maxHistoryMessages: 100,
-    processMessagesBatch: false,
-  };
-
-  /**
-   * Configuration fields for the chat source
-   */
+  readonly sourceId: string = 'cogito-chat';
+  readonly sourceName: string = 'Chat Messages';
+  readonly sourceType: string = 'chat';
+  readonly authType: AuthType = AuthType.NONE;
+  
+  private messages: ChatMessage[] = [];
+  private processedMessages: Set<string> = new Set();
+  private includeSystemMessages: boolean = false;
+  private maxHistoryMessages: number = 100;
+  private processMessagesBatch: boolean = false;
+  
   readonly configFields: SourceConfigField[] = [
     {
       name: 'includeSystemMessages',
       label: 'Include System Messages',
       type: 'boolean',
       required: false,
-      description: 'Whether to include system messages in the graph',
-      default: false,
+      description: 'Whether to include system messages as nodes',
+      default: false
     },
     {
       name: 'maxHistoryMessages',
-      label: 'Maximum History Messages',
+      label: 'Max History Messages',
       type: 'number',
       required: false,
-      description: 'Maximum number of historical messages to include',
-      default: 100,
-      validation: {
-        min: 1,
-        max: 1000,
-      },
+      description: 'Maximum number of messages to keep in history',
+      default: 100
     },
     {
       name: 'processMessagesBatch',
@@ -67,157 +51,128 @@ export class ChatSource implements BaseSource {
       type: 'boolean',
       required: false,
       description: 'Process all messages at once instead of one by one',
-      default: false,
-    },
-  ];
-
-  /**
-   * Initialize the chat source with configuration
-   */
-  async initialize(config: Record<string, any>): Promise<void> {
-    if (config) {
-      this.config = {
-        ...this.config,
-        ...config,
-      };
+      default: false
     }
-    this.initialized = true;
+  ];
+  
+  async initialize(config: Record<string, any>): Promise<void> {
+    // Set configuration
+    this.includeSystemMessages = config.includeSystemMessages ?? this.includeSystemMessages;
+    this.maxHistoryMessages = config.maxHistoryMessages ?? this.maxHistoryMessages;
+    this.processMessagesBatch = config.processMessagesBatch ?? this.processMessagesBatch;
+    
+    // Clear existing messages
+    this.messages = [];
+    this.processedMessages = new Set();
   }
-
+  
   /**
-   * Add a new raw message to be processed
+   * Add a message to the source
    */
-  public addRawMessage(message: { 
+  addRawMessage(message: { 
     id?: string;
     role: 'user' | 'assistant' | 'system'; 
     content: string; 
     userId: string;
     timestamp?: string;
   }): void {
-    const formattedMessage = {
-      id: message.id || uuidv4(),
+    // Skip empty messages
+    if (!message.content || message.content.trim() === '') {
+      return;
+    }
+    
+    // Skip system messages if not including them
+    if (message.role === 'system' && !this.includeSystemMessages) {
+      return;
+    }
+    
+    const chatMessage: ChatMessage = {
+      id: message.id || `${message.role}_message-${Date.now().toString(36)}-${uuidv4().substring(0, 8)}`,
       role: message.role,
       content: message.content,
       userId: message.userId,
-      timestamp: message.timestamp || new Date().toISOString(),
+      timestamp: message.timestamp || new Date().toISOString()
     };
     
-    this.messages.push(formattedMessage);
+    // Add to messages
+    this.messages.push(chatMessage);
     
-    // Keep messages under the maximum limit
-    if (this.messages.length > this.config.maxHistoryMessages) {
-      this.messages = this.messages.slice(-this.config.maxHistoryMessages);
+    // Limit history size
+    if (this.messages.length > this.maxHistoryMessages) {
+      this.messages = this.messages.slice(-this.maxHistoryMessages);
     }
   }
-
+  
   /**
-   * Process and yield entities from the messages queue
+   * Get message nodes from the source
    */
   async *getEntities(): AsyncGenerator<Partial<BubbleNode>> {
-    if (!this.initialized) {
-      throw new Error('ChatSource must be initialized before use');
-    }
-    
-    // Create a copy of messages to process
-    const messagesToProcess = [...this.messages];
-    
-    // Clear the message queue after we've made a copy
-    this.messages = [];
-    
-    // Filter out system messages if configured to do so
-    const filteredMessages = this.config.includeSystemMessages 
-      ? messagesToProcess 
-      : messagesToProcess.filter(msg => msg.role !== 'system');
-      
-    // Process messages in the way configured
-    if (this.config.processMessagesBatch) {
-      // Process all at once
-      for (const message of filteredMessages) {
-        yield this.convertMessageToNode(message);
+    // If processing in batch, yield all unprocessed messages at once
+    if (this.processMessagesBatch) {
+      for (const message of this.messages) {
+        // Skip already processed messages
+        if (this.processedMessages.has(message.id)) {
+          continue;
+        }
+        
+        // Mark as processed
+        this.processedMessages.add(message.id);
+        
+        // Skip system messages if not including them
+        if (message.role === 'system' && !this.includeSystemMessages) {
+          continue;
+        }
+        
+        // Create a node for the message
+        const node: Partial<BubbleNode> = {
+          id: message.id,
+          type: `${message.role}_message`,
+          content: message.content,
+          // Position is added by the pipeline
+          // embedding_vector is added by the pipeline
+          importance: message.role === 'system' ? 0.9 : 0.75,
+          timestamp: message.timestamp,
+          metadata: {
+            userId: message.userId,
+            role: message.role
+          }
+        };
+        
+        yield node;
       }
     } else {
-      // Process only the latest message
-      if (filteredMessages.length > 0) {
-        const latestMessage = filteredMessages[filteredMessages.length - 1];
-        yield this.convertMessageToNode(latestMessage);
+      // Process messages one at a time
+      // Find the first unprocessed message
+      const unprocessed = this.messages.find(msg => !this.processedMessages.has(msg.id));
+      
+      if (unprocessed) {
+        // Mark as processed
+        this.processedMessages.add(unprocessed.id);
+        
+        // Create a node for the message
+        const node: Partial<BubbleNode> = {
+          id: unprocessed.id,
+          type: `${unprocessed.role}_message`,
+          content: unprocessed.content,
+          // Position is added by the pipeline
+          // embedding_vector is added by the pipeline
+          importance: unprocessed.role === 'system' ? 0.9 : 0.75,
+          timestamp: unprocessed.timestamp,
+          metadata: {
+            userId: unprocessed.userId,
+            role: unprocessed.role
+          }
+        };
+        
+        yield node;
       }
     }
   }
-
-  /**
-   * Convert a raw message to a BubbleNode object
-   */
-  private convertMessageToNode(message: { 
-    id: string;
-    role: 'user' | 'assistant' | 'system'; 
-    content: string; 
-    userId: string;
-    timestamp: string;
-  }): Partial<BubbleNode> {
-    // Determine node type based on message role
-    const type = message.role === 'user' 
-      ? 'user_message' 
-      : message.role === 'assistant' 
-        ? 'ai_message' 
-        : 'system_message';
-        
-    // Simple keyword extraction as a placeholder
-    // In a real implementation, this would be done by a transformer
-    const keywords = message.content
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(word => word.length > 3)
-      .slice(0, 5);
-      
-    // Create the node with basic properties
-    const node: Partial<BubbleNode> = {
-      id: message.id,
-      content: message.content,
-      type: type as any, // Cast to NodeType
-      // Position would be set by a positioner transformer
-      importance: 0.7, // Default importance
-      keywords: keywords,
-      // Additional fields from our enhanced model
-      sourceSystem: this.sourceType,
-      sourceSystemId: message.id,
-      createdAt: message.timestamp,
-      updatedAt: message.timestamp,
-      metadata: { 
-        userId: message.userId, 
-        timestamp: message.timestamp,
-        role: message.role,
-      },
-    };
-    
-    return node;
-  }
   
   /**
-   * Validate configuration
+   * Check connection (always connected for chat source)
    */
-  async validateConfig(config: Record<string, any>): Promise<{ isValid: boolean, message?: string }> {
-    // Check that maxHistoryMessages is a positive number
-    if (config.maxHistoryMessages !== undefined && 
-        (typeof config.maxHistoryMessages !== 'number' || 
-         config.maxHistoryMessages < 1 || 
-         config.maxHistoryMessages > 1000)) {
-      return {
-        isValid: false,
-        message: 'maxHistoryMessages must be a number between 1 and 1000',
-      };
-    }
-    
-    return { isValid: true };
-  }
-  
-  /**
-   * Check connection status
-   */
-  async checkConnection(): Promise<{ isConnected: boolean, message?: string }> {
-    // For the chat source, always connected if initialized
-    return { 
-      isConnected: this.initialized,
-      message: this.initialized ? 'Chat source is ready' : 'Chat source not initialized',
-    };
+  async checkConnection(): Promise<{isConnected: boolean, message?: string}> {
+    return { isConnected: true };
   }
 }

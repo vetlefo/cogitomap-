@@ -12,7 +12,7 @@ import { BaseSource } from './connectors/_baseSource';
 import { BaseTransformer } from './transformers/_baseTransformer';
 import { BaseEmbeddingModel } from './embedding_models/_baseEmbeddingModel';
 import { createNode, createEdge } from '../db/graphService';
-import { BubbleNode, Edge } from '../../client/src/types';
+import { BubbleNode, Edge, NodeType, RelationshipType } from '../../client/src/types';
 import { log } from '../vite';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -106,12 +106,12 @@ export class PipelineService {
       // Create the message node
       const messageNode: Partial<BubbleNode> = {
         id: messageId,
-        type,
+        type: type as NodeType,
         content: message.content,
         position,
-        embedding_vector: embedding,
+        embedding_vector: embedding || undefined,
         importance: message.role === 'system' ? 0.9 : 0.7,
-        timestamp,
+        createdAt: timestamp,
         metadata: {
           userId: message.userId,
           role: message.role
@@ -182,9 +182,9 @@ export class PipelineService {
                 id: `${messageId}-to-${node.id}`,
                 source: messageId,
                 target: node.id as string,
-                relationship: 'contains',
+                relationship: 'mentions' as RelationshipType,
                 strength: 0.8,
-                metadata: {
+                properties: {
                   creator: transformer.transformerId,
                   timestamp: new Date().toISOString()
                 }
@@ -196,7 +196,7 @@ export class PipelineService {
                 await createEdge(
                   messageId,
                   node.id as string,
-                  'contains',
+                  'mentions',
                   { strength: 0.8, creator: transformer.transformerId }
                 );
                 log(`Created edge in database: ${edge.id}`, 'pipeline-service');
@@ -217,8 +217,8 @@ export class PipelineService {
               try {
                 const sourceId = edge.source as string;
                 const targetId = edge.target as string;
-                const relationship = edge.relationship as string;
-                const metadata = edge.metadata || { strength: edge.strength || 0.5 };
+                const relationship = edge.relationship as RelationshipType;
+                const properties = edge.properties || { strength: edge.strength || 0.5 };
                 
                 await createEdge(sourceId, targetId, relationship, metadata);
                 log(`Created edge in database: ${edge.id || `${sourceId}-${relationship}-${targetId}`}`, 'pipeline-service');

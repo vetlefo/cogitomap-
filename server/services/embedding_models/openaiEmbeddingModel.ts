@@ -1,19 +1,16 @@
-import { BaseEmbeddingModel } from './_baseEmbeddingModel';
-import * as dotenv from 'dotenv';
-import fetch from 'node-fetch';
-
-// Make sure environment variables are loaded
-dotenv.config();
-
 /**
  * OpenAI Embedding Model Implementation
  * 
  * Provides text embedding functionality using OpenAI's embedding API.
  * Supports the text-embedding-ada-002 model by default.
  */
+
+import { BaseEmbeddingModel } from './_baseEmbeddingModel';
+
 export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
   readonly modelId: string = 'openai-embedding';
   readonly modelName: string = 'OpenAI Embeddings';
+  
   // We'll store the actual dimensions here and reference it
   private _dimensions: number = 1536; // text-embedding-ada-002 dimensions
   readonly maxTokens: number = 8191; // Maximum tokens for text-embedding-ada-002
@@ -36,7 +33,7 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
   get isAvailable(): boolean {
     return this._isAvailable;
   }
-
+  
   /**
    * Initialize the embedding model with configuration
    */
@@ -61,7 +58,7 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       console.warn('OpenAI embedding model initialized without API key. Embeddings will not be available.');
     }
   }
-
+  
   /**
    * Generate an embedding for a single text string
    */
@@ -119,7 +116,7 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       }
     }
   }
-
+  
   /**
    * Generate embeddings for multiple texts in a batch
    */
@@ -176,37 +173,38 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
       }
     }
   }
-
+  
   /**
    * Calculate cosine similarity between two embedding vectors
    */
   calculateSimilarity(embedding1: number[], embedding2: number[]): number {
     if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimensions to calculate similarity');
+      throw new Error('Embeddings must have the same dimensions');
     }
-
+    
     // Calculate dot product
     let dotProduct = 0;
     let magnitude1 = 0;
     let magnitude2 = 0;
-
+    
     for (let i = 0; i < embedding1.length; i++) {
       dotProduct += embedding1[i] * embedding2[i];
       magnitude1 += embedding1[i] * embedding1[i];
       magnitude2 += embedding2[i] * embedding2[i];
     }
-
+    
     magnitude1 = Math.sqrt(magnitude1);
     magnitude2 = Math.sqrt(magnitude2);
-
+    
+    // Handle zero magnitude (avoid division by zero)
     if (magnitude1 === 0 || magnitude2 === 0) {
       return 0;
     }
-
+    
     // Cosine similarity
     return dotProduct / (magnitude1 * magnitude2);
   }
-
+  
   /**
    * Calculate 3D position from embedding for visualization
    * 
@@ -214,40 +212,40 @@ export class OpenaiEmbeddingModel implements BaseEmbeddingModel {
    * the high-dimensional embedding to 3D space.
    */
   embedding3DPosition(embedding: number[]): { x: number, y: number, z: number } {
-    // Simple dimensionality reduction to 3D
-    // Uses weighted sums of embedding dimensions with random offsets
-    // For production, a more sophisticated approach (t-SNE, UMAP) would be better
+    // Modified dimensional reduction approach based on dot products with different
+    // projection vectors to capture different semantic dimensions
     
     const chunkSize = Math.floor(embedding.length / 3);
+    const dim = embedding.length;
     
-    // Calculate x, y, z by summing different segments of the embedding
-    let x = 0;
-    let y = 0;
-    let z = 0;
+    // Create three different projection vectors
+    const projectionX = Array(dim).fill(0).map((_, i) => 
+      Math.sin(i * 2 * Math.PI / dim) * (1 - i/dim)
+    );
     
-    // x comes from first third
-    for (let i = 0; i < chunkSize; i++) {
-      x += embedding[i] * (1 + 0.1 * Math.sin(i));
+    const projectionY = Array(dim).fill(0).map((_, i) => 
+      Math.cos(i * 2 * Math.PI / dim) * (i/dim)
+    );
+    
+    const projectionZ = Array(dim).fill(0).map((_, i) => 
+      Math.sin(i * 4 * Math.PI / dim) * Math.cos(i * 2 * Math.PI / dim)
+    );
+    
+    // Project the embedding onto these vectors
+    let x = 0, y = 0, z = 0;
+    for (let i = 0; i < dim; i++) {
+      x += embedding[i] * projectionX[i];
+      y += embedding[i] * projectionY[i];
+      z += embedding[i] * projectionZ[i];
     }
     
-    // y from middle third
-    for (let i = chunkSize; i < 2 * chunkSize; i++) {
-      y += embedding[i] * (1 + 0.1 * Math.cos(i));
-    }
-    
-    // z from final third
-    for (let i = 2 * chunkSize; i < embedding.length; i++) {
-      z += embedding[i] * (1 + 0.1 * Math.sin(i * 0.5));
-    }
-    
-    // Scale factors to keep values in reasonable range
-    const scaleFactor = 15; 
-    const normalizeFactor = embedding.length / 3;
+    // Scale for visualization
+    const scale = 15;
     
     return {
-      x: (x / normalizeFactor) * scaleFactor,
-      y: (y / normalizeFactor) * scaleFactor,
-      z: (z / normalizeFactor) * scaleFactor
+      x: x * scale,
+      y: y * scale,
+      z: z * scale
     };
   }
 }
