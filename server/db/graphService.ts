@@ -652,35 +652,44 @@ export async function executeCustomQuery(query: string, params: Record<string, a
     try {
       log(`Executing custom query: ${query.substring(0, 200)}...`, "graph-service-query");
       
-      const result = await executeQuery(query, params);
+      const results = await executeQuery(query, params);
       
-      // Extract records from the result
-      const records = result.records.map(record => {
-        const obj: Record<string, any> = {};
-        
-        // Extract all properties from the record
-        for (const key of record.keys) {
-          const value = record.get(key);
+      // For Memgraph 3.0+, the results from executeQuery are already transformed into objects
+      if (Array.isArray(results)) {
+        return results;
+      }
+      
+      // Fallback for any Neo4j-style result objects that might still have records format
+      if (results && results.records && Array.isArray(results.records)) {
+        // Extract records from the result in Neo4j format
+        return results.records.map(record => {
+          const obj: Record<string, any> = {};
           
-          // Handle Neo4j node objects - use a simple approach without type checks that cause issues
-          if (value && typeof value === 'object' && value.properties) {
-            // For Neo4j nodes, extract properties safely
-            const nodeProps = { ...value.properties };
-            const nodeId = nodeProps.id || (value.identity ? value.identity.toString() : 'unknown');
+          // Extract all properties from the record
+          for (const key of record.keys) {
+            const value = record.get(key);
             
-            obj[key] = {
-              ...nodeProps,
-              id: nodeId
-            };
-          } else {
-            obj[key] = value;
+            // Handle Neo4j node objects - use a simple approach without type checks that cause issues
+            if (value && typeof value === 'object' && value.properties) {
+              // For Neo4j nodes, extract properties safely
+              const nodeProps = { ...value.properties };
+              const nodeId = nodeProps.id || (value.identity ? value.identity.toString() : 'unknown');
+              
+              obj[key] = {
+                ...nodeProps,
+                id: nodeId
+              };
+            } else {
+              obj[key] = value;
+            }
           }
-        }
-        
-        return obj;
-      });
+          
+          return obj;
+        });
+      }
       
-      return records;
+      // Last resort, return empty array if we can't process the results
+      return [];
     } catch (error) {
       // Switch to fallback mode if there's an error
       usingFallback = true;

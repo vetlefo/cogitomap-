@@ -70,6 +70,19 @@ export async function vectorSearch(
  */
 export async function createVectorIndices(): Promise<void> {
   try {
+    // First check if we can execute custom queries (confirms we're not in fallback mode)
+    try {
+      // Simple test query to check if we're in fallback mode
+      const testQuery = "RETURN 1 as test";
+      await executeCustomQuery(testQuery);
+    } catch (fallbackError) {
+      if (String(fallbackError).includes("fallback mode")) {
+        log("Running in fallback mode, skipping vector index creation", 'mage-vector-service-warning');
+        // We're in fallback mode, so return early - no indices needed
+        return;
+      }
+    }
+  
     // Check if MAGE procedures exist
     try {
       // Try checking if MAGE modules are already loaded
@@ -103,79 +116,113 @@ export async function createVectorIndices(): Promise<void> {
             log('MAGE loaded using mg.load_all()', 'mage-vector-service');
           } catch (allError) {
             log(`All MAGE loading attempts failed. Last error: ${allError instanceof Error ? allError.message : String(allError)}`, 'mage-vector-service-error');
-            log('Continuing with fallback mode...', 'mage-vector-service');
+            log('Continuing with limited vector capability...', 'mage-vector-service-warning');
+            return; // Exit early if we can't load MAGE modules
           }
         }
       }
     } catch (error) {
       log(`Error checking MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
-      log('Continuing with fallback mode...', 'mage-vector-service');
+      log('Continuing with limited vector capability...', 'mage-vector-service-warning');
+      return; // Exit early if we can't check MAGE modules
     }
     
-    // Get existing vector indices - using Memgraph 3.0 SHOW INDEX INFO command
-    const indices = await executeCustomQuery(`
-      SHOW INDEX INFO
-      YIELD index_name, index_type, object_type, schema_name, property_name
-      WITH index_name, index_type, object_type, schema_name, property_name
-      WHERE index_type = 'vector'
-      RETURN index_name AS name, schema_name AS label, property_name AS property
-    `);
-    
-    log(`Found ${indices.length} existing vector indices`, 'mage-vector-service');
+    // Get existing vector indices - using a simpler command compatible with Memgraph 3.0+
+    let indices = [];
+    try {
+      // Try a different way to list indices in Memgraph 3.0+
+      try {
+        // First try the CALL db.indexes() approach
+        indices = await executeCustomQuery(`CALL db.indexes() YIELD *`);
+        
+        // Filter for vector indices in application code
+        if (indices && indices.length > 0) {
+          indices = indices.filter((idx: any) => 
+            idx.type && idx.type.toLowerCase().includes('vector'));
+        }
+        
+      } catch (error) {
+        // Try an alternative approach - SHOW command
+        try {
+          indices = await executeCustomQuery(`SHOW INDEX INFO`);
+          
+          // Filter for vector indices in application code
+          if (indices && indices.length > 0) {
+            indices = indices.filter((idx: any) => 
+              idx.index_type && idx.index_type.toLowerCase().includes('vector'));
+          }
+        } catch (showError) {
+          log(`Error getting indices with SHOW command: ${showError}`, 'mage-vector-service-debug');
+          indices = [];
+        }
+      }
+      
+      log(`Found ${indices.length} existing vector indices`, 'mage-vector-service');
+    } catch (indexError) {
+      log(`Error checking vector indices: ${indexError}`, 'mage-vector-service-error');
+      // Continue with assumption that indices don't exist
+      indices = [];
+    }
     
     // Initialize indices if they don't exist
     const existingIndices = new Set(indices.map((idx: any) => idx.name));
     
-    // Create general vector index for all nodes - updated for Memgraph 3.0
-    if (!existingIndices.has('vector_idx_all')) {
-      await executeCustomQuery(`
-      CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
-      WITH CONFIG {
-        "dimension": 768,
-        "capacity": 10000,
-        "metric": "cos"
+    try {
+      // Create general vector index for all nodes - updated for Memgraph 3.0
+      if (!existingIndices.has('vector_idx_all')) {
+        await executeCustomQuery(`
+        CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
+        WITH CONFIG {
+          "dimension": 768,
+          "capacity": 10000,
+          "metric": "cos"
+        }
+        `);
+        log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
       }
-      `);
-      log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
-    }
-    
-    // Create index for message nodes - updated for Memgraph 3.0
-    if (!existingIndices.has('vector_idx_msg')) {
-      await executeCustomQuery(`
-      CREATE VECTOR INDEX vector_idx_msg ON :ai_message|user_message(embedding)
-      WITH CONFIG {
-        "dimension": 768,
-        "capacity": 10000,
-        "metric": "cos"
+      
+      // Create index for message nodes - updated for Memgraph 3.0
+      if (!existingIndices.has('vector_idx_msg')) {
+        await executeCustomQuery(`
+        CREATE VECTOR INDEX vector_idx_msg ON :ai_message|user_message(embedding)
+        WITH CONFIG {
+          "dimension": 768,
+          "capacity": 10000,
+          "metric": "cos"
+        }
+        `);
+        log('Created vector index: vector_idx_msg for label: ai_message|user_message', 'mage-vector-service');
       }
-      `);
-      log('Created vector index: vector_idx_msg for label: ai_message|user_message', 'mage-vector-service');
-    }
-    
-    // Create index for topic nodes - updated for Memgraph 3.0
-    if (!existingIndices.has('vector_idx_topic')) {
-      await executeCustomQuery(`
-      CREATE VECTOR INDEX vector_idx_topic ON :topic(embedding)
-      WITH CONFIG {
-        "dimension": 768,
-        "capacity": 10000,
-        "metric": "cos"
+      
+      // Create index for topic nodes - updated for Memgraph 3.0
+      if (!existingIndices.has('vector_idx_topic')) {
+        await executeCustomQuery(`
+        CREATE VECTOR INDEX vector_idx_topic ON :topic(embedding)
+        WITH CONFIG {
+          "dimension": 768,
+          "capacity": 10000,
+          "metric": "cos"
+        }
+        `);
+        log('Created vector index: vector_idx_topic for label: topic', 'mage-vector-service');
       }
-      `);
-      log('Created vector index: vector_idx_topic for label: topic', 'mage-vector-service');
-    }
-    
-    // Create index for entity nodes - updated for Memgraph 3.0
-    if (!existingIndices.has('vector_idx_entity')) {
-      await executeCustomQuery(`
-      CREATE VECTOR INDEX vector_idx_entity ON :entity(embedding)
-      WITH CONFIG {
-        "dimension": 768,
-        "capacity": 10000,
-        "metric": "cos"
+      
+      // Create index for entity nodes - updated for Memgraph 3.0
+      if (!existingIndices.has('vector_idx_entity')) {
+        await executeCustomQuery(`
+        CREATE VECTOR INDEX vector_idx_entity ON :entity(embedding)
+        WITH CONFIG {
+          "dimension": 768,
+          "capacity": 10000,
+          "metric": "cos"
+        }
+        `);
+        log('Created vector index: vector_idx_entity for label: entity', 'mage-vector-service');
       }
-      `);
-      log('Created vector index: vector_idx_entity for label: entity', 'mage-vector-service');
+    } catch (createError) {
+      log(`Error creating vector indices: ${createError}`, 'mage-vector-service-error');
+      log('Vector search capability may be limited', 'mage-vector-service-warning');
+      // Continue - we did our best to create the indices
     }
     
     log('MAGE vector service initialized successfully', 'mage-vector-service');
@@ -190,5 +237,11 @@ export async function createVectorIndices(): Promise<void> {
  * This should be called during server startup
  */
 export async function initMageVectorService(): Promise<void> {
-  await createVectorIndices();
+  try {
+    await createVectorIndices();
+  } catch (error) {
+    // Log the error but don't throw it - allow application to continue with fallback
+    log(`MAGE vector service initialization error: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+    log('Application will continue with limited vector search capabilities', 'mage-vector-service-warning');
+  }
 }
