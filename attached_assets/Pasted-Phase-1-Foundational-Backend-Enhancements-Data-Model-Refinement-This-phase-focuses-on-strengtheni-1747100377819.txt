@@ -1,0 +1,45 @@
+Phase 1: Foundational Backend Enhancements & Data Model Refinement
+This phase focuses on strengthening CogitoMap's backend to support a broader range of data and processing capabilities, inspired by AirWeave's modularity and robust data handling.
+
+Change 1.1: Standardize and Enhance Core Data Models
+Goal: Create more structured, extensible, and semantically rich definitions for nodes and edges, enabling better integration with diverse data.
+Inspired by: AirWeave's schemas/entity_definition.py, schemas/entity.py, schemas/entity_relation.py.
+CogitoMap Files to Modify:
+client/src/types.ts (or client/src/types/graph.ts)
+shared/schemas/llmOutput.ts (if this is the canonical schema, it needs significant expansion or to be replaced/augmented by a more generic model)
+server/db/graphService.ts
+server/services/semanticAnalysisService.ts & client/src/lib/ContextAnalyzer.ts (to produce/consume the new models)
+Detailed Changes:
+Modify BubbleNode in client/src/types.ts:
+Logic: Add fields for better data provenance, typing, and linking to formal definitions.
+Example Signature:
+export interface BubbleNode {
+  id: string; // Keep as is
+  content: string; // Keep as is
+  type: string; // Keep as string, but will be validated against EntityDefinition.name
+  position: { x: number; y: number; z: number; }; // Keep as is
+  importance: number; // Keep as is
+  keywords?: string[]; // Keep as is
+  sentiment?: 'positive' | 'negative' | 'neutral'; // Keep as is
+  metadata?: Record<string, any>; // Keep as is, becomes more critical
+  embedding_vector?: number[]; // Keep as is
+
+  // New fields inspired by AirWeave
+  title?: string; // For a display title, separate from full content
+  description?: string; // Short description
+  entityDefinitionId?: string; // FK to a new EntityDefinition model
+  sourceSystem?: string; // e.g., "chat", "notion_import", "airweave_connector_X"
+  sourceSystemId?: string; // ID of the entity in the original source system
+  parentEntityId?: string; // If this node is a "chunk" of a larger entity
+  versionHash?: string; // For data versioning, inspired by AirWeave's hashing
+  createdAt?: string; // ISO 8601 timestamp
+  updatedAt?: string; // ISO 8601 timestamp
+
+  // UI state fields - keep as is
+  similarity?: number;
+  isDirectMatch?: boolean;
+  selected?: boolean;
+}
+Use code with caution.
+TypeScript
+Impact: ContextAnalyzer.ts, ChatInterface.tsx, ContextBubble.tsx, and server-side node creation logic will need to handle these new fields.

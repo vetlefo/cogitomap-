@@ -6,28 +6,44 @@ export type RelationshipType = 'response_to' | 'mentions' | 'elaborates' | 'supp
 
 // Node in the knowledge graph visualization
 export interface BubbleNode {
+  // Core identity fields
   id: string;
   content: string; // Message text, topic name, entity name, etc.
   type: NodeType; // Type of node
+  
+  // Spatial positioning
   position: {
     x: number;
     y: number;
     z: number;
   };
+  
+  // Semantic properties
   importance: number; // 0-1 scale, affects size
   keywords?: string[]; // Key topics (mainly for message nodes)
-  // Additional fields from structured output
   sentiment?: 'positive' | 'negative' | 'neutral';
+  
+  // Metadata and classification
   metadata?: Record<string, any>; // For extra info like entity type (PERSON, ORG)
-  // Semantic embedding vector
+  title?: string; // Optional title for display (separate from full content)
+  description?: string; // Short description
+  
+  // Data lineage and provenance - new fields inspired by AirWeave
+  entityDefinitionId?: string; // FK to a new EntityDefinition model
+  sourceSystem?: string; // e.g., "chat", "notion_import", "airweave_connector_X"
+  sourceSystemId?: string; // ID of the entity in the original source system
+  parentEntityId?: string; // If this node is a "chunk" of a larger entity
+  versionHash?: string; // For data versioning, inspired by AirWeave's hashing
+  createdAt?: string; // ISO 8601 timestamp
+  updatedAt?: string; // ISO 8601 timestamp
+  
+  // Semantic embedding and vector data
   embedding_vector?: number[]; // Embedding vector for semantic similarity and positioning
   
-  // Optional fields for search results
-  similarity?: number;       // Similarity score from vector search
-  isDirectMatch?: boolean;   // Whether this is a direct vector match vs a graph-expanded result
-  title?: string;            // Optional title for display in search results
-  description?: string;      // Optional description for display
-  selected?: boolean;        // UI state for node selection
+  // Search and UI state fields
+  similarity?: number; // Similarity score from vector search
+  isDirectMatch?: boolean; // Whether this is a direct vector match vs a graph-expanded result
+  selected?: boolean; // UI state for node selection
 }
 
 // Connection between nodes

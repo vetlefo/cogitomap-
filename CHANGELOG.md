@@ -2,7 +2,7 @@
 
 All notable changes to CogitoMap will be documented in this file.
 
-## [Unreleased] - 2025-05-11
+## [Unreleased] - 2025-05-13
 
 ### Added
 - Multi-selection feature with shift+click to select multiple nodes
@@ -33,6 +33,11 @@ All notable changes to CogitoMap will be documented in this file.
 - Multiple instances of incorrect edge creation handling in ChatInterface
 - Improved error handling for undefined or null node positions
 - Reduced overwhelming cloud/glow effects for better clarity
+- Fixed parameter formatting in createEdge function calls to ensure proper type safety
+- Added proper error handling with nested try/catch blocks in semantic analysis service
+- Implemented LLMResponse type definition to handle different API response formats
+- Enhanced JSON parsing with multiple fallback mechanisms for reliable content extraction
+- Added proper type annotations to improve TypeScript compatibility across semantic services
 
 ### Technical Improvements
 - Enhanced position validation to gracefully handle undefined/null values
@@ -47,3 +52,7 @@ All notable changes to CogitoMap will be documented in this file.
 - Complete API key handling improvements for better security
 - Performance optimizations for larger knowledge graphs
 - Enhanced bidirectional selection between chat and visualization
+- Standardize and enhance core data models to support more structured definitions
+- Expand BubbleNode interface with fields for better data provenance
+- Add support for entity relationships with improved type definitions
+- Improve data versioning and tracking with additional metadata fields
