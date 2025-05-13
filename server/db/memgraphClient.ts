@@ -111,10 +111,21 @@ export async function executeQuery(query: string, params: Record<string, any> = 
     // Prepare query for Memgraph compatibility
     const preparedQuery = prepareQuery(query);
     
-    log(`Executing Memgraph query: ${preparedQuery}`, 'memgraph-client-debug');
-    log(`Query params: ${JSON.stringify(params)}`, 'memgraph-client-debug');
+    // Ensure numeric parameters are proper number types, not strings
+    const processedParams: Record<string, any> = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (key === 'skip' || key === 'limit') {
+        // Ensure pagination parameters are integers
+        processedParams[key] = Number.isNaN(Number(value)) ? 0 : Math.floor(Number(value));
+      } else {
+        processedParams[key] = value;
+      }
+    }
     
-    const result = await session.run(preparedQuery, params);
+    log(`Executing Memgraph query: ${preparedQuery}`, 'memgraph-client-debug');
+    log(`Query params: ${JSON.stringify(processedParams)}`, 'memgraph-client-debug');
+    
+    const result = await session.run(preparedQuery, processedParams);
     
     log(`Query returned ${result.records.length} records`, 'memgraph-client-debug');
     
@@ -138,20 +149,40 @@ export async function executeQuery(query: string, params: Record<string, any> = 
 /**
  * Initialize Memgraph driver and ensure connection
  */
-export async function initializeMemgraph(): Promise<void> {
+export async function initializeMemgraph(): Promise<boolean> {
   try {
     const driver = getDriver();
     
     log('Verifying Memgraph connectivity...', 'memgraph-client');
     await driver.verifyConnectivity();
     
+    // Basic connectivity test with a simple query
+    try {
+      const testResult = await executeQuery('RETURN 1 as test');
+      log(`Test query results: ${JSON.stringify(testResult)}`, 'memgraph-client-debug');
+      
+      if (!testResult || testResult.length === 0) {
+        log('Connection test failed: No results returned', 'memgraph-client-error');
+        return false;
+      }
+    } catch (queryError) {
+      log(`Connection test failed: ${queryError}`, 'memgraph-client-error');
+      return false;
+    }
+    
     // Check if MAGE is loaded
-    await ensureMageLoaded();
+    try {
+      await ensureMageLoaded();
+    } catch (mageError) {
+      log(`MAGE initialization error: ${mageError}`, 'memgraph-client-warning');
+      // Continue without MAGE - some functionality may still work
+    }
     
     log('Memgraph connection verified successfully', 'memgraph-client');
+    return true;
   } catch (error) {
     log(`Failed to initialize Memgraph: ${error}`, 'memgraph-client-error');
-    throw error;
+    return false;
   }
 }
 
@@ -178,14 +209,40 @@ async function ensureMageLoaded(): Promise<void> {
     if (count === 0) {
       // Load MAGE modules if vector_search not found
       log('Loading MAGE modules...', 'memgraph-client');
-      await executeQuery('CALL mg.load("vector_search")');
-      log('MAGE vector_search module loaded successfully', 'memgraph-client');
+      
+      try {
+        // First check if the modules are already loaded
+        log('Checking if MAGE is available...', 'memgraph-client-debug');
+        const moduleCheck = await executeQuery(`CALL mg.modules() RETURN *`);
+        
+        // Check if mage is in the list of modules
+        const mageLoaded = moduleCheck.some(module => 
+          module.name && module.name.toLowerCase().includes('mage')
+        );
+        
+        if (!mageLoaded) {
+          log('MAGE not found in modules list, attempting to load...', 'memgraph-client-debug');
+          // Load the module with CALL
+          await executeQuery(`CALL mg.load('mage');`);
+          log('MAGE modules loaded successfully', 'memgraph-client');
+        }
+        
+        // Try to load vector_search specifically
+        await executeQuery('CALL mg.load("vector_search")');
+        log('MAGE vector_search module loaded successfully', 'memgraph-client');
+        
+      } catch (error) {
+        log(`Failed to load MAGE modules: ${error}`, 'memgraph-client-error');
+        // Continue anyway - some functionality may still work
+        log('Continuing without vector search capabilities', 'memgraph-client-warning');
+      }
     } else {
       log('MAGE vector_search module already loaded', 'memgraph-client');
     }
   } catch (error) {
-    log(`Failed to load MAGE modules: ${error}`, 'memgraph-client-error');
-    throw error;
+    log(`Error checking MAGE modules status: ${error}`, 'memgraph-client-error');
+    // Continue anyway - the rest of the graph functionality may still work
+    log('Continuing without vector search capabilities', 'memgraph-client-warning');
   }
 }
 

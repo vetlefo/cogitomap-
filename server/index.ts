@@ -43,17 +43,23 @@ app.use((req, res, next) => {
   try {
     // Initialize Memgraph connection
     log("Initializing Memgraph connection...", "server-startup");
-    await initializeMemgraph();
-    log("Memgraph initialized successfully", "server-startup");
+    const memgraphConnected = await initializeMemgraph();
     
-    // Initialize MAGE vector service
-    log("Initializing MAGE vector service...", "server-startup");
-    try {
-      await initMageVectorService();
-      log("MAGE vector service initialized successfully", "server-startup");
-    } catch (error) {
-      log(`MAGE vector service initialization failed: ${error instanceof Error ? error.message : String(error)}`, "server-startup-warning");
-      log("Vector search capabilities may be limited", "server-startup-warning");
+    if (memgraphConnected) {
+      log("Memgraph initialized successfully", "server-startup");
+      
+      // Initialize MAGE vector service only if Memgraph is connected
+      log("Initializing MAGE vector service...", "server-startup");
+      try {
+        await initMageVectorService();
+        log("MAGE vector service initialized successfully", "server-startup");
+      } catch (error) {
+        log(`MAGE vector service initialization failed: ${error instanceof Error ? error.message : String(error)}`, "server-startup-warning");
+        log("Vector search capabilities may be limited", "server-startup-warning");
+      }
+    } else {
+      log("Memgraph connection failed, using fallback storage", "server-startup-warning");
+      log("Advanced graph functionality and vector search will be limited", "server-startup-warning");
     }
     
     // Initialize the pipeline architecture
