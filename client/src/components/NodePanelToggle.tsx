@@ -27,14 +27,15 @@ export default function NodePanelToggle({ initialState = false }: NodePanelToggl
   };
   
   return (
-    <div className="node-panel-toggle">
+    <div className="fixed bottom-4 right-4 z-[100]">
       <button 
         onClick={togglePanel}
-        className={`node-panel-button ${isPanelVisible ? 'active' : ''} ${hasSelectedNodes ? 'has-nodes' : ''}`}
+        className={`flex items-center gap-2 rounded-lg bg-background/70 backdrop-blur border border-accent/30 shadow-sm px-3 py-1.5 text-xs transition-all hover:bg-background/90 ${isPanelVisible ? 'active bg-accent/10' : ''} ${hasSelectedNodes ? 'border-accent/60' : ''}`}
       >
-        {isPanelVisible ? 'Hide Node Panel' : 'Show Node Panel'}
+        <span className="text-accent">{isPanelVisible ? '✕' : '◎'}</span>
+        <span>{isPanelVisible ? 'Hide Panel' : 'Show Panel'}</span>
         {hasSelectedNodes && (
-          <span className="node-count">{selectedNodes.length}</span>
+          <span className="bg-accent/20 text-accent rounded-full w-5 h-5 flex items-center justify-center text-xs ml-1">{selectedNodes.length}</span>
         )}
       </button>
       
