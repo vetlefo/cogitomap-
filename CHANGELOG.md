@@ -45,6 +45,10 @@ All notable changes to CogitoMap will be documented in this file.
 - Improved Graph DB synchronization with API endpoints
 - Added cleanup callbacks to prevent memory leaks in component unmounts
 - Implemented deterministic pseudo-random variations for consistent node placement
+- Extended Edge interface with additional fields for better relationship typing
+- Created relationship definitions to provide a type system for graph connections
+- Added data lineage and provenance tracking to BubbleNode interface
+- Created EntityDefinition schema for structured type definitions
 
 ## Planned Future Improvements
 - Implement semantic embedding-based node positioning

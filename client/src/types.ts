@@ -53,6 +53,15 @@ export interface Edge {
   target: string; // Target node ID
   strength: number; // 0-1 scale, affects visual weight
   relationship?: RelationshipType; // Type of relationship between nodes
+  
+  // New fields for better relationship typing
+  relationshipDefinitionId?: string; // FK to RelationshipDefinition
+  properties?: Record<string, any>; // For additional edge metadata
+  createdAt?: string; // ISO 8601 timestamp
+  updatedAt?: string; // ISO 8601 timestamp
+  sourceSystem?: string; // Origin system that created this edge
+  versionHash?: string; // For data versioning
+  directed?: boolean; // Whether relationship is directed (default: true)
 }
 
 // Message in the chat
