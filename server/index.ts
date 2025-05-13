@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initMemgraph } from "./db/memgraphClient";
 import { initMageVectorService } from "./services/mageVectorService";
+import { initializePipeline } from "./services/pipelineController";
 
 const app = express();
 app.use(express.json());
@@ -53,6 +54,16 @@ app.use((req, res, next) => {
     } catch (error) {
       log(`MAGE vector service initialization failed: ${error instanceof Error ? error.message : String(error)}`, "server-startup-warning");
       log("Vector search capabilities may be limited", "server-startup-warning");
+    }
+    
+    // Initialize the pipeline architecture
+    log("Initializing pipeline architecture...", "server-startup");
+    try {
+      await initializePipeline();
+      log("Pipeline architecture initialized successfully", "server-startup");
+    } catch (error) {
+      log(`Pipeline initialization failed: ${error instanceof Error ? error.message : String(error)}`, "server-startup-warning");
+      log("Advanced pipeline features may be limited", "server-startup-warning");
     }
   } catch (error) {
     log(`Error initializing Memgraph: ${error instanceof Error ? error.message : String(error)}`, "server-startup-error");

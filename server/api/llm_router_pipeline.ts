@@ -9,7 +9,7 @@ import { Request, Response } from 'express';
 import { callOpenAI } from './providers/openai_provider';
 import { callAnthropic } from './providers/anthropic_provider';
 import { callGemini } from './providers/gemini_provider';
-import { Message } from '../../client/src/types';
+import { Message as ClientMessage } from '../../client/src/types';
 import { 
   StructuredLLMOutputSchema, 
   SimplifiedLLMOutputSchema,
@@ -18,8 +18,7 @@ import {
 } from '../../shared/schemas/llmOutput';
 import { ZodError } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { processMessage } from '../services/pipelineController';
-import { Message as ProcessableMessage } from '../services/pipelineController';
+import { processMessage, Message } from '../services/pipelineController';
 import { log } from '../vite';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -165,7 +164,7 @@ export async function handlePipelineLLMRequest(req: Request, res: Response) {
     }
     
     // Extract the message from the provider's response format
-    const responseMessage: Message = responseData.choices[0].message;
+    const responseMessage: ClientMessage = responseData.choices[0].message;
     
     // Process the message using the pipeline architecture
     const userQuery = originalMessages[originalMessages.length - 1];
