@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 // import { storage } from "./storage"; // Not used for graph operations directly for now
 import { handleLLMRequest } from "./api/llm_router";
+import { handlePipelineLLMRequest } from "./api/llm_router_pipeline";
 import { getCurrentUserHandler, checkAuthHandler, loginHandler, logoutHandler } from "./api/auth";
 import { requireAuth } from "./middleware/auth";
 import { log } from "./vite";
@@ -334,7 +335,11 @@ async function getSubgraphHandler(req: Request, res: Response) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Standard LLM endpoint
   app.post('/api/chat', handleLLMRequest);
+  
+  // Pipeline version with knowledge graph integration
+  app.post('/api/chat/pipeline', handlePipelineLLMRequest);
 
   // Graph database endpoints
   // Data creation endpoints

@@ -11,6 +11,7 @@ import { ChatSource } from './connectors/chatSource';
 import { KeywordExtractionTransformer } from './transformers/keywordExtractionTransformer';
 import { OpenaiEmbeddingModel } from './embedding_models/openaiEmbeddingModel';
 import { Message as ClientMessage, BubbleNode, Edge } from '../../client/src/types';
+import { log } from '../vite';
 
 // Message format for pipeline processing
 export interface Message {
@@ -20,7 +21,6 @@ export interface Message {
   userId: string;
   timestamp?: string;
 }
-import { log } from '../vite';
 
 // The singleton instance of the pipeline service
 let pipelineServiceInstance: PipelineService | null = null;
@@ -109,11 +109,7 @@ export async function getPipelineService(): Promise<PipelineService> {
 /**
  * Process a new message through the pipeline
  */
-export async function processMessage(message: {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  userId: string;
-}): Promise<{
+export async function processMessage(message: Message): Promise<{
   nodes: Partial<BubbleNode>[];
   edges: Partial<Edge>[];
 }> {
