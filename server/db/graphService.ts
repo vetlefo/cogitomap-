@@ -817,9 +817,31 @@ export async function getGraphStats(): Promise<{ nodeCount: number, edgeCount: n
       const nodeResult = await executeQuery(nodeCountQuery);
       const edgeResult = await executeQuery(edgeCountQuery);
       
-      // Get raw values - neo4j integers might be returned as either Numbers or special Integer objects
-      const nodeCountRaw = nodeResult.records[0].get('nodeCount');
-      const edgeCountRaw = edgeResult.records[0].get('edgeCount');
+      // Handle Memgraph vs Neo4j response format differences
+      let nodeCountRaw, edgeCountRaw;
+      
+      try {
+        // Neo4j style response format (has records array with get method)
+        if (nodeResult.records && nodeResult.records[0] && typeof nodeResult.records[0].get === 'function') {
+          nodeCountRaw = nodeResult.records[0].get('nodeCount');
+          edgeCountRaw = edgeResult.records[0].get('edgeCount');
+        } 
+        // Memgraph might return simplified format
+        else if (nodeResult && nodeResult.length > 0) {
+          nodeCountRaw = nodeResult[0].nodeCount;
+          edgeCountRaw = edgeResult[0].edgeCount;
+        } 
+        // Fallback to assume 0 counts
+        else {
+          nodeCountRaw = 0;
+          edgeCountRaw = 0;
+        }
+      } catch (formatError) {
+        // If we can't parse the result format, log details and assume 0
+        log(`Error parsing graph stats result format: ${formatError}`, "graph-service");
+        nodeCountRaw = 0;
+        edgeCountRaw = 0;
+      }
       
       // Convert to regular numbers safely
       const nodeCount = typeof nodeCountRaw.toNumber === 'function' ? 
@@ -833,10 +855,54 @@ export async function getGraphStats(): Promise<{ nodeCount: number, edgeCount: n
         usingFallback: false
       };
     } catch (error) {
-      // Switch to fallback mode if there's an error
-      usingFallback = true;
-      log(`Error getting graph stats from Memgraph, switching to fallback: ${error}`, "graph-service");
-      // Continue with fallback implementation
+      // Log the error but don't immediately switch to fallback
+      log(`Error getting graph stats from Memgraph: ${error}`, "graph-service-error");
+      
+      // Try a simpler query approach
+      try {
+        log("Trying simpler stats query...", "graph-service");
+        
+        // Simpler versions of the count queries that might work better with Memgraph
+        const nodeCountQuery = `MATCH (n) RETURN count(n) AS count`;
+        const edgeCountQuery = `MATCH ()-[r]->() RETURN count(r) AS count`;
+        
+        const nodeResult = await executeQuery(nodeCountQuery);
+        const edgeResult = await executeQuery(edgeCountQuery);
+        
+        // Handle different response formats
+        let nodeCount = 0;
+        let edgeCount = 0;
+        
+        if (nodeResult && nodeResult.length > 0) {
+          if (nodeResult[0].count !== undefined) {
+            nodeCount = Number(nodeResult[0].count);
+          } else if (nodeResult[0]['count(n)'] !== undefined) {
+            nodeCount = Number(nodeResult[0]['count(n)']);
+          }
+        }
+        
+        if (edgeResult && edgeResult.length > 0) {
+          if (edgeResult[0].count !== undefined) {
+            edgeCount = Number(edgeResult[0].count);
+          } else if (edgeResult[0]['count(r)'] !== undefined) {
+            edgeCount = Number(edgeResult[0]['count(r)']);
+          }
+        }
+        
+        log(`Simplified queries returned nodeCount=${nodeCount}, edgeCount=${edgeCount}`, "graph-service");
+        
+        return {
+          nodeCount,
+          edgeCount,
+          usingFallback: false
+        };
+      } catch (retryError) {
+        log(`Simplified stats queries also failed: ${retryError}`, "graph-service-error");
+        // Now we switch to fallback
+        usingFallback = true;
+        log("Switching to fallback storage for graph stats", "graph-service");
+        // Continue with fallback implementation
+      }
     }
   }
   

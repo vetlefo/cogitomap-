@@ -32,9 +32,15 @@ export function getDriver(): neo4j.Driver {
     log(`Connecting to Memgraph at ${MEMGRAPH_URI}...`, 'memgraph-client');
     
     // Use authentication only if username and password are provided
-    const auth = (MEMGRAPH_USERNAME && MEMGRAPH_PASSWORD) 
-      ? neo4j.auth.basic(MEMGRAPH_USERNAME, MEMGRAPH_PASSWORD)
-      : neo4j.auth.basic('', ''); // Empty credentials when not specified
+    let auth;
+    if (MEMGRAPH_USERNAME && MEMGRAPH_PASSWORD) {
+      auth = neo4j.auth.basic(MEMGRAPH_USERNAME, MEMGRAPH_PASSWORD);
+      log(`Using authenticated connection with username: ${MEMGRAPH_USERNAME}`, 'memgraph-client');
+    } else {
+      // For Memgraph, often no auth is needed
+      auth = neo4j.auth.basic('', '');
+      log('Using anonymous connection (no credentials provided)', 'memgraph-client');
+    }
     
     driver = neo4j.driver(
       MEMGRAPH_URI,
