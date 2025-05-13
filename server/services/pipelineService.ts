@@ -450,25 +450,50 @@ export class PipelineService {
         z: basePosition.z
       };
     }
-    // Position for derived nodes (topics, entities, etc.)
+    // Position for derived nodes (topics, entities, etc.) with a hub-and-spoke layout
     else if (nodeType && parentNodeId) {
-      // Create a more random distribution around the parent node
-      // This creates the "spoke" effect radiating from message nodes
-      
-      // Generate a consistent angle based on the node's embedding
+      // We'll use a consistent hash of the node's content to generate its position
       // This ensures the same node always gets the same position relative to its parent
-      const angle = Math.abs(x + y + z) % (2 * Math.PI);
+      const contentHash = embedding.reduce((sum, val, idx) => sum + val * (idx % 10), 0);
       
-      // Distance from parent node (based on node type)
-      const distance = nodeType.includes('topic') ? 3 : 
-                       nodeType.includes('entity') ? 4 :
-                       nodeType.includes('summary') ? 2.5 : 3.5;
+      // Create a pseudo-random but consistent angle based on the content hash
+      const angle = (Math.abs(contentHash) % 1000) / 1000 * (2 * Math.PI);
+      
+      // Set the vertical angle for a more 3D distribution (hemisphere-like)
+      const verticalAngle = (Math.abs(contentHash * 0.5) % 1000) / 1000 * Math.PI * 0.5;
+      
+      // Base distance from parent node (based on node type)
+      let baseDistance = 0;
+      let verticalOffset = 0;
+      
+      if (nodeType.includes('topic')) {
+        baseDistance = 4 + (contentHash % 2); // Topics at medium distance, slight variance
+        verticalOffset = -0.5; // Topics slightly below messages
+      } else if (nodeType.includes('entity')) {
+        baseDistance = 5 + (contentHash % 3); // Entities further out
+        verticalOffset = 0.5; // Entities slightly above messages
+      } else if (nodeType.includes('summary')) {
+        baseDistance = 3; // Summaries closest to messages
+        verticalOffset = 1.5; // Summaries above messages
+      } else if (nodeType.includes('question')) {
+        baseDistance = 4.5; // Questions at medium-far distance 
+        verticalOffset = -1.5; // Questions below messages
+      } else {
+        baseDistance = 4; // Default distance
+        verticalOffset = 0; // Default vertical offset
+      }
+      
+      // Apply importance factor to distance - more important nodes are closer to center
+      const importance = embedding[0] * embedding[1] * embedding[2]; // Simple proxy for importance
+      const importanceFactor = 0.7 + (Math.abs(importance) % 0.6); // Range: 0.7-1.3
+      const distance = baseDistance * importanceFactor;
       
       // Calculate position in a spherical pattern around the parent
+      // Use spherical coordinates for better distribution
       return {
-        x: basePosition.x + distance * Math.cos(angle),
-        y: basePosition.y + distance * 0.5 * Math.sin(angle), // Less vertical spread
-        z: basePosition.z + distance * Math.sin(angle)
+        x: basePosition.x + distance * Math.cos(angle) * Math.cos(verticalAngle),
+        y: basePosition.y + verticalOffset + distance * Math.sin(verticalAngle),
+        z: basePosition.z + distance * Math.sin(angle) * Math.cos(verticalAngle)
       };
     }
     

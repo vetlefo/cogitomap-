@@ -185,11 +185,28 @@ export async function handlePipelineLLMRequest(req: Request, res: Response) {
     
     log(`Processed user message through pipeline: ${userPipelineResult.nodes.length} nodes, ${userPipelineResult.edges.length} edges created`, 'llm-router-pipeline');
     
+    // Extract content from the response, handling both string content and JSON object with main_response
+    let contentToProcess = assistantResponse.content;
+    
+    // Check if content is already JSON (where main_response is the primary content)
+    try {
+      if (typeof contentToProcess === 'string') {
+        const jsonContent = JSON.parse(contentToProcess);
+        if (jsonContent && typeof jsonContent === 'object' && jsonContent.main_response) {
+          log('Found JSON with main_response in content, extracting', 'llm-router-pipeline');
+          contentToProcess = jsonContent.main_response;
+        }
+      }
+    } catch (e) {
+      // Not valid JSON, continue with original content
+      log('Content is not JSON, using as-is', 'llm-router-pipeline');
+    }
+    
     // Process the AI response through the pipeline
     const aiPipelineResult = await processMessage({
       id: aiMessageId,
       role: 'assistant',
-      content: assistantResponse.content,
+      content: contentToProcess,
       userId: userId,
       timestamp: new Date().toISOString(),
     });
@@ -199,109 +216,124 @@ export async function handlePipelineLLMRequest(req: Request, res: Response) {
     // Create a connection between user message and AI response
     // This would be handled by transformers in a full implementation
     
-    // Attempt to parse structured output if requested
-    if (structured && responseMessage.content) {
+    // Attempt to parse structured output
+    let parsedJson = null;
+    
+    // First try to parse if the content is already JSON
+    if (responseMessage.content) {
       try {
-        // Extract the JSON object if it's embedded in text
-        const jsonMatch = responseMessage.content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsedJson = JSON.parse(jsonMatch[0]);
+        // Check if content is already valid JSON
+        if (typeof responseMessage.content === 'string') {
+          parsedJson = JSON.parse(responseMessage.content);
+          log('Successfully parsed JSON content directly', 'llm-router-pipeline');
+        } 
+        // If the content is not a string but already an object (rare case)
+        else if (typeof responseMessage.content === 'object') {
+          parsedJson = responseMessage.content;
+          log('Content is already a JSON object', 'llm-router-pipeline');
+        }
+      } catch (parseError) {
+        // Not directly valid JSON, try to extract JSON from text
+        try {
+          const jsonMatch = responseMessage.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsedJson = JSON.parse(jsonMatch[0]);
+            log('Extracted and parsed JSON from content text', 'llm-router-pipeline');
+          }
+        } catch (extractError) {
+          log('Could not extract valid JSON from response: ' + extractError, 'llm-router-pipeline-error');
+        }
+      }
+    }
+    
+    // If we have successfully parsed JSON with main_response
+    if (parsedJson && parsedJson.main_response) {
+      log('Found valid JSON with main_response field', 'llm-router-pipeline');
+      
+      try {
+        // First try the strict schema validation
+        const validationResult = StructuredLLMOutputSchema.safeParse(parsedJson);
+        
+        if (validationResult.success) {
+          log('Structured output validated successfully with strict schema', 'llm-router-pipeline');
+          return res.json({
+            message: validationResult.data,
+            usage: responseData.usage,
+            pipeline: {
+              userMessage: {
+                id: userMessageId,
+                nodesCreated: userPipelineResult.nodes.length,
+                edgesCreated: userPipelineResult.edges.length,
+              },
+              aiMessage: {
+                id: aiMessageId,
+                nodesCreated: aiPipelineResult.nodes.length,
+                edgesCreated: aiPipelineResult.edges.length,
+              },
+            },
+          });
+        } else {
+          // Log validation errors
+          const validationError = fromZodError(validationResult.error);
+          log('Strict schema validation failed: ' + validationError.message, 'llm-router-pipeline');
           
-          // First try the strict schema validation
-          try {
-            const validationResult = StructuredLLMOutputSchema.safeParse(parsedJson);
-            
-            if (validationResult.success) {
-              log('Structured output validated successfully with strict schema', 'llm-router-pipeline');
-              return res.json({
-                message: validationResult.data,
-                usage: responseData.usage,
-                pipeline: {
-                  userMessage: {
-                    id: userMessageId,
-                    nodesCreated: userPipelineResult.nodes.length,
-                    edgesCreated: userPipelineResult.edges.length,
-                  },
-                  aiMessage: {
-                    id: aiMessageId,
-                    nodesCreated: aiPipelineResult.nodes.length,
-                    edgesCreated: aiPipelineResult.edges.length,
-                  },
+          // Try the simplified schema as a fallback
+          const simplifiedResult = SimplifiedLLMOutputSchema.safeParse(parsedJson);
+          
+          if (simplifiedResult.success) {
+            log('Structured output validated with simplified schema', 'llm-router-pipeline');
+            return res.json({
+              message: simplifiedResult.data,
+              usage: responseData.usage,
+              pipeline: {
+                userMessage: {
+                  id: userMessageId,
+                  nodesCreated: userPipelineResult.nodes.length,
+                  edgesCreated: userPipelineResult.edges.length,
                 },
-              });
-            } else {
-              // Log validation errors
-              const validationError = fromZodError(validationResult.error);
-              log('Strict schema validation failed: ' + validationError.message, 'llm-router-pipeline');
-              
-              // Try the simplified schema as a fallback
-              const simplifiedResult = SimplifiedLLMOutputSchema.safeParse(parsedJson);
-              
-              if (simplifiedResult.success) {
-                log('Structured output validated with simplified schema', 'llm-router-pipeline');
-                return res.json({
-                  message: simplifiedResult.data,
-                  usage: responseData.usage,
-                  pipeline: {
-                    userMessage: {
-                      id: userMessageId,
-                      nodesCreated: userPipelineResult.nodes.length,
-                      edgesCreated: userPipelineResult.edges.length,
-                    },
-                    aiMessage: {
-                      id: aiMessageId,
-                      nodesCreated: aiPipelineResult.nodes.length,
-                      edgesCreated: aiPipelineResult.edges.length,
-                    },
-                  },
-                });
-              } else {
-                // Both schemas failed, log error details for debugging
-                log('Both schema validations failed. Errors: ' + 
-                  fromZodError(simplifiedResult.error).message, 'llm-router-pipeline');
-                  
-                // Check if at least we have main_response (absolute minimum requirement)
-                if (parsedJson.main_response && typeof parsedJson.main_response === 'string') {
-                  log('Falling back to basic main_response validation', 'llm-router-pipeline');
-                  return res.json({
-                    message: { 
-                      main_response: parsedJson.main_response,
-                      // Include any other fields that might be usable
-                      ...Object.fromEntries(
-                        Object.entries(parsedJson)
-                          .filter(([key, value]) => 
-                            key !== 'main_response' && 
-                            value !== null && 
-                            value !== undefined
-                          )
-                      )
-                    },
-                    usage: responseData.usage,
-                    pipeline: {
-                      userMessage: {
-                        id: userMessageId,
-                        nodesCreated: userPipelineResult.nodes.length,
-                        edgesCreated: userPipelineResult.edges.length,
-                      },
-                      aiMessage: {
-                        id: aiMessageId,
-                        nodesCreated: aiPipelineResult.nodes.length,
-                        edgesCreated: aiPipelineResult.edges.length,
-                      },
-                    },
-                  });
-                }
-              }
-            }
-          } catch (zodError) {
-            log('Error during Zod validation: ' + zodError, 'llm-router-pipeline-error');
+                aiMessage: {
+                  id: aiMessageId,
+                  nodesCreated: aiPipelineResult.nodes.length,
+                  edgesCreated: aiPipelineResult.edges.length,
+                },
+              },
+            });
+          } else {
+            // Both schemas failed, but we still have main_response
+            log('Schema validations failed but using main_response', 'llm-router-pipeline');
+            
+            return res.json({
+              message: { 
+                role: 'assistant',
+                content: parsedJson.main_response,
+                // Include any other fields that might be usable
+                ...Object.fromEntries(
+                  Object.entries(parsedJson)
+                    .filter(([key, value]) => 
+                      key !== 'main_response' && 
+                      value !== null && 
+                      value !== undefined
+                    )
+                )
+              },
+              usage: responseData.usage,
+              pipeline: {
+                userMessage: {
+                  id: userMessageId,
+                  nodesCreated: userPipelineResult.nodes.length,
+                  edgesCreated: userPipelineResult.edges.length,
+                },
+                aiMessage: {
+                  id: aiMessageId,
+                  nodesCreated: aiPipelineResult.nodes.length,
+                  edgesCreated: aiPipelineResult.edges.length,
+                },
+              },
+            });
           }
         }
-        // If we couldn't extract valid JSON or validation failed completely
-        log('Failed to parse or validate structured output, returning raw response', 'llm-router-pipeline');
-      } catch (parseError) {
-        log('Error parsing JSON from LLM response: ' + parseError, 'llm-router-pipeline-error');
-        // Continue with regular response
+      } catch (zodError) {
+        log('Error during validation: ' + zodError, 'llm-router-pipeline-error');
       }
     }
     
