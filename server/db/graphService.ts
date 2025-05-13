@@ -26,12 +26,23 @@ export async function testMemgraphConnection(): Promise<boolean> {
   }
   
   try {
-    // Simple query to test connection
-    await executeQuery("RETURN 1 as test");
-    usingFallback = false;
-    connectionTested = true;
-    log("Memgraph connection test successful, using database storage", "graph-service");
-    return true;
+    // Simple query to test connection - with improved debug output
+    log("Executing Memgraph test query...", "graph-service-debug");
+    const results = await executeQuery("RETURN 1 as test");
+    
+    if (results && results.length > 0) {
+      log(`Test query results: ${JSON.stringify(results)}`, "graph-service-debug");
+      usingFallback = false;
+      connectionTested = true;
+      log("Memgraph connection test successful, using database storage", "graph-service");
+      return true;
+    } else {
+      log("Test query returned empty results", "graph-service-debug");
+      usingFallback = true;
+      connectionTested = true;
+      log("Memgraph connection test returned no results, using fallback storage", "graph-service");
+      return false;
+    }
   } catch (error) {
     usingFallback = true;
     connectionTested = true;
@@ -222,19 +233,20 @@ export async function getNodeNeighbors(nodeId: string): Promise<{ node: BubbleNo
         RETURN neighbor, type(r) AS relationship
       `;
       
-      const result = await executeQuery(query, { nodeId });
+      const results = await executeQuery(query, { nodeId });
       
       // Process results
       const neighbors: { node: BubbleNode, relationship: string }[] = [];
       
-      for (const record of result.records) {
-        const neighbor = record.get('neighbor').properties as BubbleNode;
-        const relationship = record.get('relationship');
-        
-        neighbors.push({
-          node: neighbor,
-          relationship
-        });
+      if (results && results.length > 0) {
+        for (const result of results) {
+          if (result.neighbor && result.relationship) {
+            neighbors.push({
+              node: result.neighbor as BubbleNode,
+              relationship: result.relationship
+            });
+          }
+        }
       }
       
       return neighbors;
@@ -277,14 +289,14 @@ export async function getAllNodes(
         : `MATCH (n) RETURN count(n) AS total`;
         
       const countResult = await executeQuery(countQuery);
-      const total = countResult.records[0].get('total');
+      const total = countResult && countResult.length > 0 ? countResult[0].total : 0;
       
       // Get paginated nodes - updated for Memgraph 3.0 (removed toInteger)
       const query = nodeType !== 'all'
         ? `MATCH (n:${nodeType}) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`
         : `MATCH (n) RETURN n ORDER BY n.id SKIP $skip LIMIT $limit`;
       
-      const result = await executeQuery(query, {
+      const results = await executeQuery(query, {
         skip,
         limit: pageSize
       });
@@ -292,9 +304,12 @@ export async function getAllNodes(
       // Process results
       const nodes: BubbleNode[] = [];
       
-      for (const record of result.records) {
-        const node = record.get('n').properties as BubbleNode;
-        nodes.push(node);
+      if (results && results.length > 0) {
+        for (const result of results) {
+          if (result.n) {
+            nodes.push(result.n as BubbleNode);
+          }
+        }
       }
       
       return { nodes, total: Number(total) };
@@ -337,7 +352,7 @@ export async function getAllEdges(
         : `MATCH ()-[r]->() RETURN count(r) AS total`;
         
       const countResult = await executeQuery(countQuery);
-      const total = countResult.records[0].get('total');
+      const total = countResult && countResult.length > 0 ? countResult[0].total : 0;
       
       // Get paginated relationships with source and target nodes - updated for Memgraph 3.0
       const query = relationshipType !== 'all'
@@ -358,7 +373,7 @@ export async function getAllEdges(
           SKIP $skip LIMIT $limit
         `;
       
-      const result = await executeQuery(query, {
+      const results = await executeQuery(query, {
         skip,
         limit: pageSize
       });
@@ -366,20 +381,24 @@ export async function getAllEdges(
       // Process results
       const edges: Edge[] = [];
       
-      for (const record of result.records) {
-        const relationship = record.get('relationship');
-        const sourceId = record.get('sourceId');
-        const targetId = record.get('targetId');
-        const properties = record.get('properties');
-        
-        edges.push({
-          id: `${sourceId}-${relationship}-${targetId}`,
-          source: sourceId,
-          target: targetId,
-          relationship,
-          strength: properties.strength || 0.5,
-          ...properties
-        });
+      if (results && results.length > 0) {
+        for (const result of results) {
+          if (result.relationship && result.sourceId && result.targetId) {
+            const relationship = result.relationship;
+            const sourceId = result.sourceId;
+            const targetId = result.targetId;
+            const properties = result.properties || {};
+            
+            edges.push({
+              id: `${sourceId}-${relationship}-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              relationship,
+              strength: properties.strength || 0.5,
+              ...properties
+            });
+          }
+        }
       }
       
       return { edges, total: Number(total) };
@@ -433,36 +452,42 @@ export async function getSubgraph(
       const params = { nodeId };
       
       // Get nodes in the subgraph
-      const nodesResult = await executeQuery(query, params);
-      const edgesResult = await executeQuery(edgesQuery, params);
+      const nodesResults = await executeQuery(query, params);
+      const edgesResults = await executeQuery(edgesQuery, params);
       
       // Process nodes
       const nodes: BubbleNode[] = [];
-      if (nodesResult.records.length > 0 && nodesResult.records[0].get('nodes')) {
-        const nodeResults = nodesResult.records[0].get('nodes');
-        for (const nodeResult of nodeResults) {
-          nodes.push(nodeResult.properties as BubbleNode);
+      if (nodesResults && nodesResults.length > 0 && nodesResults[0].nodes) {
+        const nodeResults = nodesResults[0].nodes;
+        if (Array.isArray(nodeResults)) {
+          for (const nodeResult of nodeResults) {
+            nodes.push(nodeResult as BubbleNode);
+          }
         }
       }
       
       // Process edges
       const edges: Edge[] = [];
-      if (edgesResult.records.length > 0 && edgesResult.records[0].get('edges')) {
-        const edgeResults = edgesResult.records[0].get('edges');
-        for (const edgeResult of edgeResults) {
-          const sourceId = edgeResult.sourceId;
-          const targetId = edgeResult.targetId;
-          const relationship = edgeResult.relationship;
-          const properties = edgeResult.properties || {};
-          
-          edges.push({
-            id: `${sourceId}-${relationship}-${targetId}`,
-            source: sourceId,
-            target: targetId,
-            relationship,
-            strength: properties.strength || 0.5,
-            ...properties
-          } as Edge);
+      if (edgesResults && edgesResults.length > 0 && edgesResults[0].edges) {
+        const edgeResults = edgesResults[0].edges;
+        if (Array.isArray(edgeResults)) {
+          for (const edgeResult of edgeResults) {
+            if (edgeResult.sourceId && edgeResult.targetId && edgeResult.relationship) {
+              const sourceId = edgeResult.sourceId;
+              const targetId = edgeResult.targetId;
+              const relationship = edgeResult.relationship;
+              const properties = edgeResult.properties || {};
+              
+              edges.push({
+                id: `${sourceId}-${relationship}-${targetId}`,
+                source: sourceId,
+                target: targetId,
+                relationship,
+                strength: properties.strength || 0.5,
+                ...properties
+              } as Edge);
+            }
+          }
         }
       }
       

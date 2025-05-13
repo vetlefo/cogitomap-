@@ -93,6 +93,10 @@ function prepareQuery(query: string): string {
     }
   }
   
+  // Handle SKIP and LIMIT parameters for Memgraph
+  // Memgraph requires actual integers for these parameters
+  prepared = prepared.replace(/SKIP\s+\$skip\s+LIMIT\s+\$limit/gi, 'SKIP toInteger($skip) LIMIT toInteger($limit)');
+  
   return prepared;
 }
 
@@ -156,16 +160,20 @@ export async function initializeMemgraph(): Promise<void> {
  */
 async function ensureMageLoaded(): Promise<void> {
   try {
-    // Check for vector_search module
-    const result = await executeQuery(`
+    // Check for vector_search module using a client-side filter
+    // Memgraph requires WITH clauses to be followed by variables, not expressions
+    const procedures = await executeQuery(`
       CALL mg.procedures() 
       YIELD name 
-      WITH name
-      WHERE name CONTAINS "vector_search" 
-      RETURN count(name) AS count
+      RETURN name
     `);
     
-    const count = result[0]?.count || 0;
+    // Filter in JavaScript instead of using WHERE in Cypher
+    const vectorProcs = procedures.filter(proc => 
+      proc.name && proc.name.includes("vector_search")
+    );
+    
+    const count = vectorProcs.length;
     
     if (count === 0) {
       // Load MAGE modules if vector_search not found

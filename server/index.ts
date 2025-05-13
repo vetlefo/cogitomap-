@@ -107,8 +107,8 @@ app.use((req, res, next) => {
     
     try {
       // Close Memgraph connection
-      const { closeMemgraph } = await import("./db/memgraphClient");
-      await closeMemgraph();
+      const { closeDriver } = await import("./db/memgraphClient");
+      await closeDriver();
       log("Closed Memgraph connection", "server-shutdown");
     } catch (error) {
       log(`Error closing Memgraph: ${error}`, "server-shutdown-error");
