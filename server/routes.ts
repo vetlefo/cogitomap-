@@ -14,7 +14,7 @@ import {
   getGraphStats,
   getAllNodes,
   getAllEdges,
-  getSubgraph,
+  getSubgraph, // Ensure getSubgraph is imported
   executeCustomQuery
 } from "./db/graphService";
 import { generateEmbedding, embedding3DPosition } from "./services/embeddingService";
@@ -24,10 +24,11 @@ import {
   findRelationshipsHandler, 
   runSemanticAnalysisHandler
 } from "./api/semanticAnalysis";
-import { updateEmbeddingsHandler } from "./api/updateEmbeddings";
+// Add import for runEmbeddingUpdate from server/services/updateEmbeddings.ts
+import { runEmbeddingUpdate } from "../services/updateEmbeddings";
 import { semanticSearchRouter } from "./api/semanticSearch";
 // NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
-// import { notionSyncRouter } from './api/notionSync';
+// import { notionSyncRouter } from './api/notionSync'; // Keep commented
 import { z } from "zod";
 
 // ---- Define Zod Schemas for Node/Edge Payloads ----
@@ -319,11 +320,30 @@ async function getNodeNeighborsHandler(req: Request, res: Response) {
 async function getSubgraphHandler(req: Request, res: Response) {
   try {
     const nodeId = req.params.id;
-    const depth = req.query.depth ? parseInt(req.query.depth as string) : 1;
+    if (!nodeId) {
+      return res.status(400).json({ message: "Node ID is required in path parameter." });
+    }
+
+    const depthParam = req.query.depth as string;
+    let depth = 1; // Default depth
+    if (depthParam) {
+      const parsedDepth = parseInt(depthParam, 10);
+      if (isNaN(parsedDepth) || parsedDepth < 0 || parsedDepth > 5) { // Max depth of 5 for safety
+        return res.status(400).json({ message: "Invalid depth parameter. Must be an integer between 0 and 5." });
+      }
+      depth = parsedDepth;
+    }
     
     log(`Fetching subgraph for node ID: ${nodeId} with depth: ${depth}`, 'api-graph-debug');
     
     const subgraph = await getSubgraph(nodeId, depth);
+    if (!subgraph || subgraph.nodes.length === 0) {
+        // Check if the center node itself exists if subgraph is empty
+        const centerNode = await getNode(nodeId);
+        if (!centerNode) {
+            return res.status(404).json({ message: `Node with ID ${nodeId} not found.` });
+        }
+    }
     res.json(subgraph);
   } catch (error) {
     log(`Error getting subgraph: ${error}`, 'api-graph-error');
@@ -354,14 +374,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Specific node/relationship endpoints
   app.get('/api/graph/node/:id', getNodeByIdHandler);
   app.get('/api/graph/node/:id/neighbors', getNodeNeighborsHandler);
-  app.get('/api/graph/subgraph/:id', getSubgraphHandler);
+  app.get('/api/graph/subgraph/:id', getSubgraphHandler); // Uses path param for id, query param for depth
   
   // New one-shot semantic analysis endpoints
   app.post('/api/semantic/keywords', extractKeywordsHandler);
   app.post('/api/semantic/relationships', findRelationshipsHandler);
   app.post('/api/semantic/analyze', runSemanticAnalysisHandler);
-  // Semantic search is now handled by the semanticSearchRouter
-  app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
+  // The original file had a problematic line here: app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
+  // It's removed as there's a more specific implementation later.
   
   // Legacy semantic analysis endpoint
   app.post('/api/graph/semantic-analysis', async (req, res) => {
@@ -512,14 +532,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/protected', requireAuth, (req, res) => res.json({ message: 'This is a protected route', user: req.user }));
   
   // Route for updating embeddings on existing nodes
-  app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler);
+  // app.post('/api/semantic/update-embeddings', updateEmbeddingsHandler); // OLD ROUTE
+  app.post('/api/semantic/update-embeddings', async (req: Request, res: Response) => { // NEW ROUTE
+    try {
+      const result = await runEmbeddingUpdate();
+      res.status(result.success ? 200 : 500).json(result);
+    } catch (error) {
+      log(`Error in /api/semantic/update-embeddings route: ${error instanceof Error ? error.message : String(error)}`, 'api-error');
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update embeddings',
+        error: error instanceof Error ? error.message : 'Unknown server error'
+      });
+    }
+  });
   
-  // Semantic search router
+  // Semantic search router (handles /api/semantic/search)
   app.use('/api/semantic', semanticSearchRouter);
+
+  // New route for SSR-friendly semantic results
+  app.get('/api/graph/semantic-ssr', async (req: Request, res: Response) => {
+    try {
+      const queryText = req.query.query as string;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
+      const minSimilarity = req.query.minSimilarity ? parseFloat(req.query.minSimilarity as string) : 0.7;
+      const nodeTypesQuery = req.query.nodeTypes as string;
+      const nodeTypes = nodeTypesQuery ? nodeTypesQuery.split(',') : [];
+
+      if (!queryText) {
+        return res.status(400).json({ error: "Query parameter 'query' is required." });
+      }
+
+      log(`SSR Semantic search for: "${queryText}", limit: ${limit}, types: ${nodeTypes.join(',')}`, 'api-graph-ssr');
+
+      const embedding = await generateEmbedding(queryText);
+      // Assuming vectorSearch is now Memgraph native from mageVectorService
+      const { vectorSearch } = await import('../services/mageVectorService');
+      const searchResults = await vectorSearch(embedding, minSimilarity, limit, nodeTypes);
+      
+      const ssrResults = searchResults.map(r => ({
+        id: r.id, // Ensure result 'r' has an 'id' property
+        similarity: r.similarity,
+      }));
+
+      res.json(ssrResults);
+
+    } catch (error) {
+      log(`Error in /api/graph/semantic-ssr: ${error}`, 'api-error');
+      res.status(500).json({
+        error: 'Failed to fetch SSR semantic results',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
   
   // NOTION INTEGRATION MOVED TO POST-MVP (v1.3-1.5)
   // Notion synchronization router
-  // app.use('/api/notion', notionSyncRouter);
+  // app.use('/api/notion', notionSyncRouter); // Keep commented
   
   // Route for executing custom Memgraph queries (used by memgraphClient)
   app.post('/api/graph/execute', async (req, res) => {

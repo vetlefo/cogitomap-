@@ -21,111 +21,76 @@ export async function vectorSearch(
   nodeTypes: string[] = []
 ): Promise<any[]> {
   try {
-    log(`Performing vector search with ${queryVector.length} dimension vector, min similarity: ${minSimilarity}`, 'mage-vector-service');
+    log(`Performing vector search with ${queryVector.length} dimension vector, min similarity: ${minSimilarity}, types: ${nodeTypes.join(',')}`, 'mage-vector-service');
     
-    // Try executing using Memgraph first, with fallback to in-memory if needed
+    // Try executing using Memgraph first
     try {
-      // Try different vector search queries, starting with the most optimized for Memgraph 3.0+
-      
       // First attempt: using vector_search.search procedure (recommended for Memgraph 3.0+)
-      try {
-        // Build and execute the query using the dedicated procedure
-        let query = '';
-        let results = [];
-        
-        if (nodeTypes.length > 0) {
-          // If we have node types, we need to use the specific index for that type
-          const nodeType = nodeTypes[0]; // Use first type for now
-          let indexName = '';
-          
-          // Select appropriate index based on node type
-          if (nodeType === 'ai_message' || nodeType === 'user_message') {
-            indexName = 'vector_idx_msg';
-          } else if (nodeType === 'topic') {
-            indexName = 'vector_idx_topic';
-          } else if (nodeType === 'entity') {
-            indexName = 'vector_idx_entity';
-          } else {
-            indexName = 'vector_idx_all';
-          }
-          
-          query = `
-            CALL vector_search.search('${indexName}', ${limit}, $embedding)
-            YIELD node, similarity
-            WHERE similarity >= ${minSimilarity} AND node.type IN $nodeTypes
-            RETURN node, similarity
-            ORDER BY similarity DESC
-            LIMIT ${limit}
-          `;
-        } else {
-          // If no node types specified, use the general index
-          query = `
-            CALL vector_search.search('vector_idx_all', ${limit}, $embedding)
-            YIELD node, similarity
-            WHERE similarity >= ${minSimilarity}
-            RETURN node, similarity
-            ORDER BY similarity DESC
-            LIMIT ${limit}
-          `;
-        }
-        
-        log(`Executing MAGE vector query: ${query}`, 'mage-vector-service-debug');
-        
-        results = await executeCustomQuery(query, {
-          embedding: queryVector,
-          nodeTypes
-        });
-        
-        // Process and transform the results
-        const processedResults = results.map((result: any) => {
-          // Handle different result formats based on database implementation
-          if (result.node && typeof result.node === 'object') {
-            // Extract properties if we get a node object
-            const node = result.node.properties || result.node;
-            return {
-              ...node,
-              similarity: result.similarity
-            };
-          } else {
-            // Direct property access if we already have a flattened structure
-            return {
-              ...result,
-              similarity: result.similarity
-            };
-          }
-        });
-        
-        log(`Vector search returned ${processedResults.length} results`, 'mage-vector-service');
-        return processedResults;
-        
-      } catch (vectorSearchError) {
-        // If first approach fails, try alternative
-        log(`Primary vector search approach failed: ${vectorSearchError}`, 'mage-vector-service-debug');
-        throw vectorSearchError; // Re-throw to trigger fallback
+      let query = '';
+      const params: any = {
+        embedding: queryVector,
+        minSimilarity: minSimilarity, // Ensure minSimilarity is passed as a parameter
+        limit: limit, // Ensure limit is passed as a parameter
+      };
+
+      // Determine the index name and query structure based on nodeTypes
+      // If specific node types are provided, we might want to query specific indexes
+      // or filter after a general search. For simplicity with vector_search.search,
+      // we can use a general index and filter by type, or select a type-specific index.
+      
+      // Let's assume 'vector_idx_all' is a general index on a common label like :Node or :Concept
+      // and we filter by type afterwards. Or, if type-specific indexes exist (e.g., vector_idx_topic for :Topic nodes)
+      // a more complex logic to choose the index or UNION results might be needed.
+      // For now, using 'vector_idx_all' and filtering.
+
+      const indexName = 'vector_idx_all'; // Assuming a general index for all relevant nodes
+
+      query = `
+        CALL vector_search.search('${indexName}', $limit, $embedding)
+        YIELD node, similarity
+        WITH node, similarity
+      `;
+
+      if (nodeTypes.length > 0) {
+        query += `
+        WHERE node.type IN $nodeTypes AND similarity >= $minSimilarity
+        `;
+        params.nodeTypes = nodeTypes;
+      } else {
+        query += `
+        WHERE similarity >= $minSimilarity
+        `;
       }
+      
+      query += `
+        RETURN node, similarity
+        ORDER BY similarity DESC
+        LIMIT $limit
+      `;
+        
+      log(`Executing MAGE vector query: ${query}`, 'mage-vector-service-debug');
+        
+      const results = await executeCustomQuery(query, params);
+        
+      const processedResults = results.map((result: any) => {
+        const nodeProperties = result.node.properties || result.node; // Handle Memgraph node structure
+        return {
+          ...nodeProperties,
+          id: nodeProperties.id, // Ensure id is at the top level
+          similarity: result.similarity
+        };
+      });
+        
+      log(`Vector search returned ${processedResults.length} results`, 'mage-vector-service');
+      return processedResults;
+        
     } catch (memgraphError) {
-      // If Memgraph approaches fail, use fallback storage for vector search
-      log(`All Memgraph vector search methods failed, using fallback: ${memgraphError}`, 'mage-vector-service-warning');
-      
-      // Use executeCustomQuery which will route to fallback storage's vector search
-      const results = await executeCustomQuery(
-        'CALL db.index.vector.queryNodes($indexName, $embedding, $limit, $cutoff) YIELD node, similarity',
-        {
-          indexName: 'vector_idx_all',
-          embedding: queryVector,
-          limit,
-          cutoff: minSimilarity,
-          nodeTypes
-        }
-      );
-      
-      return results;
+      log(`Memgraph vector search failed: ${memgraphError}. This service does not use fallback storage directly.`, 'mage-vector-service-warning');
+      throw memgraphError; // Re-throw to be handled by caller, or implement specific error handling
     }
   } catch (error) {
     log(`Vector search error: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
-    
-    // Return empty results in case of failure
-    return [];
+    return []; // Return empty results in case of failure
   }
 }
 
@@ -148,205 +113,119 @@ export async function createVectorIndices(): Promise<void> {
       }
     }
   
-    // Check if MAGE procedures exist
     try {
-      // Try checking if MAGE modules are already loaded
-      // Memgraph doesn't support WHERE after YIELD, so we filter results in memory
       let vectorProcCount = 0;
       try {
         const allProcs = await executeCustomQuery('CALL mg.procedures() YIELD name RETURN name');
-        // Filter the results in-memory rather than with WHERE clause
-        const vectorProcs = allProcs.filter(proc => proc.name && proc.name.includes('vector'));
+        // Filter in JS for robustness across Memgraph versions regarding WHERE after YIELD
+        const vectorProcs = allProcs.filter(proc => proc.name && (proc.name.includes('vector') || proc.name.includes('similarity')));
         vectorProcCount = vectorProcs.length;
-        
-        log(`Found ${vectorProcs.length} vector procedures: ${vectorProcs.map(p => p.name).join(', ')}`, 'mage-vector-service-debug');
+        log(`Found ${vectorProcs.length} vector/similarity procedures: ${vectorProcs.map(p => p.name).join(', ')}`, 'mage-vector-service-debug');
       } catch (procError) {
         log(`Error fetching procedures: ${procError}`, 'mage-vector-service-debug');
-        // Continue with initialization even if procedure check fails
       }
       
-      if (vectorProcCount > 0) {
-        log(`Found ${vectorProcCount} vector procedures, MAGE appears to be loaded`, 'mage-vector-service');
-      } else {
-        // Try loading MAGE if no procedures found
+      if (vectorProcCount === 0) {
+        log('No MAGE vector procedures found. Attempting to load MAGE modules.', 'mage-vector-service-warning');
         try {
-          // Load vector_search module specifically for Memgraph 3.0+
           await executeCustomQuery('CALL mg.load("vector_search")');
           log('MAGE vector_search module loaded successfully', 'mage-vector-service');
         } catch (mageError) {
-          // Try alternative method
           try {
-            // In Memgraph 3.0, load_all doesn't use YIELD
             await executeCustomQuery('CALL mg.load_all()');
             log('MAGE loaded using mg.load_all()', 'mage-vector-service');
           } catch (allError) {
             log(`All MAGE loading attempts failed. Last error: ${allError instanceof Error ? allError.message : String(allError)}`, 'mage-vector-service-error');
             log('Continuing with limited vector capability...', 'mage-vector-service-warning');
-            return; // Exit early if we can't load MAGE modules
+            return;
           }
         }
       }
     } catch (error) {
-      log(`Error checking MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
+      log(`Error checking/loading MAGE: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');
       log('Continuing with limited vector capability...', 'mage-vector-service-warning');
-      return; // Exit early if we can't check MAGE modules
+      return;
     }
     
-    // Get existing vector indices - using a simpler command compatible with Memgraph 3.0+
-    let indices = [];
+    let indices: any[] = [];
     try {
-      // Try a different way to list indices in Memgraph 3.0+
+      // Prefer vector_search.show_index_info() for Memgraph 3.0+
+      indices = await executeCustomQuery(`CALL vector_search.show_index_info() YIELD *`);
+      log(`Vector indices from vector_search.show_index_info: ${JSON.stringify(indices)}`, 'mage-vector-service-debug');
+    } catch (vectorSearchError) {
+      log(`Error using vector_search.show_index_info: ${vectorSearchError}. Trying older methods.`, 'mage-vector-service-debug');
       try {
-        // Try using the vector_search.show_index_info procedure from Memgraph 3.0+
-        indices = await executeCustomQuery(`CALL vector_search.show_index_info() YIELD *`);
-        
-        // This will already be filtered to vector indices only
+        indices = await executeCustomQuery(`CALL mg.indexinfo() YIELD *`);
         if (indices && indices.length > 0) {
-          log(`Vector indices from vector_search.show_index_info: ${JSON.stringify(indices)}`, 'mage-vector-service-debug');
+          indices = indices.filter((idx: any) => idx.type && idx.type.toLowerCase().includes('vector'));
         }
-      } catch (vectorSearchError) {
-        log(`Error using vector_search.show_index_info: ${vectorSearchError}`, 'mage-vector-service-debug');
-        
+      } catch (mgIndexError) {
+        log(`Error using mg.indexinfo: ${mgIndexError}. Trying SHOW INDEX INFO.`, 'mage-vector-service-debug');
         try {
-          // Try a different procedure
-          indices = await executeCustomQuery(`CALL mg.indexinfo() YIELD *`);
-          
-          // Filter for vector indices in application code
+          indices = await executeCustomQuery(`SHOW INDEX INFO`);
           if (indices && indices.length > 0) {
-            indices = indices.filter((idx: any) => 
-              idx.type && idx.type.toLowerCase().includes('vector'));
+            indices = indices.filter((idx: any) => idx.index_type && idx.index_type.toLowerCase().includes('vector'));
           }
-        } catch (mgIndexError) {
-          log(`Error using mg.indexinfo: ${mgIndexError}`, 'mage-vector-service-debug');
-          
-          // Last attempt
-          try {
-            indices = await executeCustomQuery(`SHOW INDEX INFO`);
-            
-            // Filter for vector indices in application code 
-            if (indices && indices.length > 0) {
-              indices = indices.filter((idx: any) => 
-                idx.index_type && idx.index_type.toLowerCase().includes('vector'));
-            }
-          } catch (showError) {
-            log(`Error getting indices with SHOW command: ${showError}`, 'mage-vector-service-debug');
-            indices = [];
-          }
+        } catch (showError) {
+          log(`Error getting indices with SHOW INDEX INFO: ${showError}`, 'mage-vector-service-debug');
+          indices = [];
         }
       }
-      
-      log(`Found ${indices.length} existing vector indices`, 'mage-vector-service');
-    } catch (indexError) {
-      log(`Error checking vector indices: ${indexError}`, 'mage-vector-service-error');
-      // Continue with assumption that indices don't exist
-      indices = [];
     }
+    log(`Found ${indices.length} existing vector indices.`, 'mage-vector-service');
     
-    // Initialize indices if they don't exist
-    const existingIndices = new Set(indices.map((idx: any) => idx.name));
+    const existingIndices = new Set(indices.map((idx: any) => idx.name || idx.index_name)); // Adapt to potential property name differences
+
+    // Define common properties for vector indexes
+    const commonIndexConfig = { dimension: 768, capacity: 10000, metric: "COSINE" }; // Standardized dimension
     
-    try {
-      // Attempt to create vector indices using specific Memgraph procedures
-      try {
-        if (!existingIndices.has('vector_idx_all')) {
+    // Index configurations: [indexName, label, property]
+    const indexesToCreate = [
+      // A general index on a common label (e.g., :Node, or :Concept if you use one)
+      // For this example, let's assume most nodes that need vector search have a :HasEmbedding label or similar.
+      // If not, a specific label like :AllNodesWithEmbedding or just :Node could be used.
+      // Using :Node for broad applicability, assuming 'embedding_vector' is the property.
+      { name: 'vector_idx_all', label: 'Node', property: 'embedding_vector' },
+      { name: 'vector_idx_msg', label: 'ai_message', property: 'embedding_vector' }, // Specific for ai_message
+      { name: 'vector_idx_user_msg', label: 'user_message', property: 'embedding_vector' }, // Specific for user_message
+      { name: 'vector_idx_topic', label: 'topic', property: 'embedding_vector' }, // Specific for topic
+      { name: 'vector_idx_entity', label: 'entity', property: 'embedding_vector' }  // Specific for entity
+    ];
+
+    for (const indexDef of indexesToCreate) {
+      if (!existingIndices.has(indexDef.name)) {
+        try {
+          // Memgraph 3.0+ syntax: CREATE VECTOR INDEX
+          // Ensure the label used exists on your nodes with embeddings.
+          // If nodes can have multiple labels, target the most relevant one or a common one.
+          await executeCustomQuery(`
+            CREATE VECTOR INDEX ${indexDef.name} ON :${indexDef.label}(${indexDef.property})
+            WITH ${JSON.stringify(commonIndexConfig)}
+          `);
+          log(`Created vector index: ${indexDef.name} on :${indexDef.label}(${indexDef.property})`, 'mage-vector-service');
+        } catch (createError) {
+          log(`Failed to create vector index ${indexDef.name} with CREATE VECTOR INDEX: ${createError}. Trying CALL vector_search.create_index.`, 'mage-vector-service-error');
           try {
-            // Try using CREATE VECTOR INDEX first (Memgraph 3.0 syntax)
-            await executeCustomQuery(`
-              CREATE VECTOR INDEX vector_idx_all ON :Node(embedding)
-              WITH CONFIG {
-                "dimension": 768,
-                "capacity": 10000,
-                "metric": "cos"
-              }
-            `);
-            log('Created vector index: vector_idx_all for label: Node', 'mage-vector-service');
-          } catch (createError) {
-            log(`Vector index creation error: ${createError}`, 'mage-vector-service-error');
-            
-            // Try alternative syntax
-            try {
-              await executeCustomQuery(`
-                CALL vector_search.create_index(
-                  "vector_idx_all", 
-                  "Node", 
-                  "embedding", 
-                  768, 
-                  10000, 
-                  "cosine"
-                );
-              `);
-              log('Created vector index using procedure: vector_idx_all', 'mage-vector-service');
-            } catch (altError) {
-              log(`Procedure vector index creation also failed: ${altError}`, 'mage-vector-service-error');
-            }
-          }
-        }
-        
-        // Create index for message nodes
-        if (!existingIndices.has('vector_idx_msg')) {
-          try {
-            await executeCustomQuery(`
+            // Fallback to older procedure call if CREATE VECTOR INDEX fails (e.g. older Memgraph MAGE version)
+             await executeCustomQuery(`
               CALL vector_search.create_index(
-                "vector_idx_msg", 
-                "ai_message", 
-                "embedding", 
-                768, 
-                10000, 
-                "cosine"
+                "${indexDef.name}",
+                "${indexDef.label}",
+                "${indexDef.property}",
+                ${commonIndexConfig.dimension},
+                ${commonIndexConfig.capacity},
+                "${commonIndexConfig.metric.toLowerCase()}"
               );
             `);
-            log('Created vector index: vector_idx_msg for label: ai_message', 'mage-vector-service');
-          } catch (createError) {
-            log(`Error creating message vector index: ${createError}`, 'mage-vector-service-error');
+            log(`Created vector index using procedure: ${indexDef.name} on :${indexDef.label}(${indexDef.property})`, 'mage-vector-service');
+          } catch (procCreateError) {
+             log(`Failed to create vector index ${indexDef.name} with procedure: ${procCreateError}`, 'mage-vector-service-error');
           }
         }
-        
-        // Create index for topic nodes
-        if (!existingIndices.has('vector_idx_topic')) {
-          try {
-            await executeCustomQuery(`
-              CALL vector_search.create_index(
-                "vector_idx_topic", 
-                "topic", 
-                "embedding", 
-                768, 
-                10000, 
-                "cosine"
-              );
-            `);
-            log('Created vector index: vector_idx_topic for label: topic', 'mage-vector-service');
-          } catch (createError) {
-            log(`Error creating topic vector index: ${createError}`, 'mage-vector-service-error');
-          }
-        }
-        
-        // Create index for entity nodes
-        if (!existingIndices.has('vector_idx_entity')) {
-          try {
-            await executeCustomQuery(`
-              CALL vector_search.create_index(
-                "vector_idx_entity", 
-                "entity", 
-                "embedding", 
-                768, 
-                10000, 
-                "cosine"
-              );
-            `);
-            log('Created vector index: vector_idx_entity for label: entity', 'mage-vector-service');
-          } catch (createError) {
-            log(`Error creating entity vector index: ${createError}`, 'mage-vector-service-error');
-          }
-        }
-      } catch (error) {
-        log(`Error in vector index creation: ${error}`, 'mage-vector-service-error');
+      } else {
+        log(`Vector index ${indexDef.name} already exists.`, 'mage-vector-service-debug');
       }
-    } catch (createError) {
-      log(`Error creating vector indices: ${createError}`, 'mage-vector-service-error');
-      log('Vector search capability may be limited', 'mage-vector-service-warning');
-      // Continue - we did our best to create the indices
     }
-    
     log('MAGE vector service initialized successfully', 'mage-vector-service');
   } catch (error) {
     log(`Error initializing MAGE vector indices: ${error instanceof Error ? error.message : String(error)}`, 'mage-vector-service-error');

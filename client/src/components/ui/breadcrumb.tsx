@@ -4,6 +4,40 @@ import { ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
+// This component is from Shadcn/UI and provides the necessary Breadcrumb functionality.
+// It will be used in a component like SelectedNodesPanel or a new BreadcrumbDisplay component
+// to show the path to a selected node or a sequence of selected nodes.
+//
+// Example Usage (in another component):
+//
+// import {
+//   Breadcrumb,
+//   BreadcrumbItem,
+//   BreadcrumbLink,
+//   BreadcrumbList,
+//   BreadcrumbPage,
+//   BreadcrumbSeparator,
+// } from "./ui/breadcrumb";
+//
+// <Breadcrumb>
+//   <BreadcrumbList>
+//     <BreadcrumbItem>
+//       <BreadcrumbLink href="/">Home</BreadcrumbLink>
+//     </BreadcrumbItem>
+//     <BreadcrumbSeparator />
+//     <BreadcrumbItem>
+//       <BreadcrumbLink href="/category">Category</BreadcrumbLink>
+//     </BreadcrumbItem>
+//     <BreadcrumbSeparator />
+//     <BreadcrumbItem>
+//       <BreadcrumbPage>Current Node</BreadcrumbPage>
+//     </BreadcrumbItem>
+//   </BreadcrumbList>
+// </Breadcrumb>
+//
+// No direct changes to this file are needed for the "UX polish" task,
+// but it will be imported and used elsewhere.
+
 const Breadcrumb = React.forwardRef<
   HTMLElement,
   React.ComponentPropsWithoutRef<"nav"> & {

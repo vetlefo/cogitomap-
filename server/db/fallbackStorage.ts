@@ -126,65 +126,17 @@ class FallbackStorage {
   
   // Query operations
   
-  /**
-   * Perform a vector similarity search against nodes in the fallback storage
-   * Uses cosine similarity for vector comparison
-   */
-  vectorSearch(
-    queryVector: number[],
-    nodeTypes: string[] = [],
-    limit: number = 10,
-    minSimilarity: number = 0.5
-  ): Array<BubbleNode & { similarity: number }> {
-    if (!queryVector || !Array.isArray(queryVector) || queryVector.length === 0) {
-      log("Invalid query vector provided for fallback vector search", "fallback-storage");
-      return [];
-    }
-    
-    log(`Performing fallback vector search with ${nodeTypes.length > 0 ? nodeTypes.join(',') : 'all'} node types`, "fallback-storage");
-    
-    // Get all nodes or filtered by type
-    let candidates = Array.from(this.nodes.values());
-    if (nodeTypes.length > 0) {
-      candidates = candidates.filter(node => nodeTypes.includes(node.type));
-    }
-    
-    // Only consider nodes that have embeddings
-    candidates = candidates.filter(node => 
-      node.embedding_vector && 
-      Array.isArray(node.embedding_vector) && 
-      node.embedding_vector.length > 0
-    );
-    
-    if (candidates.length === 0) {
-      log("No candidate nodes with embeddings found for vector search", "fallback-storage");
-      return [];
-    }
-    
-    // Calculate cosine similarity for each node
-    const results = candidates.map(node => {
-      // Calculate cosine similarity between query vector and node embedding
-      const similarity = this.cosineSimilarity(queryVector, node.embedding_vector!);
-      return {
-        ...node,
-        similarity
-      };
-    });
-    
-    // Filter by minimum similarity and sort by descending similarity
-    return results
-      .filter(result => result.similarity >= minSimilarity)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
-  }
-  
+  // vectorSearch method REMOVED as per CG-21
+  // findRelatedNodes method REMOVED as per CG-21
+
   /**
    * Calculate cosine similarity between two vectors
    * Returns a value between -1 and 1, where 1 is most similar
+   * This can remain as a utility if needed elsewhere, or be moved to a util file.
+   * For now, keeping it here as it's not directly tied to Qdrant.
    */
   private cosineSimilarity(vecA: number[], vecB: number[]): number {
     if (vecA.length !== vecB.length) {
-      // If dimensions don't match, truncate the longer one
       const minLength = Math.min(vecA.length, vecB.length);
       vecA = vecA.slice(0, minLength);
       vecB = vecB.slice(0, minLength);
@@ -202,7 +154,7 @@ class FallbackStorage {
     }
     
     if (normA === 0 || normB === 0) {
-      return 0; // Avoid division by zero
+      return 0;
     }
     
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
@@ -214,34 +166,22 @@ class FallbackStorage {
     nodeType: string | null = 'all'
   ): { nodes: BubbleNode[], total: number } {
     log(`getAllNodes called with page=${page}, pageSize=${pageSize}, nodeType=${nodeType}`, "fallback-storage-debug");
-    log(`Current nodes in Map: ${this.nodes.size}`, "fallback-storage-debug");
-    
-    // Debug dump nodes
-    this.debug_dumpNodes();
-    
     const nodeArray: BubbleNode[] = [];
     this.nodes.forEach(node => nodeArray.push({...node}));
     
-    log(`Converted ${nodeArray.length} nodes to array`, "fallback-storage-debug");
-    
-    // Filter by node type if specified - force to 'all' if null
     const effectiveNodeType = nodeType === null ? 'all' : nodeType;
-    log(`Using effective nodeType: ${effectiveNodeType}`, "fallback-storage-debug");
     
     let filteredNodes = nodeArray;
     if (effectiveNodeType !== 'all') {
       filteredNodes = filteredNodes.filter(node => node.type === effectiveNodeType);
-      log(`Filtered to ${filteredNodes.length} nodes of type ${effectiveNodeType}`, "fallback-storage-debug");
     }
     
-    // Apply pagination
     const total = filteredNodes.length;
     const start = page * pageSize;
     const end = start + pageSize;
     
     const nodes = filteredNodes.slice(start, end);
     
-    log(`Returning ${nodes.length} nodes after pagination (total: ${total})`, "fallback-storage-debug");
     return { nodes, total };
   }
   
@@ -260,35 +200,25 @@ class FallbackStorage {
     relationshipType: string | null = 'all'
   ): { edges: Edge[], total: number } {
     log(`getAllEdges called with page=${page}, pageSize=${pageSize}, relationshipType=${relationshipType}`, "fallback-storage-debug");
-    log(`Current edges in Map: ${this.edges.size}`, "fallback-storage-debug");
-    
     const edgeArray: Edge[] = [];
     this.edges.forEach(edge => edgeArray.push({...edge}));
     
-    log(`Converted ${edgeArray.length} edges to array`, "fallback-storage-debug");
-    
-    // Filter by relationship type if specified - force to 'all' if null
     const effectiveRelType = relationshipType === null ? 'all' : relationshipType;
-    log(`Using effective relationshipType: ${effectiveRelType}`, "fallback-storage-debug");
     
     let filteredEdges = edgeArray;
     if (effectiveRelType !== 'all') {
       filteredEdges = filteredEdges.filter(edge => edge.relationship === effectiveRelType);
-      log(`Filtered to ${filteredEdges.length} edges of type ${effectiveRelType}`, "fallback-storage-debug");
     }
     
-    // Apply pagination
     const total = filteredEdges.length;
     const start = page * pageSize;
     const end = start + pageSize;
     
     const edges = filteredEdges.slice(start, end);
     
-    log(`Returning ${edges.length} edges after pagination (total: ${total})`, "fallback-storage-debug");
     return { edges, total };
   }
   
-  // For compatibility with graphService.ts 
   getEdgesByRelationship(
     page: number = 0, 
     pageSize: number = 50, 
@@ -300,7 +230,6 @@ class FallbackStorage {
   getNodeNeighbors(nodeId: string): { node: BubbleNode, relationship: string }[] {
     const neighbors: { node: BubbleNode, relationship: string }[] = [];
     
-    // Find all edges connected to the node
     this.edges.forEach(edge => {
       if (edge.source === nodeId) {
         const targetNode = this.nodes.get(edge.target);
@@ -324,7 +253,6 @@ class FallbackStorage {
     return neighbors;
   }
   
-  // For compatibility with graphService.ts
   addNode(node: BubbleNode): BubbleNode {
     return this.createNode(node);
   }
@@ -344,94 +272,7 @@ class FallbackStorage {
       edgeCount: this.edges.size
     };
   }
-  
-  /**
-   * Find related nodes by following edges up to maxHops away
-   */
-  async findRelatedNodes(
-    nodeIds: string[],
-    maxHops: number = 2,
-    limit: number = 20,
-    nodeTypes: string[] = []
-  ): Promise<BubbleNode[]> {
-    log(`[fallback-storage] Finding related nodes for ${nodeIds.length} nodes with max hops: ${maxHops}`, "fallback-storage");
-    
-    // Track visited nodes to avoid duplicates
-    const visited = new Set<string>(nodeIds);
-    
-    // Map to track related nodes and their connection strength
-    const relatedNodesMap = new Map<string, { node: BubbleNode, strength: number }>();
-    
-    // Queue for BFS, with [nodeId, currentHop]
-    const queue: Array<[string, number]> = nodeIds.map(id => [id, 0]);
-    
-    while (queue.length > 0) {
-      const [currentNodeId, currentHop] = queue.shift()!;
-      
-      // Don't explore beyond maxHops
-      if (currentHop >= maxHops) continue;
-      
-      // Get all edges connected to this node
-      for (const edge of this.edges.values()) {
-        let connectedNodeId: string | null = null;
-        
-        // Check which end of the edge contains our node
-        if (edge.source === currentNodeId) {
-          connectedNodeId = edge.target;
-        } else if (edge.target === currentNodeId) {
-          connectedNodeId = edge.source;
-        }
-        
-        // If we found a connected node and haven't visited it yet
-        if (connectedNodeId && !visited.has(connectedNodeId)) {
-          visited.add(connectedNodeId);
-          
-          // Get the node object
-          const connectedNode = this.nodes.get(connectedNodeId);
-          
-          if (connectedNode && (nodeTypes.length === 0 || nodeTypes.includes(connectedNode.type))) {
-            // Calculate connection strength - edges closer to source nodes get higher strength
-            const connectionStrength = edge.strength * (1 - (currentHop / maxHops));
-            
-            // If we already have this node, update its strength if the new path is stronger
-            if (relatedNodesMap.has(connectedNodeId)) {
-              const existing = relatedNodesMap.get(connectedNodeId)!;
-              if (connectionStrength > existing.strength) {
-                relatedNodesMap.set(connectedNodeId, { 
-                  node: connectedNode, 
-                  strength: connectionStrength 
-                });
-              }
-            } else {
-              // Add to our results
-              relatedNodesMap.set(connectedNodeId, { 
-                node: connectedNode, 
-                strength: connectionStrength 
-              });
-            }
-            
-            // Add to queue for next hop exploration
-            queue.push([connectedNodeId, currentHop + 1]);
-          }
-        }
-      }
-    }
-    
-    // Convert map to array and sort by connection strength
-    const results = Array.from(relatedNodesMap.values())
-      .map(item => ({
-        ...item.node,
-        similarity: item.strength, // Use strength as the similarity score
-        isDirectMatch: false
-      }))
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
-    
-    log(`[fallback-storage] Found ${results.length} related nodes`, "fallback-storage");
-    return results;
-  }
-  
-  // Clear all data (for testing)
+
   clear(): void {
     this.nodes.clear();
     this.edges.clear();

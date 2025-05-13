@@ -75,6 +75,17 @@ export const useVisualization = create<VisualizationState>((set, get) => ({
     rejected: [],
     pending: [],
   } as ValidationState,
+
+  // TODO: Memoize expensive derived state.
+  // Identify selectors or computations within this store that are run frequently
+  // (e.g., on every frame or on every state update) and are computationally expensive.
+  // Use libraries like `reselect` (for Redux-like selectors) or Zustand's own capabilities
+  // with `subscribeWithSelector` or by carefully structuring how derived data is computed and accessed
+  // to prevent unnecessary recalculations.
+  // Example candidates:
+  // - Filtering nodes/edges based on multiple criteria.
+  // - Calculating graph layout properties if done client-side repeatedly.
+  // - Aggregating data from nodes/edges for display.
   
   // Load initial data from the graph database
   loadInitialData: async () => {

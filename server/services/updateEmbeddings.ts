@@ -4,7 +4,7 @@
  */
 
 import { log } from "../vite";
-import { MemgraphClient, configureMemgraphClient } from "./memgraphClient";
+import { executeCustomQuery } from "../db/graphService"; // Changed import
 // Define BubbleNode interface internally to avoid dependency issues
 interface BubbleNode {
   id: string;
@@ -75,7 +75,7 @@ export async function updateExistingNodesWithEmbeddings(): Promise<{
 /**
  * Get all nodes from the database that don't have embeddings
  */
-async function getNodesWithoutEmbeddings(client: MemgraphClient): Promise<BubbleNode[]> {
+async function getNodesWithoutEmbeddings(): Promise<BubbleNode[]> { // Removed client argument
   try {
     const query = `
       MATCH (n)
@@ -86,8 +86,9 @@ async function getNodesWithoutEmbeddings(client: MemgraphClient): Promise<Bubble
       LIMIT 200
     `;
     
-    const result = await client.executeQuery(query);
+    const result = await executeCustomQuery(query); // Use executeCustomQuery from graphService
     
+    // The result from graphService > executeCustomQuery (via memgraphClient) is already an array of objects
     return result.map((row: any) => ({
       id: row.id,
       content: row.content,

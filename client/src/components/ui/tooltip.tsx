@@ -5,6 +5,27 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 
 import { cn } from "../../lib/utils"
 
+// This component is from Shadcn/UI and provides the necessary Tooltip functionality.
+// It can be used by wrapping a trigger element with <TooltipTrigger> and providing
+// content via <TooltipContent> within a <Tooltip> and <TooltipProvider>.
+// Example Usage (in another component, e.g., ContextBubble or a UI button):
+//
+// import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./ui/tooltip";
+//
+// <TooltipProvider>
+//   <Tooltip>
+//     <TooltipTrigger asChild>
+//       <button>Hover Me</button>
+//     </TooltipTrigger>
+//     <TooltipContent>
+//       <p>This is a tooltip!</p>
+//     </TooltipContent>
+//   </Tooltip>
+// </TooltipProvider>
+//
+// No direct changes to this file are needed for the "UX polish" task,
+// but it will be imported and used elsewhere.
+
 const TooltipProvider = TooltipPrimitive.Provider
 
 const Tooltip = TooltipPrimitive.Root

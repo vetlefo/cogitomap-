@@ -4,11 +4,15 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "NODE_ENV=development run-p dev:front dev:back",
+    "dev:front": "vite",
+    "dev:back": "tsx watch server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "test": "jest --passWithNoTests",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.8",
@@ -128,9 +132,25 @@
     "tailwindcss": "^3.4.14",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
-    "vite": "^5.4.14"
+    "vite": "^5.4.14",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "npm-run-all": "^4.1.5",
+    "eslint": "^8.0.0",
+    "@biomejs/biome": "^1.0.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "biome check --apply-unsafe",
+      "git add"
+    ],
+    "*.{json,md,css}": [
+      "biome check --apply-unsafe",
+      "git add"
+    ]
   }
 }

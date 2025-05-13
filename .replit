@@ -28,6 +28,7 @@ args = "Start Game"
 [[workflows.workflow]]
 name = "Start Game"
 author = "agent"
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"

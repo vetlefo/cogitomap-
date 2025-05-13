@@ -7,6 +7,18 @@ import { useVisualization } from "../lib/stores/useVisualization";
 import { useKeyboardState } from "../hooks/useKeyboardState";
 import { Check, X, RefreshCcw } from "lucide-react";
 
+// TODO CM-30: Refactor for InstancedMesh
+// This component will likely change significantly. Instead of rendering individual meshes,
+// it might provide data (matrices, colors, etc.) to a parent component (e.g., ContextVisualizer)
+// that manages one or more InstancedMesh objects.
+// Hover/selection logic would need to be adapted, possibly using GPU picking via an ID attribute
+// passed to the instanced mesh.
+
+// TODO CM-31: Implement LOD (Level of Detail) switching
+// When the number of nodes is high (e.g., > 2000) or nodes are far from the camera,
+// this component should switch to rendering a simpler representation like a sprite (Drei's <Points>)
+// or even just a point. This logic could be within this component or managed by ContextVisualizer.
+
 // Utility function to blend two hex colors
 function blendColors(color1: number, color2: number, ratio: number): number {
   // Convert hex to RGB

@@ -88,8 +88,10 @@ export class GraphService {
 
   /**
    * Get a subgraph centered around a node
+   * API endpoint is GET /api/graph/subgraph/:nodeId?depth=:depth
    */
   static async getSubgraph(nodeId: string, depth: number = 1): Promise<SubgraphResponse> {
+    // Ensure the URL matches the server route: path param for ID, query param for depth.
     const response = await apiRequest('GET', `/api/graph/subgraph/${nodeId}?depth=${depth}`);
     return await response.json();
   }
