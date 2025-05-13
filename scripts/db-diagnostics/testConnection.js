@@ -7,7 +7,7 @@ const MEMGRAPH_USERNAME = process.env.MEMGRAPH_USERNAME;
 const MEMGRAPH_PASSWORD = process.env.MEMGRAPH_PASSWORD;
 
 console.log(`Attempting to connect to Memgraph at ${MEMGRAPH_URI}`);
-console.log(`Using username: ${MEMGRAPH_USERNAME}`);
+console.log(`Using username: ${MEMGRAPH_USERNAME ? "provided" : "not provided"}`);
 console.log(`Password length: ${MEMGRAPH_PASSWORD ? MEMGRAPH_PASSWORD.length : 0}`);
 
 const testMemgraphConnection = async (uri, username, password) => {
