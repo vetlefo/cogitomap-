@@ -94,8 +94,16 @@ export async function callGemini(
     }
   };
 
+  // Define an allow-list of valid model names
+  const allowedModels = ['gemini-1.5-pro', 'gemini-2.0', 'gemini-lite'];
+
   // Clean up model name (remove potential 'gemini:' prefix)
   const cleanModelName = modelName.replace('gemini:', '');
+
+  // Validate the cleaned model name against the allow-list
+  if (!allowedModels.includes(cleanModelName)) {
+    throw new Error(`Invalid model name: ${cleanModelName}`);
+  }
 
   // Make API request
   const response = await fetch(
