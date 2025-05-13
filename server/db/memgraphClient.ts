@@ -1,125 +1,71 @@
 import neo4j, { type Driver, type Session, type Result } from "neo4j-driver";
 import { log } from "../vite"; // Assuming your log function is accessible
 
+// Connection constants
 const MEMGRAPH_URI = process.env.MEMGRAPH_URI || "";
 const MEMGRAPH_USERNAME = process.env.MEMGRAPH_USERNAME || "";
 const MEMGRAPH_PASSWORD = process.env.MEMGRAPH_PASSWORD || "";
 
+// Global driver instance
 let driver: Driver | undefined;
 
+// Check if credentials are provided for clearer error messages
+const hasRequiredCredentials = MEMGRAPH_URI && MEMGRAPH_USERNAME && MEMGRAPH_PASSWORD;
+
 export async function initMemgraph(): Promise<void> {
-  // First, log the credential status (without revealing values)
-  const uriStatus = MEMGRAPH_URI ? (MEMGRAPH_URI.length > 0 ? 'present' : 'empty') : 'missing';
-  const usernameStatus = MEMGRAPH_USERNAME ? (MEMGRAPH_USERNAME.length > 0 ? 'present' : 'empty') : 'missing';
-  const passwordStatus = MEMGRAPH_PASSWORD ? (MEMGRAPH_PASSWORD.length > 0 ? 'present' : 'empty') : 'missing';
-  
-  log(`Memgraph credentials check - URI: ${uriStatus}, Username: ${usernameStatus}, Password: ${passwordStatus}`, "memgraph-client-debug");
-  
-  // IMPORTANT CHANGE: If credentials are missing, log details but allow operation to continue with fallback
-  if (!MEMGRAPH_URI || !MEMGRAPH_USERNAME || !MEMGRAPH_PASSWORD) {
-    log(
-      "Memgraph credentials not fully configured! Will operate in fallback mode.",
-      "memgraph-client",
-    );
+  // Check if we have the required credentials
+  if (!hasRequiredCredentials) {
+    log("Memgraph credentials not fully configured! Will operate in fallback mode.", "memgraph-client");
     throw new Error("Memgraph credentials not fully configured! Operating in fallback mode.");
   }
   
-  // Print the censored URI format for debugging (without revealing credentials)
-  try {
-    const uri = new URL(MEMGRAPH_URI);
-    log(`Attempting connection to Memgraph at ${uri.protocol}//${uri.hostname}:${uri.port || 'default port'}`, "memgraph-client-debug");
-  } catch (e) {
-    log(`Could not parse Memgraph URI: ${e}. URI format may be incorrect.`, "memgraph-client-debug");
-  }
-  
-  // Connection timeout setting (15 seconds - increased from 10)
+  // Connection timeout setting (15 seconds)
   const connectionTimeout = 15000;
   
   try {
-    log(`Creating Neo4j driver for Memgraph...`, "memgraph-client");
+    // Log the connection attempt (without revealing credentials)
+    log(`Connecting to Memgraph at ${new URL(MEMGRAPH_URI).host}...`, "memgraph-client");
     
-    // Create driver with config
+    // Create driver with minimal config to match the working test script
     driver = neo4j.driver(
       MEMGRAPH_URI,
       neo4j.auth.basic(MEMGRAPH_USERNAME, MEMGRAPH_PASSWORD),
       {
         connectionTimeout,
-        maxConnectionLifetime: 3 * 60 * 60 * 1000, // 3 hours
-        maxConnectionPoolSize: 50,
-        connectionAcquisitionTimeout: 2 * 60 * 1000, // 2 minutes
-        disableLosslessIntegers: true,
-        // Enhanced logging
-        logging: {
-          level: 'info', // Changed from debug to info for less noise
-          logger: (level, message) => {
-            log(`[Neo4j Driver ${level}] ${message}`, 'memgraph-driver');
-          }
-        }
+        disableLosslessIntegers: true
       }
     );
     
-    log("Driver created, verifying connectivity...", "memgraph-client");
+    log("Attempting to verify connectivity...", "memgraph-client");
     
-    // Set timeout for the verification
-    const verifyPromise = driver.verifyConnectivity();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Connection timeout after ${connectionTimeout}ms`)), connectionTimeout);
-    });
+    // Verify connectivity (this matches the working test script)
+    await driver.verifyConnectivity();
+    log("Connectivity verified successfully!", "memgraph-client");
     
-    try {
-      await Promise.race([verifyPromise, timeoutPromise]);
-      log("Basic connectivity verified", "memgraph-client");
-    } catch (connError) {
-      log(`Connection verification failed: ${connError}`, "memgraph-client-error");
-      if (connError.code) {
-        log(`Error code: ${connError.code}`, "memgraph-client-error");
-      }
-      throw connError;
-    }
-    
-    // Try a simple test query to truly verify the connection
+    // Run a test query to confirm full functionality
     const session = driver.session();
     try {
-      log("Running test query to verify full connectivity...", "memgraph-client");
-      const result = await session.run("RETURN 'Connected' AS status");
-      const status = result.records[0]?.get('status');
-      log(`Test query result: ${status}`, "memgraph-client");
+      const result = await session.run(
+        "CREATE (n:TestNode {message: $message, timestamp: timestamp()}) RETURN n", 
+        { message: "Connection test from CogitoMap" }
+      );
+      
+      const node = result.records[0]?.get(0);
+      log(`Created test node: ${node?.properties?.message}`, "memgraph-client");
+      log("Successfully connected to Memgraph.", "memgraph-client");
+    } finally {
       await session.close();
-    } catch (queryError) {
-      log(`Test query failed: ${queryError}`, "memgraph-client-error");
-      if (queryError.code) {
-        log(`Query error code: ${queryError.code}`, "memgraph-client-error");
-      }
-      if (queryError.message) {
-        log(`Query error message: ${queryError.message}`, "memgraph-client-error");
-      }
-      throw queryError;
     }
-    
-    log("Successfully connected to Memgraph.", "memgraph-client");
   } catch (error) {
+    // Log the error and cleanup
     log(`Failed to connect to Memgraph: ${error}`, "memgraph-client");
     
-    // Log more error details
-    if (error instanceof Error) {
-      log(`Error name: ${error.name}`, "memgraph-client-error");
-      log(`Error message: ${error.message}`, "memgraph-client-error");
-      if ('code' in error) {
-        log(`Error code: ${(error as any).code}`, "memgraph-client-error");
-      }
-      if (error.stack) {
-        log(`Error stack: ${error.stack}`, "memgraph-client-error");
-      }
-    }
-    
-    // Close the driver if it was created
     if (driver) {
       await driver.close();
       driver = undefined;
     }
     
     log("Connection failed, will continue with fallback in-memory storage", "memgraph-client");
-    // We'll throw here to indicate there was an error, but the app can continue
     throw error;
   }
 }
@@ -171,18 +117,18 @@ export async function runMemgraphQuery(
       const result = await Promise.race([queryPromise, timeoutPromise]);
       log(`Query succeeded with ${result.records?.length || 0} records`, "memgraph-client-debug");
       return result;
-    } catch (queryError) {
-      log(`Query execution error: ${queryError}`, "memgraph-client-error");
+    } catch (error: any) {
+      log(`Query execution error: ${error}`, "memgraph-client-error");
       
       // Enhanced error logging
-      if (queryError instanceof Error) {
+      if (error instanceof Error) {
         // Check for specific Neo4j/Memgraph error types
-        if ('code' in queryError) {
-          log(`Query error code: ${(queryError as any).code}`, "memgraph-client-error");
+        if (typeof error === 'object' && 'code' in error) {
+          log(`Query error code: ${error.code}`, "memgraph-client-error");
         }
         
         // Check for syntax errors in particular
-        const errorMsg = queryError.message.toLowerCase();
+        const errorMsg = error.message.toLowerCase();
         if (errorMsg.includes('syntax') || errorMsg.includes('parse')) {
           log(`Likely syntax error in Cypher query`, "memgraph-client-error");
           // Log the query with line numbers for easier debugging
@@ -192,7 +138,7 @@ export async function runMemgraphQuery(
         }
       }
       
-      throw queryError;
+      throw error;
     }
   } catch (error) {
     log(`Error running Memgraph query: ${error}`, "memgraph-client");
