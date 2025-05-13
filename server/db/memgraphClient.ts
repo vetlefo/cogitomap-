@@ -86,72 +86,42 @@ export async function runMemgraphQuery(
   try {
     session = driver.session();
     
-    // Validate the query before execution - prevent common errors
+    // Basic validation to prevent empty queries
     if (!query || query.trim() === '') {
       throw new Error('Empty Cypher query provided');
     }
     
-    // Add explicit logging of Cypher syntax
-    const queryLines = query.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    log(`Running Cypher query with ${queryLines.length} lines:`, "memgraph-client-debug");
-    for (let i = 0; i < queryLines.length; i++) {
-      log(`Line ${i+1}: ${queryLines[i]}`, "memgraph-client-debug");
-    }
+    // Normalize query to fix common syntax issues with Memgraph
+    // Remove any trailing semicolons that might cause issues with Memgraph
+    const normalizedQuery = query.trim().replace(/;+$/, '');
     
-    // Truncate query and params for logging to avoid excessive output
-    const queryPreview = query.length > 100 ? query.substring(0, 100) + "..." : query;
-    const paramsPreview = params ? JSON.stringify(params).substring(0, 200) : "{}";
-    log(
-      `Executing query: ${queryPreview} with params: ${paramsPreview}`,
-      "memgraph-client",
-    );
+    // Simple log for debugging
+    const queryPreview = normalizedQuery.length > 100 ? normalizedQuery.substring(0, 100) + "..." : normalizedQuery;
+    log(`Executing query: ${queryPreview}`, "memgraph-client");
     
-    // Set timeout for query execution (45 seconds - increased from 30)
-    const queryPromise = session.run(query, params);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Query execution timed out after 45s')), 45000);
-    });
+    // Execute the query directly - matches the working test script approach
+    const result = await session.run(normalizedQuery, params || {});
+    log(`Query executed successfully with ${result.records?.length || 0} records`, "memgraph-client-debug");
+    return result;
+  } catch (error: any) {
+    // Handle common Memgraph errors
+    log(`Error executing Memgraph query: ${error}`, "memgraph-client-error");
     
-    // Race the query against the timeout
-    try {
-      const result = await Promise.race([queryPromise, timeoutPromise]);
-      log(`Query succeeded with ${result.records?.length || 0} records`, "memgraph-client-debug");
-      return result;
-    } catch (error: any) {
-      log(`Query execution error: ${error}`, "memgraph-client-error");
-      
-      // Enhanced error logging
-      if (error instanceof Error) {
-        // Check for specific Neo4j/Memgraph error types
-        if (typeof error === 'object' && 'code' in error) {
-          log(`Query error code: ${error.code}`, "memgraph-client-error");
-        }
-        
-        // Check for syntax errors in particular
-        const errorMsg = error.message.toLowerCase();
-        if (errorMsg.includes('syntax') || errorMsg.includes('parse')) {
-          log(`Likely syntax error in Cypher query`, "memgraph-client-error");
-          // Log the query with line numbers for easier debugging
-          queryLines.forEach((line, idx) => {
-            log(`Line ${idx+1}: ${line}`, "memgraph-client-error");
-          });
-        }
+    // Log the query for easier debugging
+    if (error instanceof Error) {
+      // Special handling for syntax errors
+      if (error.message && error.message.toLowerCase().includes('syntax')) {
+        log(`Syntax error in query: ${query}`, "memgraph-client-error");
       }
-      
-      throw error;
     }
-  } catch (error) {
-    log(`Error running Memgraph query: ${error}`, "memgraph-client");
-    if (error instanceof Error && error.stack) {
-      log(error.stack, "memgraph-client-error-stack");
-    }
-    throw error; // Re-throw to be handled by API error handlers
+    
+    throw error;
   } finally {
     if (session) {
       try {
         await session.close();
-      } catch (closeErr) {
-        log(`Error closing session: ${closeErr}`, "memgraph-client-error");
+      } catch (err) {
+        log(`Error closing session: ${err}`, "memgraph-client-error");
       }
     }
   }

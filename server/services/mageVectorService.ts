@@ -71,9 +71,12 @@ export async function createVectorIndices(): Promise<void> {
   try {
     // Check if MAGE procedures exist
     try {
-      // Try checking if MAGE modules are already loaded by querying for vector procedures
-      const mageProcs = await executeCustomQuery('CALL mg.procedures() YIELD * WHERE name CONTAINS "vector" RETURN count(*) as proc_count');
-      const procCount = mageProcs.length > 0 ? mageProcs[0].proc_count : 0;
+      // Try checking if MAGE modules are already loaded
+      // Note: Split into two queries to avoid WHERE syntax that's problematic with Memgraph
+      const allProcs = await executeCustomQuery('CALL mg.procedures() YIELD name RETURN name');
+      // Filter the results in-memory rather than with WHERE clause
+      const vectorProcs = allProcs.filter(proc => proc.name && proc.name.includes('vector'));
+      const procCount = vectorProcs.length;
       
       if (procCount > 0) {
         log(`Found ${procCount} vector procedures, MAGE appears to be loaded`, 'mage-vector-service');
