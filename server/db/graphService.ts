@@ -9,8 +9,8 @@ import { log } from "../vite";
 import type { BubbleNode, Edge } from "../../client/src/types";
 
 // Track if we're in fallback mode
-let usingFallback = false;
-let connectionTested = false;
+let usingFallback = false; // Always start assuming Memgraph is available
+let connectionTested = false; // Will be set to true after testing
 
 // Constants for pagination defaults
 const DEFAULT_PAGE_SIZE = 50;
@@ -105,6 +105,8 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
   // Ensure we've tested the connection
   if (!connectionTested) {
     await testMemgraphConnection();
+    // Force database mode for this operation
+    usingFallback = false;
   }
   
   // Use Memgraph if available
@@ -180,9 +182,45 @@ export async function createNode(node: BubbleNode): Promise<BubbleNode> {
       // Fallback to the original node if result format doesn't match
       return node;
     } catch (error) {
-      // Switch to fallback mode if there's an error
-      usingFallback = true;
-      log(`Error creating node in Memgraph, switching to fallback: ${error}`, "graph-service");
+      log(`Error creating node in Memgraph: ${error}`, "graph-service-error");
+      
+      // Don't switch to fallback mode for non-critical errors
+      if (error instanceof Error && error.message && (
+        error.message.includes('already exists') ||
+        error.message.includes('constraint') ||
+        error.message.includes('syntax')
+      )) {
+        // These are non-critical errors, we can retry with different parameters
+        log("Trying alternative approach for node creation", "graph-service");
+        
+        try {
+          // Simpler query approach
+          const simpleQuery = `
+            MERGE (n:${node.type} {id: $id})
+            SET n += $props
+            RETURN n
+          `;
+          
+          const results = await executeQuery(simpleQuery, { 
+            id: node.id,
+            props: node 
+          });
+          
+          if (results && results.length > 0) {
+            log(`Node created with alternative method: ${node.id}`, "graph-service");
+            return node;
+          }
+        } catch (retryError) {
+          log(`Alternative node creation also failed: ${retryError}`, "graph-service-error");
+          // Now we can consider it a critical error
+          usingFallback = true;
+        }
+      } else {
+        // Critical error, switch to fallback
+        usingFallback = true;
+      }
+      
+      log(`Switching to fallback storage for node creation`, "graph-service");
       // Continue with fallback implementation
     }
   }
@@ -204,6 +242,8 @@ export async function createEdge(
   // Ensure we've tested the connection
   if (!connectionTested) {
     await testMemgraphConnection();
+    // Force database mode for this operation
+    usingFallback = false;
   }
   
   // Construct edge ID
@@ -306,8 +346,65 @@ export async function createEdge(
       
       return edge;
     } catch (error) {
-      // Switch to fallback mode if there's an error
-      log(`Error creating edge in Memgraph, switching to fallback: ${error}`, "graph-service");
+      log(`Error creating edge in Memgraph: ${error}`, "graph-service-error");
+      
+      // Don't switch to fallback mode for non-critical errors
+      if (error instanceof Error && error.message && (
+        error.message.includes('already exists') ||
+        error.message.includes('constraint') ||
+        error.message.includes('syntax') ||
+        error.message.includes('not found')
+      )) {
+        // These are non-critical errors, we can retry with different parameters
+        log("Trying alternative approach for edge creation", "graph-service");
+        
+        try {
+          // Create nodes first if they don't exist, then create relationship
+          const simpleQuery = `
+            MERGE (source {id: $sourceId})
+            MERGE (target {id: $targetId}) 
+            WITH source, target
+            CREATE (source)-[r:${relationship}]->(target)
+            SET r = $props
+            RETURN r, source, target, type(r) AS relationship
+          `;
+          
+          log(`Executing simplified edge creation query`, "graph-service-debug");
+          const results = await executeQuery(simpleQuery, { 
+            sourceId, 
+            targetId,
+            props: {
+              id: edgeId,
+              relationship,
+              ...properties
+            }
+          });
+          
+          if (results && results.length > 0) {
+            log(`Edge created with alternative method: ${edgeId}`, "graph-service");
+            
+            const edge: Edge = {
+              id: edgeId,
+              source: sourceId,
+              target: targetId,
+              relationship: relationship as any,
+              strength: properties.strength || 0.7,
+              ...properties
+            };
+            
+            return edge;
+          }
+        } catch (retryError) {
+          log(`Alternative edge creation also failed: ${retryError}`, "graph-service-error");
+          // Now we can consider it a critical error
+          usingFallback = true;
+        }
+      } else {
+        // Critical error, switch to fallback
+        usingFallback = true;
+      }
+      
+      log(`Switching to fallback storage for edge creation`, "graph-service");
       // Continue with fallback implementation
     }
   }
