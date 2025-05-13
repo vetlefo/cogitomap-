@@ -535,7 +535,12 @@ function generateFallbackEmbedding(text: string, dimensions: number = DEFAULT_DI
   const embedding = new Array(dimensions).fill(0);
   
   // Normalize text
-  const normalizedText = text.toLowerCase().trim().slice(0, MAX_TEXT_LENGTH);
+  let normalizedText = text.toLowerCase().trim().slice(0, MAX_TEXT_LENGTH);
+  
+  // Ensure normalizedText length does not exceed MAX_TEXT_LENGTH
+  if (normalizedText.length > MAX_TEXT_LENGTH) {
+    normalizedText = normalizedText.slice(0, MAX_TEXT_LENGTH);
+  }
   
   // Generate a deterministic hash-based embedding
   for (let i = 0; i < normalizedText.length; i++) {
