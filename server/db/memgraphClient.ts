@@ -21,17 +21,24 @@ export function getDriver(): neo4j.Driver {
     return driver;
   }
 
-  if (!MEMGRAPH_URI || !MEMGRAPH_USERNAME || !MEMGRAPH_PASSWORD) {
-    log('Missing environment variables for Memgraph connection, please check your .env file', 'memgraph-client-error');
-    throw new Error('Missing environment variables for Memgraph connection');
+  if (!MEMGRAPH_URI) {
+    log('Missing MEMGRAPH_URI environment variable, please check your .env file', 'memgraph-client-error');
+    throw new Error('Missing MEMGRAPH_URI environment variable');
   }
+  
+  // Username and password are optional, Memgraph often doesn't require authentication
 
   try {
     log(`Connecting to Memgraph at ${MEMGRAPH_URI}...`, 'memgraph-client');
     
+    // Use authentication only if username and password are provided
+    const auth = (MEMGRAPH_USERNAME && MEMGRAPH_PASSWORD) 
+      ? neo4j.auth.basic(MEMGRAPH_USERNAME, MEMGRAPH_PASSWORD)
+      : neo4j.auth.basic('', ''); // Empty credentials when not specified
+    
     driver = neo4j.driver(
       MEMGRAPH_URI,
-      neo4j.auth.basic(MEMGRAPH_USERNAME, MEMGRAPH_PASSWORD),
+      auth,
       {
         connectionTimeout: 10000,  // 10 seconds
         disableLosslessIntegers: true  // Return integers as JavaScript numbers
