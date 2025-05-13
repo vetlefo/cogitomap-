@@ -25,6 +25,7 @@ export default function ChatInterface({
   // Use messages from props instead of local state
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [latestMessageIndex, setLatestMessageIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Track message to node mappings
@@ -56,7 +57,16 @@ export default function ChatInterface({
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+    
+    // Clear the latest message index after a delay (Matrix typing effect)
+    if (latestMessageIndex !== null) {
+      const timer = setTimeout(() => {
+        setLatestMessageIndex(null);
+      }, 3000); // 3 seconds typing effect
+      
+      return () => clearTimeout(timer);
+    }
+  }, [messages, latestMessageIndex]);
 
   // Initialize the graph with the welcome message
   useEffect(() => {
@@ -181,6 +191,9 @@ export default function ChatInterface({
       
       // Update messages with assistant response
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Set this as the latest message with the typing effect
+      setLatestMessageIndex(messages.length + 1);
       
       // Create assistant node and semantic connections for visualization
       // Use structured data if available
@@ -317,7 +330,7 @@ export default function ChatInterface({
         {messages.map((message, index) => (
           <div 
             key={index} 
-            className={`message ${message.role === 'user' ? 'user-message' : 'ai-message'} ${messageNodeMap[index] ? 'has-nodes' : ''}`}
+            className={`message ${message.role === 'user' ? 'user-message' : 'ai-message'} ${messageNodeMap[index] ? 'has-nodes' : ''} ${index === latestMessageIndex && message.role === 'assistant' ? 'new-message' : ''}`}
             onClick={() => handleMessageClick(index)}
             title={messageNodeMap[index] ? "Click to select related nodes" : ""}
           >
